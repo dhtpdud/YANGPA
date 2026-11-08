@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use sha2::{Digest, Sha256};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tracing::{debug, info, warn};
 use url::Url;
 use yangpa_core::release::{self, REPO, SUMS, SUMS_SIG};
@@ -22,15 +22,25 @@ use yangpa_net::TorIsolation;
 use yangpa_rpc::RpcError;
 use yangpa_rpc::api::{Notification, UpdateDownloadParams, UpdateInfo};
 
-use crate::blobs::preview::{Route, http_location, http_open};
+use crate::blobs::preview::{Body, Route, http_location, http_open};
 use crate::node::Node;
 
 /// 받는 파일 크기 상한(포터블 zip이 400MB 남짓).
 const MAX_ASSET: u64 = 1 << 30;
 /// 서명 목록·서명 크기 상한.
 const MAX_SUMS: u64 = 64 * 1024;
-/// 읽기마다 기다리는 시간. Tor 회로가 멈추면 끝냅니다(전체 시간은 제한하지 않음).
+/// 읽기마다 기다리는 시간. Tor 회로가 멈추면 그 연결을 버리고 새 회로로 이어 받습니다(전체 시간은 제한하지 않음).
 const IDLE: Duration = Duration::from_secs(60);
+/// 받은 양이 늘지 않은 시도가 이만큼 이어지면 그만둡니다.
+const TRIES: u32 = 6;
+/// 목록·서명을 받아 볼 횟수.
+const SMALL_TRIES: u32 = 3;
+/// 다시 해 보기 전에 기다리는 시간(실패가 이어질수록 늘림).
+const RETRY_WAIT: Duration = if cfg!(test) {
+    Duration::ZERO
+} else {
+    Duration::from_secs(3)
+};
 /// 확인 한 번의 시간 상한.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(60);
 /// 진행 알림 간격.
@@ -149,16 +159,15 @@ fn allowed(u: &Url) -> bool {
 
 /// 받은 크기. 실패하면 까닭 코드(`unsigned`·`network`·`hash`·`failed`, 앱이 문구로 바꿈).
 async fn fetch(node: &Arc<Node>, p: &UpdateDownloadParams) -> Result<u64, &'static str> {
-    let route = route(node);
     let base = format!(
         "https://github.com/{REPO}/releases/download/v{}/",
         p.version
     );
-    let sums = fetch_small(&route, &format!("{base}{SUMS}"))
+    let sums = fetch_small(node, &format!("{base}{SUMS}"))
         .await
         .ok_or("network")?;
     // 목록은 받았는데 서명이 없으면 서명하지 않은 릴리스입니다(서명 키가 생기기 전 판).
-    let sig = fetch_small(&route, &format!("{base}{SUMS_SIG}"))
+    let sig = fetch_small(node, &format!("{base}{SUMS_SIG}"))
         .await
         .ok_or("unsigned")?;
     let want = release::signed_sum(&sums, &sig, &p.asset).ok_or("unsigned")?;
@@ -170,7 +179,13 @@ async fn fetch(node: &Arc<Node>, p: &UpdateDownloadParams) -> Result<u64, &'stat
         .map_err(|_| "failed")?;
     let part = dir.join(format!("{}.part", p.asset));
     let url = Url::parse(&format!("{base}{}", p.asset)).map_err(|_| "failed")?;
-    let (got, total) = stream(&route, url, &part, |done, total| {
+    // 시도마다 새 회로: 멈춘 회로나 느린 출구를 다시 쓰지 않게.
+    let open = |from| {
+        let route = route(node);
+        let url = url.clone();
+        async move { http_open(&route, url, allowed, MAX_ASSET, from).await }
+    };
+    let (got, total) = stream(open, &part, |done, total| {
         publish(node, &p.version, done, total, false, None)
     })
     .await?;
@@ -190,8 +205,19 @@ async fn fetch(node: &Arc<Node>, p: &UpdateDownloadParams) -> Result<u64, &'stat
     Ok(total)
 }
 
-async fn fetch_small(route: &Route, url: &str) -> Option<Vec<u8>> {
-    let body = http_open(route, Url::parse(url).ok()?, allowed, MAX_SUMS).await?;
+/// 목록·서명처럼 작은 파일. 회로가 나쁠 수 있어 새 회로로 몇 번 더 해 봅니다.
+async fn fetch_small(node: &Node, url: &str) -> Option<Vec<u8>> {
+    let url = Url::parse(url).ok()?;
+    for _ in 0..SMALL_TRIES {
+        if let Some(b) = small_once(&route(node), url.clone()).await {
+            return Some(b);
+        }
+    }
+    None
+}
+
+async fn small_once(route: &Route, url: Url) -> Option<Vec<u8>> {
+    let body = http_open(route, url, allowed, MAX_SUMS, 0).await?;
     let mut out = body.rest;
     let more = body.len.saturating_sub(out.len() as u64);
     tokio::time::timeout(IDLE, body.io.take(more).read_to_end(&mut out))
@@ -203,37 +229,101 @@ async fn fetch_small(route: &Route, url: &str) -> Option<Vec<u8>> {
 }
 
 /// 본문을 `part`에 쓰며 SHA-256(소문자 hex)과 크기를 돌려줍니다. 진행은 `progress(받은, 전체)`로 0.5초마다.
-async fn stream(
-    route: &Route,
-    url: Url,
+/// 연결이 끊기거나 멈추면 `open(받은 크기)`로 다시 열어 이어 받습니다. Tor로 수백 MB를 받다가 회로가 한 번 멈췄다고
+/// 처음부터 다시 받지 않게 하려는 것입니다. 받은 양이 늘지 않은 시도가 `TRIES`번 이어지면 그만둡니다.
+async fn stream<F, Fut>(
+    mut open: F,
     part: &Path,
     mut progress: impl FnMut(u64, u64),
-) -> Result<(String, u64), &'static str> {
-    let mut body = http_open(route, url, allowed, MAX_ASSET)
-        .await
-        .ok_or("network")?;
-    let total = body.len;
+) -> Result<(String, u64), &'static str>
+where
+    F: FnMut(u64) -> Fut,
+    Fut: Future<Output = Option<Body>>,
+{
     let mut file = tokio::fs::File::create(part).await.map_err(|_| "failed")?;
     let mut hash = Sha256::new();
-    let mut buf = vec![0u8; 64 * 1024];
-    let rest = std::mem::take(&mut body.rest);
-    let mut chunk: &[u8] = &rest;
     let mut done = 0u64;
+    let mut total = None;
     let mut last = Instant::now();
+    let mut fails = 0;
+    loop {
+        if fails > 0 {
+            if fails >= TRIES {
+                return Err("network");
+            }
+            tokio::time::sleep(RETRY_WAIT * fails).await;
+        }
+        let Some(mut body) = open(done).await else {
+            fails += 1;
+            continue;
+        };
+        let size = body.start + body.len;
+        if *total.get_or_insert(size) != size {
+            // 받는 사이 파일이 바뀌었습니다.
+            return Err("network");
+        }
+        if body.start != done {
+            if body.start != 0 {
+                fails += 1;
+                continue;
+            }
+            // 서버가 이어 받기를 무시하고 처음부터 줬습니다.
+            file.set_len(0).await.map_err(|_| "failed")?;
+            file.rewind().await.map_err(|_| "failed")?;
+            hash = Sha256::new();
+            done = 0;
+        }
+        let before = done;
+        let r = copy(
+            &mut body,
+            &mut file,
+            &mut hash,
+            &mut done,
+            size,
+            &mut progress,
+            &mut last,
+        )
+        .await;
+        match r {
+            Ok(()) => break,
+            Err("failed") => return Err("failed"),
+            Err(_) => fails = if done > before { 1 } else { fails + 1 },
+        }
+        progress(done, size);
+        info!(done, size, "업데이트 파일 받기가 끊겨 이어 받습니다");
+    }
+    file.sync_all().await.map_err(|_| "failed")?;
+    let hex = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    Ok((hex, done))
+}
+
+/// 응답 하나를 끝(`size`)까지 씁니다. 끊기거나 `IDLE` 동안 아무것도 오지 않으면 `network`.
+async fn copy(
+    body: &mut Body,
+    file: &mut tokio::fs::File,
+    hash: &mut Sha256,
+    done: &mut u64,
+    size: u64,
+    progress: &mut impl FnMut(u64, u64),
+    last: &mut Instant,
+) -> Result<(), &'static str> {
+    let rest = std::mem::take(&mut body.rest);
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut chunk: &[u8] = &rest;
     loop {
         // 길이보다 더 온 것은 버립니다.
         let take = chunk
             .len()
-            .min(usize::try_from(total - done).unwrap_or(usize::MAX));
+            .min(usize::try_from(size - *done).unwrap_or(usize::MAX));
         hash.update(&chunk[..take]);
         file.write_all(&chunk[..take]).await.map_err(|_| "failed")?;
-        done += take as u64;
-        if done >= total {
-            break;
+        *done += take as u64;
+        if *done >= size {
+            return Ok(());
         }
         if last.elapsed() >= PROGRESS_EVERY {
-            progress(done, total);
-            last = Instant::now();
+            progress(*done, size);
+            *last = Instant::now();
         }
         let n = tokio::time::timeout(IDLE, body.io.read(&mut buf))
             .await
@@ -244,9 +334,6 @@ async fn stream(
         }
         chunk = &buf[..n];
     }
-    file.sync_all().await.map_err(|_| "failed")?;
-    let hex = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    Ok((hex, total))
 }
 
 #[cfg(test)]
@@ -291,9 +378,12 @@ mod tests {
     async fn streams_real_release_file() {
         let dir = tempfile::tempdir().unwrap();
         let base = format!("https://github.com/{REPO}/releases/download/v1.0.0/");
-        let sums = fetch_small(&Route::Direct, &format!("{base}{SUMS}"))
-            .await
-            .expect("목록");
+        let sums = small_once(
+            &Route::Direct,
+            Url::parse(&format!("{base}{SUMS}")).unwrap(),
+        )
+        .await
+        .expect("목록");
         let asset = "yangpa-cli-1.0.0-x86_64-pc-windows-msvc.zip";
         let want = std::str::from_utf8(&sums)
             .unwrap()
@@ -302,7 +392,22 @@ mod tests {
             .unwrap()
             .to_owned();
         let url = Url::parse(&format!("{base}{asset}")).unwrap();
-        let (got, total) = stream(&Route::Direct, url, &dir.path().join("a.part"), |_, _| {})
+        // 앞 1MB를 받은 뒤 끊고 이어 받아, 실제 저장소가 Range(206)에 답하는지도 봅니다.
+        let mut first = true;
+        let open = |from| {
+            let url = url.clone();
+            let cut = std::mem::take(&mut first);
+            async move {
+                let mut b = http_open(&Route::Direct, url, allowed, MAX_ASSET, from).await?;
+                if cut {
+                    b.io = Box::new(cut_after(b.io, 1 << 20));
+                } else {
+                    assert_eq!(b.start, from, "이어 받기(206)");
+                }
+                Some(b)
+            }
+        };
+        let (got, total) = stream(open, &dir.path().join("a.part"), |_, _| {})
             .await
             .expect("받기");
         assert_eq!(got, want);
@@ -310,5 +415,97 @@ mod tests {
             std::fs::metadata(dir.path().join("a.part")).unwrap().len(),
             total
         );
+    }
+
+    /// `n`바이트를 준 뒤 끊기는 연결.
+    fn cut_after(io: Box<dyn crate::blobs::preview::Io>, n: u64) -> impl crate::blobs::preview::Io {
+        tokio::io::join(io.take(n), tokio::io::sink())
+    }
+
+    /// `data[start..start+give]`만 주고 끊기는 응답(전체 길이는 `data.len() - start`로 알림).
+    async fn body(data: &[u8], start: usize, give: usize) -> Body {
+        let (mut w, r) = tokio::io::duplex(data.len().max(1));
+        w.write_all(&data[start..start + give]).await.unwrap();
+        drop(w);
+        Body {
+            io: Box::new(r),
+            rest: Vec::new(),
+            start: start as u64,
+            len: (data.len() - start) as u64,
+        }
+    }
+
+    fn data() -> Vec<u8> {
+        (0..200_000u32).map(|i| (i * 7 % 251) as u8).collect()
+    }
+
+    fn sha(d: &[u8]) -> String {
+        Sha256::digest(d)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn resumes_where_the_cut_left_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let part = dir.path().join("a.part");
+        let d = data();
+        let mut asked = Vec::new();
+        let open = |from: u64| {
+            asked.push(from);
+            let n = asked.len();
+            let d = d.clone();
+            async move {
+                // 첫 시도는 70,000바이트에서 끊기고, 두 번째는 연결이 안 되고, 세 번째에 받은 데부터 끝까지.
+                match n {
+                    1 => Some(body(&d, 0, 70_000).await),
+                    2 => None,
+                    _ => Some(body(&d, 70_000, d.len() - 70_000).await),
+                }
+            }
+        };
+        let (hash, size) = stream(open, &part, |_, _| {}).await.expect("받기");
+        assert_eq!((hash, size), (sha(&d), d.len() as u64));
+        assert_eq!(std::fs::read(&part).unwrap(), d);
+        assert_eq!(asked, [0, 70_000, 70_000]);
+    }
+
+    #[tokio::test]
+    async fn starts_over_when_the_server_ignores_the_range() {
+        let dir = tempfile::tempdir().unwrap();
+        let part = dir.path().join("a.part");
+        let d = data();
+        let open = |from: u64| {
+            let d = d.clone();
+            async move {
+                Some(if from == 0 {
+                    body(&d, 0, 50_000).await
+                } else {
+                    // Range를 무시하고 200으로 전체를 줌.
+                    body(&d, 0, d.len()).await
+                })
+            }
+        };
+        let (hash, size) = stream(open, &part, |_, _| {}).await.expect("받기");
+        assert_eq!((hash, size), (sha(&d), d.len() as u64));
+        assert_eq!(std::fs::read(&part).unwrap(), d);
+    }
+
+    #[tokio::test]
+    async fn gives_up_after_tries_without_progress() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = data();
+        let mut calls = 0;
+        let open = |from: u64| {
+            calls += 1;
+            let d = d.clone();
+            // 처음에 조금 받고, 그 뒤로는 한 바이트도 더 오지 않음.
+            async move { Some(body(&d, from as usize, if from == 0 { 10 } else { 0 }).await) }
+        };
+        let r = stream(open, &dir.path().join("a.part"), |_, _| {}).await;
+        assert_eq!(r, Err("network"));
+        // 조금이라도 받은 첫 시도 뒤로 빈손 시도가 이어져 실패가 TRIES번이 되면 그만둠.
+        assert_eq!(calls, TRIES as usize);
     }
 }

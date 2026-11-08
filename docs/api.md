@@ -122,7 +122,8 @@ GUI·CLI·MCP 서버가 모두 이 API를 씁니다. 원격 접근은 기본 비
   `newer`면 `latest`가 이 데몬 판(`current`)보다 새 판. GitHub에 닿지 못하면 `1009`
 - `update.download({version, asset}) → {}` (owner, 사람만) — 그 판의 릴리스 파일(`YANGPA_<version>_…`)을 데이터 폴더
   `updates/`에 받기 시작. 먼저 `SHA256SUMS.txt`와 `SHA256SUMS.txt.sig`(배포자 Ed25519 서명)를 받아 확인하고 그 목록에 있는
-  파일만 받으며, SHA-256이 맞아야 제 이름으로 둠. 진행·끝은 `update.progress`. 이름이 그 꼴이 아니면 `-32602`, 이미 받는
+  파일만 받으며, SHA-256이 맞아야 제 이름으로 둠. 연결이 끊기거나 60초 동안 멈추면 새 회로로 받은 데부터 이어 받음
+  (`Range`, 받은 양이 늘지 않은 시도가 6번 이어지면 `network`). 진행·끝은 `update.progress`. 이름이 그 꼴이 아니면 `-32602`, 이미 받는
   중이면 그대로 둠. 데몬이 뜰 때 `updates/`를 지움
 
 ### 후원자 표시
