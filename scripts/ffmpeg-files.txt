@@ -1,0 +1,16 @@
+# 화면공유 인코더(설치 파일·포터블의 exe 옆 ffmpeg 폴더)에 넣을 파일. 배포 빌드(build-windows-release.sh)가 저장소의
+# vendor/ffmpeg에서 복사하며 sha256을 맞춰 보고, 앱도 ffmpeg를 띄우기 전에 같은 값으로 확인합니다(apps/desktop/src-tauri/src/screen).
+# 형식: <ffmpeg 폴더 안 경로> <sha256> <저장소 안 경로 또는 https 주소> [zip 안 경로].
+#
+# 앱이 쓰는 것만 넣어 직접 빌드한 FFmpeg 9.0.2(LGPL 2.1+, 공유 DLL): gfxcapture 캡처, libaom·SVT-AV1·NVENC(AV1·H.264·HEVC)
+# 인코더, FLV 출력. GPL·nonfree 부품은 없습니다. 같은 바이트는 scripts/build-ffmpeg.sh(소스 sha256 고정)로 다시 만들 수
+# 있습니다(Ubuntu 24.04, 약 7분). 빌드를 바꾸면 vendor/ffmpeg와 이 목록의 sha256을 함께 바꿉니다.
+ffmpeg.exe 54cb61a9a29ab15c6b8f29e37eede97a3aeec56297f3610dd8933118070be285 vendor/ffmpeg/ffmpeg.exe
+avcodec-63.dll 4a7edc934397cd5ed2cb9fbb7287ad9252ae9dd778717a0543386db841923d13 vendor/ffmpeg/avcodec-63.dll
+avdevice-63.dll 88bde22a6b6e74860ebef84b9aff8e716408883ea89bd68ac8c33dada8f32540 vendor/ffmpeg/avdevice-63.dll
+avfilter-12.dll fc36a21d311c1ca92816f85547fd4cf07aae91de2b70601a153f3d0499125f2d vendor/ffmpeg/avfilter-12.dll
+avformat-63.dll 998654d98c2d79d49a1d445c3f1eab7be7942c59c35ae10a60e019b41a7d15eb vendor/ffmpeg/avformat-63.dll
+avutil-61.dll 67431aca5040c1ddd4b868dcd0fe504373b3e4e4ff187c2d10b0704e2f7fc2cd vendor/ffmpeg/avutil-61.dll
+swscale-10.dll 91b3143070c927e0a04cd2ae30994a842d7f9c519221f340f10f6f2bc7b9ee3a vendor/ffmpeg/swscale-10.dll
+LICENSE.txt d161c350e80036ce9fc5a6edbcccd084401905c324327b426ff2f6cefa1ba4ff vendor/ffmpeg/LICENSE.txt
+THIRD-PARTY-NOTICES.txt 11dc708d5dd4ac9e299b116b73642e084cc7ba2934146018a1b3f944ac315838 vendor/ffmpeg/THIRD-PARTY-NOTICES.txt

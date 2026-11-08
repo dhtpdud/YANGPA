@@ -1,0 +1,13 @@
+# Android: wry가 만드는 RustWebView 클래스에 끼우는 코드(wry build.rs의 `WRY_<파일>_CLASS_EXTENSION`).
+# Android Kotlin 파일을 만들 때만 읽히고 다른 대상의 빌드에는 영향이 없습니다.
+[env]
+WRY_RUSTWEBVIEW_CLASS_EXTENSION = '''
+    // 휘발성 채널을 보는 동안 키보드가 입력을 학습하지 않게 합니다(YangpaPlugin.setSecure가 켜고 끔).
+    override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
+        val ic = super.onCreateInputConnection(outAttrs)
+        if (app.yangpa.android.ImeLearning.off) {
+            outAttrs.imeOptions = outAttrs.imeOptions or android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        }
+        return ic
+    }
+'''

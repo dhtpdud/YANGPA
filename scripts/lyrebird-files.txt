@@ -1,0 +1,9 @@
+# Tor 브리지 전송 lyrebird(obfs4·snowflake·webtunnel·meek_lite, 설치 파일·포터블의 exe 옆 pt 폴더). 배포 빌드
+# (build-windows-release.sh)가 받아 sha256을 맞춰 봅니다. 데몬은 실행 파일 옆 pt 폴더(없으면 실행 파일 옆, PATH)에서 찾습니다.
+# 형식: <pt 폴더 안 경로> <sha256> <주소> <묶음 안 경로>.
+#
+# Tor 프로젝트의 Tor Expert Bundle 16.0(Windows x86_64)에서 꺼냅니다. 받은 tar.gz(sha256 2ee123e9…77c4)는 Tor Browser 개발자
+# 서명 키(EF6E 286D DA85 EA2A 4BA7 DE68 4E2C 6E87 9329 8290)의 서명(.asc)으로 2026-11-02에 확인했습니다. 판을 바꾸면 서명을
+# 다시 확인하고, 이 sha256과 crates/yangpa-net/src/config.rs의 내장 브리지(BUILTIN_*, 묶음의 pt_config.json)를 함께 바꿉니다.
+lyrebird.exe 6a8f58e82a39510f144bbef5815ece0762c8a632375da810e9d803d610622201 https://archive.torproject.org/tor-package-archive/torbrowser/16.0/tor-expert-bundle-windows-x86_64-16.0.tar.gz tor/pluggable_transports/lyrebird.exe
+LICENSE.txt e3364b4d60028936ab48835bd162a669d1693a4ba073e32f79e9e4f3ca819249 https://archive.torproject.org/tor-package-archive/torbrowser/16.0/tor-expert-bundle-windows-x86_64-16.0.tar.gz docs/lyrebird.txt

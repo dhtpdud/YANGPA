@@ -1,0 +1,26 @@
+[package]
+name = "yangpa-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_bytes.workspace = true
+imbl.workspace = true
+postcard.workspace = true
+blake3.workspace = true
+ed25519-dalek.workspace = true
+fn-dsa.workspace = true
+x-wing.workspace = true
+thiserror.workspace = true
+bs58.workspace = true
+hex.workspace = true
+base64.workspace = true
+rand.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

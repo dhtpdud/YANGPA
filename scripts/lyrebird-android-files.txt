@@ -1,0 +1,8 @@
+# Android용 Tor 브리지 전송 lyrebird. build-android.sh가 받아 sha256을 맞춰 보고 네이티브 라이브러리(liblyrebird.so)로 넣습니다.
+# Android는 앱 데이터 폴더의 파일을 실행할 수 없어, 설치 때 풀리는 네이티브 라이브러리 폴더에 둡니다(docs/android.md).
+# 형식: <jniLibs 안 이름> <sha256> <주소> <묶음 안 경로>.
+#
+# Tor 프로젝트의 Tor Expert Bundle 16.0(Android aarch64)에서 꺼냅니다. 받은 tar.gz(sha256 bf8f4c63…9120)는 Tor Browser 개발자
+# 서명 키(EF6E 286D DA85 EA2A 4BA7 DE68 4E2C 6E87 9329 8290)의 서명(.asc)으로 2026-11-04에 확인했습니다. 판을 바꾸면 서명을
+# 다시 확인하고 lyrebird-files.txt와 함께 바꿉니다.
+liblyrebird.so 9a4c6b8f1c0a852d420d29b1416207e336674d2b9580d29d698bd0da5843bca1 https://archive.torproject.org/tor-package-archive/torbrowser/16.0/tor-expert-bundle-android-aarch64-16.0.tar.gz tor/pluggable_transports/lyrebird

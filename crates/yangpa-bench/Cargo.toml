@@ -1,0 +1,37 @@
+[package]
+name = "yangpa-bench"
+description = "양파 메신저 성능 기준(작업 묶음·명령 수 회귀 검사)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+yangpa-crypto.workspace = true
+yangpa-store.workspace = true
+yangpa-sync.workspace = true
+yangpa-daemon.workspace = true
+yangpa-net.workspace = true
+yangpa-rpc.workspace = true
+serde.workspace = true
+postcard.workspace = true
+rand.workspace = true
+blake3.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+tempfile.workspace = true
+clap.workspace = true
+# 데몬 재기(`--keytree-daemon`)에서 `YANGPA_BENCH_LOG`로 데몬 기록을 볼 때만 씁니다.
+tracing-subscriber.workspace = true
+
+[[bin]]
+name = "yangpa-bench"
+path = "src/main.rs"
+
+# `cargo bench -p yangpa-bench`: 모든 작업의 벽시계 시간(사람이 보는 용도, 회귀 검사는 `yangpa-bench gate`).
+[[bench]]
+name = "workloads"
+harness = false

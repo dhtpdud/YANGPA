@@ -1,0 +1,13 @@
+# CI 전용 프로필(`cargo nextest run --profile ci`). 로컬에서는 `cargo test`를 그대로 씁니다.
+# 시험 하나가 멈추면 `cargo test`는 작업 시간 한도(6시간)까지 묶이고 어느 시험인지도 남지 않아서,
+# 시험마다 따로 끊고 나머지는 계속 돌립니다.
+[profile.ci]
+slow-timeout = { period = "60s", terminate-after = 5 }
+fail-fast = false
+failure-output = "immediate-final"
+
+# 걸린 시간으로 판정하는 시험은 다른 시험과 겹치면(특히 PC 러너에서 데몬 시험 수백 개와 동시에) CPU·디스크를 나눠 써서
+# 기준을 넘습니다. 혼자 돌게 해 판정 기준은 그대로 둡니다.
+[[profile.ci.overrides]]
+filter = 'package(yangpa-store) & test(=tests::insert_10k_events_quickly)'
+threads-required = 'num-test-threads'

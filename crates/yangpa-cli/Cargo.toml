@@ -1,0 +1,27 @@
+[package]
+name = "yangpa-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "yangpa"
+path = "src/main.rs"
+
+[dependencies]
+yangpa-core.workspace = true
+yangpa-rpc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+humantime.workspace = true
+futures.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+async-trait.workspace = true

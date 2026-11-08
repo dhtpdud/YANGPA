@@ -1,0 +1,66 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "YANGPA",
+  "mainBinaryName": "yangpa-desktop",
+  "version": "1.0.0",
+  "identifier": "app.yangpa.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "YANGPA",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 940,
+        "minHeight": 560,
+        "center": true,
+        "backgroundColor": "#313338",
+        "dragDropEnabled": true,
+        "incognito": true,
+        "zoomHotkeysEnabled": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,IntensiveWakeUpThrottling,CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disk-cache-size=1 --media-cache-size=1 --disable-background-networking"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: yangpa-blob: http://yangpa-blob.localhost; media-src 'self' blob: yangpa-blob: http://yangpa-blob.localhost; connect-src 'self' ipc: http://ipc.localhost yangpa-blob: http://yangpa-blob.localhost; font-src 'self' data:; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: yangpa-blob: http://yangpa-blob.localhost; media-src 'self' blob: yangpa-blob: http://yangpa-blob.localhost; connect-src 'self' ipc: http://ipc.localhost yangpa-blob: http://yangpa-blob.localhost ws://localhost:1420 ws://localhost:1421; font-src 'self' data:; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "dangerousDisableAssetCspModification": ["style-src"],
+      "freezePrototype": true,
+      "capabilities": ["default"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "license": "AGPL-3.0-or-later AND LicenseRef-YANGPA-Supporter",
+    "windows": {
+      "nsis": { "installerHooks": "windows/installer-hooks.nsh" },
+      "wix": {
+        "upgradeCode": "fa7f33b4-e9ab-5a62-bcae-c534883e066e",
+        "fragmentPaths": ["windows/stop-daemon.wxs"],
+        "componentGroupRefs": ["YangpaStopDaemon"]
+      }
+    },
+    "linux": {
+      "deb": {
+        "postInstallScript": "linux/deb-stop-stale-daemon.sh",
+        "postRemoveScript": "linux/deb-stop-stale-daemon.sh"
+      }
+    },
+    "targets": "all",
+    "category": "SocialNetworking",
+    "shortDescription": "서버 없는 P2P 메신저",
+    "externalBin": ["binaries/yangpad"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+  },
+  "plugins": {
+    "deep-link": { "desktop": { "schemes": ["yangpa"] } }
+  }
+}

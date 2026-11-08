@@ -1,0 +1,94 @@
+name: Tor 누출 검사(실제 망)
+
+# 실제 Tor 망에 접속하므로 일반 CI에서는 돌리지 않고, 수동·매주 돌립니다.
+# 오프라인 누출 시험(미끼 수신기·구조 점검)은 일반 CI의 `cargo test`에 들어 있습니다.
+# 시나리오(scripts/tor-leak-check.sh): 평문 부트스트랩 주소, onion 친구 맺기·1:1 메시지·미리보기·첨부,
+# 크루 만들기·초대·가입·메시지·미리보기·첨부, 통화(P2P 전용이 아닌 채널의 Tor 통화, 소리 패킷도 Tor 회로로),
+# 맨 뒤에 내 기기 연결. 나간 패킷이 하나라도 Tor 릴레이가 아니면(UDP·DNS 포함) 실패합니다. 내 기기 단계부터는
+# 설계대로 나가는 STUN·UPnP 찾기만 따로 세어 넘깁니다. 단계별 집계를 작업 요약에 붙입니다.
+on:
+  workflow_dispatch:
+    inputs:
+      wait_secs:
+        description: 단계별 최대 대기(초)
+        default: "1200"
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # root로 도는 Arti는 윗 폴더까지 root 소유여야 권한 검사를 통과합니다($RUNNER_TEMP는 runner 소유라 Tor가 시작하지 못함).
+  LEAK_OUT: /tmp/yangpa-tor-leak
+
+jobs:
+  capture:
+    name: 패킷 캡처
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: 도구 설치
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tcpdump iproute2 iptables
+      - name: 분석기 자체 시험
+        run: python3 -I scripts/tor_leak_analyze.py selftest
+      - name: 빌드
+        run: cargo build -p yangpa-daemon -p yangpa-cli
+      - name: 시나리오 점검(루프백, Tor 없이)
+        # 실제 망에서 오래 기다리다 스크립트·API 흐름 오류로 실패하지 않게 먼저 몇 초 안에 확인합니다.
+        run: bash scripts/tor-leak-check.sh --no-tor --bin-dir target/debug
+      - name: 실제 망 캡처·판정
+        env:
+          YP_WAIT_SECS: ${{ inputs.wait_secs || '1200' }}
+        run: |
+          YP_DIRCOMMON="$(cargo metadata --format-version 1 | python3 -I -c 'import json,os,sys; m=json.load(sys.stdin); print(next(os.path.dirname(p["manifest_path"]) for p in m["packages"] if p["name"]=="tor-dircommon"))')"
+          export YP_DIRCOMMON
+          sudo --preserve-env=YP_DIRCOMMON,YP_WAIT_SECS,GITHUB_ACTIONS \
+            bash scripts/tor-leak-check.sh --bin-dir target/debug --out "$LEAK_OUT"
+      - name: 결과 보관
+        if: always()
+        run: |
+          # 캡처·판정·단계 표시·시나리오 기록만 남깁니다(데몬 데이터·키·로그는 올리지 않음).
+          mkdir -p "$RUNNER_TEMP/tor-leak-artifact"
+          for f in capture.pcap report.json phases.tsv scenario.txt; do
+            sudo cp "$LEAK_OUT/$f" "$RUNNER_TEMP/tor-leak-artifact/" 2>/dev/null || true
+          done
+          sudo chown -R "$(id -u)" "$RUNNER_TEMP/tor-leak-artifact"
+      - name: 단계별 요약
+        if: always()
+        run: |
+          report="$RUNNER_TEMP/tor-leak-artifact/report.json"
+          # 판정 전에 멈췄으면 빈 파일입니다.
+          [[ -s "$report" ]] || exit 0
+          python3 -I - "$report" "$RUNNER_TEMP/tor-leak-artifact/scenario.txt" >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          import json, os, sys
+          r = json.load(open(sys.argv[1], encoding="utf-8"))
+          print("### Tor 누출 검사")
+          print(f"나간 패킷 {r['outbound_packets']}개, 릴레이로 {r['packets_to_relays']}개, UDP {r['udp_packets']}개, 내 기기 직접 연결 {r['direct_packets']}개\n")
+          print("| 단계 | 나감 | 릴레이 | UDP | 직접 연결 | 누출 |")
+          print("|---|---:|---:|---:|---:|---:|")
+          for p in r.get("phases", []):
+              bad = sum(v["packets"] for v in p["violations"])
+              print(f"| {p['phase']} | {p['outbound_packets']} | {p['packets_to_relays']} | {p['udp_packets']} | {p['direct_packets']} | {bad} |")
+          if os.path.isfile(sys.argv[2]):
+              print("\n시나리오 기록:\n")
+              for line in open(sys.argv[2], encoding="utf-8"):
+                  print(f"- `{line.strip()}`")
+          EOF
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: tor-leak-capture
+          path: ${{ runner.temp }}/tor-leak-artifact
+          if-no-files-found: ignore
+          retention-days: 14

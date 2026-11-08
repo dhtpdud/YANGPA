@@ -1,0 +1,14 @@
+[package]
+name = "yangpa-sfu"
+description = "양파 메신저 통화 SFU(sans-IO, 프레임 E2EE를 풀지 않고 전달)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+str0m.workspace = true
+tracing.workspace = true
+thiserror.workspace = true

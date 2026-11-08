@@ -1,0 +1,106 @@
+name: 성능
+
+# docs/performance.md 참고.
+# - gate: 작업 묶음의 한 번당 명령 수(valgrind cachegrind)를 기준과 비교해 허용치를 넘게 늘면 실패합니다.
+#   저장된 기준선과 비교합니다(수동 실행에서도 같음). 명령 수는 컴파일러 판·
+#   C 라이브러리에 따라 달라지므로 러너 OS와 툴체인을 기준선(crates/yangpa-bench/baseline.json의 toolchain)에 맞춰 고정하고,
+#   엄격 모드라 둘이 어긋나면(고정 판만 올리고 기준선을 다시 재지 않음) 참고용으로 넘기지 않고 실패합니다.
+# - targets: 성능 목표 시험(tests/perf.rs, 최적화 빌드)과 여러 노드 시뮬레이션(지연·손실 없이, 그리고 루프백에
+#   tc netem을 걸고).
+# PR에서는 돌리지 않습니다(docs/decisions.md "CI 대상"): 리눅스 도구가 필요해 Windows PC 러너에서 돌 수 없고, GitHub 서버
+# 러너는 사용 한도로 막혀 있습니다. PR은 개발 환경에서 `scripts/bench-gate.sh <기준 커밋>`으로 재고 결과를 PR에 적습니다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sim_nodes:
+        description: 시뮬레이션 노드 수
+        default: "32"
+  schedule:
+    - cron: "41 3 * * 2"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # 명령 수 기준선을 잰 툴체인. 바꾸면 baseline.json도 같이 다시 잽니다(yangpa-bench 시험이 둘을 맞춰 봄).
+  BENCH_TOOLCHAIN: "1.97.0"
+
+jobs:
+  gate:
+    name: 명령 수 회귀 검사
+    # 기준선을 잰 환경(우분투 24.04, glibc 2.39)과 같은 이미지. ubuntu-latest가 바뀌어도 비교가 흔들리지 않게.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: ${{ env.BENCH_TOOLCHAIN }}
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: perf
+      - name: valgrind 설치
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+      - name: 비교
+        env:
+          BENCH_OUT: ${{ runner.temp }}/bench
+          YANGPA_BENCH_STRICT: "1"
+        # 기준 커밋 없이 저장된 기준선과 비교합니다.
+        run: bash scripts/bench-gate.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          # head.json을 crates/yangpa-bench/baseline.json으로 복사하면 기준선 갱신입니다.
+          name: bench-instructions
+          path: ${{ runner.temp }}/bench/*.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  targets:
+    name: 성능 목표·시뮬레이션
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      YANGPA_SIM_NODES: ${{ inputs.sim_nodes || '32' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: perf
+      - name: 빌드
+        run: cargo test --profile perf -p yangpa-daemon --test perf --no-run
+      - name: 성능 목표
+        run: >
+          cargo test --profile perf -p yangpa-daemon --test perf --
+          --ignored --test-threads=1 --nocapture --skip scaled_crew_simulation
+      - name: 시뮬레이션(지연·손실 없음)
+        run: >
+          cargo test --profile perf -p yangpa-daemon --test perf --
+          --ignored --nocapture --exact scaled_crew_simulation
+      - name: 루프백에 지연·손실 걸기
+        run: sudo tc qdisc add dev lo root netem delay 20ms 5ms distribution normal loss 0.5%
+      - name: 시뮬레이션(지연 20±5ms, 손실 0.5%)
+        env:
+          YANGPA_SIM_NETEM: 지연 20±5ms, 손실 0.5%
+        run: >
+          cargo test --profile perf -p yangpa-daemon --test perf --
+          --ignored --nocapture --exact scaled_crew_simulation
+      - name: 지연·손실 풀기
+        if: always()
+        run: sudo tc qdisc del dev lo root || true

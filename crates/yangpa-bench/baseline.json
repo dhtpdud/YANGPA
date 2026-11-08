@@ -1,0 +1,15 @@
+{
+  "note": "yangpa-bench measure(valgrind cachegrind, 한 번당 명령 수, profile perf, linux x86_64)",
+  "toolchain": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+  "instructions": {
+    "aead_seal_open_1k": 33116,
+    "body_encrypt_decrypt": 102826,
+    "event_sign_verify": 4096187,
+    "ingest_batch_20": 92739943,
+    "keygroup_refresh_8": 13660437,
+    "reconcile_10k_diff_50": 3513608,
+    "sealed_box_8": 13641118,
+    "store_fingerprints_5k": 6111498,
+    "store_insert_100": 27871741
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "app.yangpa.android",
+  "bundle": {
+    "externalBin": null,
+    "android": { "minSdkVersion": 26 }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [{ "scheme": ["yangpa"], "appLink": false }]
+    }
+  }
+}

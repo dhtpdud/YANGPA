@@ -1,0 +1,25 @@
+[package]
+name = "yangpa-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+yangpa-crypto.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+postcard.workspace = true
+blake3.workspace = true
+zeroize.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+memchr.workspace = true
+unicode-normalization.workspace = true
+# `Store::open_temp`(다른 크레이트 테스트에서도 씀)가 임시 디렉터리를 돌려줍니다.
+tempfile.workspace = true
+

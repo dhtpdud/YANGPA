@@ -1,0 +1,229 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/yangpa-core",
+    "crates/yangpa-crypto",
+    "crates/yangpa-store",
+    "crates/yangpa-sync",
+    "crates/yangpa-net",
+    "crates/yangpa-rpc",
+    "crates/yangpa-daemon",
+    "crates/yangpa-cli",
+    "crates/yangpa-mcp",
+    "crates/yangpa-bench",
+    "crates/yangpa-sfu",
+    "crates/yangpa-zl",
+    "apps/desktop/src-tauri",
+]
+# 데스크톱 앱(apps/desktop/src-tauri)은 웹뷰 개발 패키지가 필요해 기본 빌드에서 뺍니다.
+default-members = [
+    "crates/yangpa-core",
+    "crates/yangpa-crypto",
+    "crates/yangpa-store",
+    "crates/yangpa-sync",
+    "crates/yangpa-net",
+    "crates/yangpa-rpc",
+    "crates/yangpa-daemon",
+    "crates/yangpa-cli",
+    "crates/yangpa-mcp",
+    "crates/yangpa-bench",
+    "crates/yangpa-sfu",
+    "crates/yangpa-zl",
+]
+# 고쳐 쓰는 바깥 크레이트([patch.crates-io])는 작업 공간 시험·clippy에 넣지 않습니다.
+exclude = ["third_party"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+rust-version = "1.91"
+publish = false
+
+[workspace.dependencies]
+yangpa-core = { path = "crates/yangpa-core" }
+yangpa-crypto = { path = "crates/yangpa-crypto" }
+yangpa-zl = { path = "crates/yangpa-zl" }
+yangpa-store = { path = "crates/yangpa-store" }
+yangpa-sync = { path = "crates/yangpa-sync" }
+yangpa-net = { path = "crates/yangpa-net" }
+yangpa-rpc = { path = "crates/yangpa-rpc" }
+yangpa-daemon = { path = "crates/yangpa-daemon" }
+yangpa-sfu = { path = "crates/yangpa-sfu" }
+
+# 직렬화
+# rc: 공간 상태의 멤버·기기 목록 값을 Arc로 듭니다. 직렬화는 안의 값 그대로라 형식이 같습니다.
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+serde_bytes = "0.11"
+postcard = { version = "1", features = ["use-std"] }
+ciborium = "0.2"
+base64 = "0.22"
+bs58 = "0.5"
+hex = "0.4"
+# 공간 상태에서 멤버 수만큼 커지는 표(멤버·기기 목록·밴, 해소기의 기기 주인 등). 복제가 O(1)이고 고치면 바뀐 경로만
+# 복사하는 지속 B-트리라 해소기 스냅숏이 싸집니다. 직렬화는 BTreeMap과 같은 맵 형식입니다.
+imbl = { version = "7.0.2", features = ["serde"] }
+
+# 암호
+blake3 = "1"
+ed25519-dalek = { version = "2", features = ["rand_core", "zeroize", "serde"] }
+# 혼합 서명의 양자 내성 쪽: FN-DSA(Falcon)-512. 표준(FIPS 206) 전이라 판마다 키·서명 형식이 바뀔 수 있어 판을 못박고,
+# 고정 시드 키 시험(`sign::tests`)으로 키 생성 결과가 그대로인지 확인합니다.
+fn-dsa = "=0.4.0"
+# 봉인 상자 키 교환: X25519 + ML-KEM-768 혼합(양자 컴퓨터가 나와도 지금 모은 암호문을 풀 수 없게).
+x-wing = { version = "0.1.1", features = ["getrandom", "zeroize"] }
+chacha20poly1305 = "0.10"
+hkdf = "0.13"
+sha2 = "0.11"
+zeroize = { version = "1", features = ["derive"] }
+rand = "0.8"
+rand_core = { version = "0.6", features = ["getrandom"] }
+memsec = "0.7"
+
+# 저장
+rusqlite = { version = "0.40", default-features = false, features = ["bundled-sqlcipher-vendored-openssl", "cache", "hooks"] }
+# 메시지 검색 색인(yangpa-store `search.rs`): SIMD 부분 문자열 탐색과 검색용 NFKC 정규화. 둘 다 이미 트리에 있는 판입니다.
+memchr = "2.8"
+unicode-normalization = "0.1.26"
+# 기기 사이를 오가는 데이터 압축(OpenZL v0.3.0, crates/yangpa-zl). C 소스를 함께 빌드하며, 윈도는 clang-cl(VS의
+# "C++ Clang tools for Windows")이 필요합니다(MSVC cl은 GCC·Clang 확장 때문에 못 함).
+openzl-sys = "=0.3.0"
+
+# 네트워크
+# rsa: IPFS 공개 노드(대부분 RSA 키)를 쓰던 때 켰습니다. 공개 노드는 걷어냈지만 RSA 키로 띄운 남의 libp2p 노드와도
+# 핸드셰이크가 되도록 아직 둡니다(내 키는 그대로 Ed25519).
+libp2p = { version = "0.57", features = [
+    "tokio", "quic", "tcp", "dns", "noise", "yamux", "kad", "gossipsub",
+    "identify", "ping", "relay", "dcutr", "autonat", "mdns", "macros",
+    "request-response", "cbor", "serde", "ed25519", "rsa", "memory-connection-limits", "upnp", "tls",
+] }
+# experimental-api: 합의문 갱신 재시도를 깨우려고 `TorClient::dirmgr()`를 씁니다. semver 밖 API라 Arti를 올릴 때 다시 확인하세요.
+arti-client = { version = "0.47", default-features = false, features = ["tokio", "rustls", "onion-service-client", "onion-service-service", "vanguards", "static-sqlite", "bridge-client", "pt-client", "experimental-api"] }
+tor-rtcompat = { version = "0.47", features = ["tokio", "rustls"] }
+tor-hsservice = "0.47"
+# yangpa-net의 onion 서비스 수신(스트림 수락·거절 셀, 주소 표기)과 자체 CBOR 코덱. 이미 위 크레이트들의 하위 의존성입니다.
+tor-cell = { version = "0.47", default-features = false }
+tor-proto = { version = "0.47", default-features = false, features = ["hs-service"] }
+safelog = { version = "0.10", default-features = false }
+# Arti(tor-netdoc)가 쓰는 시각 한계 계산. 아래 [patch.crates-io]로 고친 판을 쓰며, yangpa-net이 시험에서 직접 부릅니다.
+saturating-time = "0.5"
+cbor4ii = { version = "1.2", features = ["serde1", "use_std"] }
+# 화면에 띄울 QR 코드(의존성 없는 한 파일 구현).
+qrcodegen = "1.8"
+
+# 비동기·공용
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+futures = "0.3"
+either = "1"
+async-trait = "0.1"
+bytes = "1"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+parking_lot = "0.12"
+interprocess = { version = "2", features = ["tokio"] }
+# Windows 전용 시스템 호출(로컬 API pipe 서버 확인). interprocess가 이미 쓰는 판입니다.
+windows-sys = "0.61"
+# pipe 보안 설명자 문자열(SDDL)을 interprocess에 넘길 때 쓰는 UTF-16 문자열. interprocess가 이미 쓰는 판입니다.
+widestring = "1"
+windows = "0.62"
+windows-core = "0.62"
+# 데스크톱 앱이 WebView2 컨트롤러를 직접 부를 때(최소화 → 화면공유 PiP). wry가 이미 쓰는 판입니다.
+webview2-com = "0.39"
+# 유닉스 전용 시스템 호출(블롭 저장 공간 정리의 디스크 여유 공간, statvfs). 이미 트리에 있는 판입니다.
+libc = "0.2"
+clap = { version = "4", features = ["derive", "env"] }
+humantime = "2"
+# 진단(diag.metrics): 이 프로세스의 메모리·CPU. libp2p가 이미 쓰는 판이라 새로 받지 않습니다.
+sysinfo = { version = "0.38", default-features = false, features = ["system"] }
+# OS 알림(망이 끊겼는지 라우팅 표로 봄): 묶지 않은 UDP 소켓. tokio가 이미 쓰는 판이라 새로 받지 않습니다.
+socket2 = "0.6"
+directories = "6"
+keyring = "4"
+keyring-core = "1"
+android-native-keyring-store = "1"
+jni = "0.21"
+ndk-context = "0.1"
+tempfile = "3"
+proptest = "1"
+criterion = { version = "0.5", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+rmcp = { version = "3.5", features = ["server", "transport-io", "macros", "schemars"] }
+schemars = "1"
+url = "2"
+lru = "0.12"
+# 링크 미리보기(보내는 쪽 HTTP 조회). rustls만 쓰고(native-tls·OpenSSL 없음), 암호 구현은 이미 트리에 있는 aws-lc-rs.
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "aws_lc_rs"] }
+tokio-rustls = { version = "0.26", default-features = false }
+webpki-roots = "1"
+httparse = "1"
+# 보내는 쪽 이미지 썸네일(첨부·링크 미리보기). 썸네일로 실을 수 있는 네 형식의 디코더와 JPEG 인코더만.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+
+# 통화 SFU(sans-IO WebRTC). 암호는 이미 트리에 있는 aws-lc-rs(DTLS는 순수 러스트 dimpl, NASM은 미리 빌드된 것)라
+# 시스템 OpenSSL 없이 리눅스·Windows(MSVC)·macOS에서 빌드됩니다. 예제용 기본 기능(HTTP 서버)은 끕니다.
+str0m = { version = "0.24.1", default-features = false, features = ["aws-lc-rs"] }
+
+# 데스크톱 앱(Tauri 2). tray-icon: 창을 닫으면 트레이로 내리기(설정 옵션).
+tauri = { version = "2.12", features = ["tray-icon"] }
+tauri-build = { version = "2.7", features = [] }
+tauri-plugin-notification = "2.7"
+# 윈도 알림에 보낸 사람 프사(appLogoOverride)를 붙일 때 직접 씁니다. notify-rust가 쓰는 판과 같게 둡니다.
+tauri-winrt-notification = "0.8"
+# 기본 프사(이름 머리글자)를 알림용 그림으로 그릴 때 시스템 글꼴의 글리프를 그립니다.
+ab_glyph = "0.2.32"
+tauri-plugin-dialog = "2.8"
+# 초대 링크(yangpa://)를 OS에 등록하고, 이미 떠 있는 앱으로 넘깁니다(두 번째 실행은 링크만 넘기고 끝남).
+tauri-plugin-deep-link = "2.6"
+tauri-plugin-single-instance = { version = "2.5", features = ["deep-link"] }
+# 신경망 음성 코덱(Mimi·DAC). ONNX Runtime은 실행 파일에 넣지 않고 모델 폴더의 onnxruntime.dll을 실행 중에 엽니다
+# (load-dynamic). api-22면 ORT 1.22 이상 DLL과 맞습니다(배포 모델 묶음은 1.30.0).
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "load-dynamic", "api-22"] }
+# 리눅스 웹뷰 설정(WebRTC·미디어 스트림 켜기). wry가 고정한 판과 같아야 합니다.
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
+
+# saturating-time 0.5.0(최신)은 Windows에서 `SystemTime`의 최솟값·최댓값을 찾는 계산이 끝나지 않습니다(100ns보다 짧은
+# 간격을 더해도 같은 값의 `Some`이 나와 반복이 멈추지 않음). Arti는 받은 합의문을 해석할 때 이 값을 처음 계산해, Windows에서
+# Tor 부트스트랩이 15%에서 코어 하나를 100% 쓰며 멈췄습니다. 고친 곳은 third_party/saturating-time/src/internal.rs의
+# `find_limit` 하나입니다. 고친 판이 나오면 이 패치와 third_party/saturating-time을 지웁니다.
+[patch.crates-io]
+saturating-time = { path = "third_party/saturating-time" }
+
+[profile.dev]
+# 의존성은 최적화해서 테스트(X-Wing·FN-DSA 등 암호)가 너무 느려지지 않게 합니다.
+# 디버그 정보는 줄 번호만 둡니다(백트레이스의 파일:줄은 그대로). 변수·타입 정보까지 넣으면 시험 실행 파일 링크가
+# 길어지고(리눅스 4코어에서 코드 한 줄 바꾼 뒤 시험 빌드 약 10%), 디버거로 변수를 볼 일은 거의 없습니다.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = 0
+
+[profile.release]
+lto = "thin"
+# 작업 공간 크레이트는 코드를 바꿀 때마다 다시 최적화합니다. 한 덩어리(1)면 yangpa-daemon 하나에만 한 코어로 3분 가까이
+# 걸려 4갈래로 나눕니다(4코어에서 코드 한 줄 바꾼 뒤 데몬·CLI 릴리스 빌드 5분 39초 → 4분 20초, yangpad 50.7MB → 52.6MB).
+# 의존성("*", 작업 공간 밖 크레이트)은 한 번 빌드해 이어 쓰므로 그대로 1입니다.
+codegen-units = 4
+strip = "symbols"
+panic = "abort"
+
+[profile.release.package."*"]
+codegen-units = 1
+
+# 성능 측정(yangpa-bench, tests/perf.rs). 릴리스만큼 최적화하되 빌드 시간·디스크를 아끼려고 LTO는 끄고,
+# 시험 하네스가 돌도록 panic은 unwind입니다.
+[profile.perf]
+inherits = "release"
+lto = false
+codegen-units = 16
+strip = "none"
+debug = false
+panic = "unwind"
+
+# release의 의존성 덮어쓰기(codegen-units = 1)를 물려받지 않게, 원래대로 모두 16입니다.
+[profile.perf.package."*"]
+codegen-units = 16

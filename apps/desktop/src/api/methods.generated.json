@@ -1,0 +1,1328 @@
+{
+  "_comment": "cargo test -p yangpa-rpc --test desktop_contract 가 만듭니다. 손으로 고치지 마세요.",
+  "methods": [
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "auth.hello",
+      "scope": "public",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "system.version",
+      "scope": "public",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "system.status",
+      "scope": "read",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "system.shutdown",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "diag.metrics",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "diag.leakcheck",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "identity.create",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "identity.get",
+      "scope": "read",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "identity.delete",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "device.list",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.rename",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.revoke",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.link.create",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.link.pending",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.link.decide",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.link.cancel",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.link.join",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "device.link.abort",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "supporter.status",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "supporter.github_begin",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "supporter.patreon_begin",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "supporter.refresh",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "supporter.unlink",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "presence.get",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "presence.set",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "flair.list",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "flair.set",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "badge.get",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "badge.set_shown",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "badge.grant_founder",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "profile.get",
+      "scope": "read",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "profile.set",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "profile.set_crew",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "note.get",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "note.set",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.link.create",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.link.list",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.link.revoke",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.add",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.requests",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.accept",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.reject",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.list",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.propose",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.open",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "friend.remove",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "friend.safety_number",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "friend.verify",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "trust.get",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "trust.set_user",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "trust.set_space",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "space.list",
+      "scope": "read",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "space.get",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "crew.create",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "crew.update",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.set_servers",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.use_servers",
+      "scope": "settings",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "crew.convert_request",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "crew.convert_accept",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "crew.leave",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "crew.transfer_ownership",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "crew.disband",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "crew.set_committer",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "crew.committer_candidates",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "member.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "member.search",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "member.kick",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "member.set_roles",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "member.ban",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "member.unban",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "member.bans",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.block",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.unblock",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.blocked",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.devices",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.block_device",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.unblock_device",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "user.blocked_devices",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.report",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "report.list",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "when_others",
+      "human_only": false,
+      "name": "report.resolve",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.create",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.update",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "channel.delete",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.join",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.leave",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "channel.allow_api_read",
+      "scope": "owner",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "channel.set_p2p",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "channel.p2p_join",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "channel.p2p_leave",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.mark_read",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "channel.typing",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.send",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.edit",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "when_others",
+      "human_only": false,
+      "name": "message.delete",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.react",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.unreact",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "message.search",
+      "scope": "read",
+      "space": "optional_filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "forum.create_post",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "forum.list_posts",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "forum.update_post",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "forum.get_post",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "forum.set_featured",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.status",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.fetch",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.read",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.save",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.cache_status",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "when_others",
+      "human_only": false,
+      "name": "blob.cache_set_limit",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "blob.cache_clear",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.pin",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.unpin",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.pins",
+      "scope": "read",
+      "space": "optional_filtered"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "blob.evict",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "library.list",
+      "scope": "read",
+      "space": "optional_filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.relink",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.paste",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "blob.paste_discard",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "transfer.rates",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "rate.limits",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "rate.set_limit",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "emoji.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "emoji.create",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "emoji.delete",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "role.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "role.create",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "role.update",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "role.delete",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "invite.create",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "invite.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "invite.revoke",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "invite.join",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "seed.get",
+      "scope": "read",
+      "space": "optional_filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "seed.set",
+      "scope": "settings",
+      "space": "optional_global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "seed.exclude_message",
+      "scope": "settings",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "peer.get",
+      "scope": "read",
+      "space": "optional_filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "peer.set",
+      "scope": "settings",
+      "space": "optional_global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "seed.coverage",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "archive.offer",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "archive.hosted",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "archive.drop",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "archive.designate",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "archive.revoke",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "archive.list",
+      "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "net.status",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "net.stun_servers",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "net.set_stun_servers",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "net.file_circuits",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "net.set_file_circuits",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "net.channel_topics",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "net.set_channel_topics",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "net.bridges",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "net.set_bridges",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "net.peers",
+      "scope": "read",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "voice.join",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "voice.leave",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "voice.signal",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "voice.media",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "voice.state",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "voice.watch",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "token.create",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "token.list",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "token.revoke",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "audit.list",
+      "scope": "settings",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "confirm.list",
+      "scope": "read",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "confirm.approve",
+      "scope": "admin",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "confirm.deny",
+      "scope": "write",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "events.subscribe",
+      "scope": "read",
+      "space": "filtered"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "events.unsubscribe",
+      "scope": "read",
+      "space": "filtered"
+    }
+  ],
+  "notifications": [
+    "message.new",
+    "message.updated",
+    "message.expired",
+    "space.updated",
+    "friend.request",
+    "friend.accepted",
+    "friend.updated",
+    "presence",
+    "presence.self",
+    "flair",
+    "profile.updated",
+    "badges.updated",
+    "voice.signal",
+    "voice.media",
+    "voice.participants",
+    "blob.progress",
+    "net.status",
+    "net.bridges",
+    "transfer.rates",
+    "confirm.pending",
+    "seed.coverage_warning",
+    "report.new",
+    "events.dropped",
+    "device.link_request",
+    "device.link_result",
+    "device.synced",
+    "supporter.updated",
+    "device.wiped",
+    "channel.typing",
+    "checkpoint.alert"
+  ],
+  "permissions": [
+    {
+      "bit": 0,
+      "name": "view_channel"
+    },
+    {
+      "bit": 1,
+      "name": "send_messages"
+    },
+    {
+      "bit": 2,
+      "name": "read_history"
+    },
+    {
+      "bit": 3,
+      "name": "add_reactions"
+    },
+    {
+      "bit": 4,
+      "name": "attach_files"
+    },
+    {
+      "bit": 5,
+      "name": "embed_links"
+    },
+    {
+      "bit": 6,
+      "name": "use_external_emoji"
+    },
+    {
+      "bit": 7,
+      "name": "connect_voice"
+    },
+    {
+      "bit": 8,
+      "name": "speak"
+    },
+    {
+      "bit": 9,
+      "name": "stream"
+    },
+    {
+      "bit": 10,
+      "name": "create_posts"
+    },
+    {
+      "bit": 11,
+      "name": "use_crew_stun"
+    },
+    {
+      "bit": 13,
+      "name": "mention_many"
+    },
+    {
+      "bit": 16,
+      "name": "manage_messages"
+    },
+    {
+      "bit": 17,
+      "name": "manage_channels"
+    },
+    {
+      "bit": 18,
+      "name": "manage_roles"
+    },
+    {
+      "bit": 19,
+      "name": "kick"
+    },
+    {
+      "bit": 20,
+      "name": "create_invite"
+    },
+    {
+      "bit": 21,
+      "name": "manage_emoji"
+    },
+    {
+      "bit": 22,
+      "name": "manage_voice"
+    },
+    {
+      "bit": 23,
+      "name": "manage_space"
+    },
+    {
+      "bit": 24,
+      "name": "ban"
+    },
+    {
+      "bit": 31,
+      "name": "administrator"
+    }
+  ]
+}

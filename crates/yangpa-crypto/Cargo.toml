@@ -1,0 +1,30 @@
+[package]
+name = "yangpa-crypto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+serde.workspace = true
+postcard.workspace = true
+blake3.workspace = true
+ed25519-dalek.workspace = true
+x-wing.workspace = true
+chacha20poly1305.workspace = true
+hkdf.workspace = true
+sha2.workspace = true
+zeroize.workspace = true
+rand.workspace = true
+rand_core.workspace = true
+memsec.workspace = true
+yangpa-zl.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+hex.workspace = true
+serde_bytes.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

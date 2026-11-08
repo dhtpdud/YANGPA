@@ -1,0 +1,37 @@
+[package]
+name = "yangpa-rpc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
+interprocess.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+bytes.workspace = true
+base64.workspace = true
+async-trait.workspace = true
+directories.workspace = true
+parking_lot.workspace = true
+hex.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+# 소켓 서버가 같은 사용자인지 볼 때 내 유효 사용자(geteuid, client.rs).
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# named pipe 서버 프로세스의 사용자 SID 확인과 내 사용자만 여는 pipe 보안 설명자(winpipe.rs).
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Pipes", "Win32_System_Threading"] }
+widestring.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

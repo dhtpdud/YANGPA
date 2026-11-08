@@ -1,0 +1,7 @@
+# 직접 빌드한 ffmpeg(scripts/build-ffmpeg.sh)는 sha256을 고정해 두므로 Windows 체크아웃(autocrlf)에서도 바이트를 바꾸지 않습니다.
+vendor/ffmpeg/** -text -diff
+# Android 빌드는 WSL·리눅스에서 돌아 Windows 체크아웃(autocrlf)에서도 LF로 둡니다(docs/android.md).
+scripts/android-toolchain.sh text eol=lf
+scripts/build-android.sh text eol=lf
+scripts/lyrebird-android-files.txt text eol=lf
+apps/desktop/src-tauri/gen/android/gradlew text eol=lf

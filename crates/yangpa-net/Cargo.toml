@@ -1,0 +1,46 @@
+[package]
+name = "yangpa-net"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+serde.workspace = true
+postcard.workspace = true
+libp2p.workspace = true
+tokio.workspace = true
+futures.workspace = true
+either.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+blake3.workspace = true
+cbor4ii.workspace = true
+yangpa-zl.workspace = true
+arti-client = { workspace = true, optional = true }
+tor-rtcompat = { workspace = true, optional = true }
+tor-hsservice = { workspace = true, optional = true }
+tor-cell = { workspace = true, optional = true }
+tor-proto = { workspace = true, optional = true }
+safelog = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+serde_json.workspace = true
+tracing-subscriber.workspace = true
+saturating-time.workspace = true
+
+[features]
+default = ["tor"]
+tor = [
+    "dep:arti-client",
+    "dep:tor-rtcompat",
+    "dep:tor-hsservice",
+    "dep:tor-cell",
+    "dep:tor-proto",
+    "dep:safelog",
+    "dep:serde_json",
+]

@@ -1,0 +1,111 @@
+[package]
+name = "yangpa-desktop"
+description = "양파 메신저(가칭) 데스크톱 앱(Tauri 2)"
+version.workspace = true
+edition.workspace = true
+# 후원 기능 폴더(supporter/)만 별도 라이선스(LICENSE-SUPPORTER.md).
+license = "AGPL-3.0-or-later AND LicenseRef-YANGPA-Supporter"
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "yangpa_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "yangpa-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+# 사이드카가 없을 때 TAURI_CONFIG에 externalBin 빼기를 더하는 데 씁니다(build.rs).
+serde_json.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+yangpa-rpc.workspace = true
+tauri.workspace = true
+tauri-plugin-notification.workspace = true
+tauri-plugin-dialog.workspace = true
+tauri-plugin-deep-link.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+socket2.workspace = true
+tokio.workspace = true
+futures.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+parking_lot.workspace = true
+url.workspace = true
+# 보내기 전 미리보기 토큰(preview.rs).
+rand.workspace = true
+# 알림 프사(avatar.rs): 프로필 이미지를 줄이고 기본 프사를 그려 PNG로.
+image.workspace = true
+ab_glyph.workspace = true
+# 화면 고르기 창의 미리보기·아이콘을 data URL로(screen/thumbs.rs).
+base64.workspace = true
+# 신경망 음성 코덱(neural): 모델 폴더의 ONNX Runtime을 실행 중에 엽니다.
+ort.workspace = true
+# 모델 폴더의 런타임·모델이 배포본(scripts/neural-models.txt의 sha256)과 같은지 열기 전에 확인합니다.
+sha2.workspace = true
+hex.workspace = true
+
+# 휘발성 채널에서 캡처·녹화 감지(capture.rs): 클립보드 형식·소유 창, 프로세스 목록.
+# 복구 문구 복사(secret.rs): 클립보드 기록에서 빼는 표시와 전역 메모리(Memory).
+# 설치하지 않은 앱의 알림 앱 ID 등록(platform.rs): 레지스트리(RegCreateKeyExW가 Win32_Security를 요구).
+# 화면공유 인코더(screen): 모니터·창 목록과 미리보기(Gdi·Dwm·Xps의 PrintWindow), ffmpeg를 앱과 함께 끝내는 잡 객체(JobObjects).
+# 자동 자리 비움(idle.rs): 기기의 마지막 입력 시각(KeyboardAndMouse)과 지금 틱(SystemInformation).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_Storage_Xps",
+  "Win32_System_DataExchange",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_JobObjects",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+  "Win32_System_Registry",
+  "Win32_System_SystemInformation",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }
+# 보낸 사람 프사를 붙인 알림(notify.rs).
+tauri-winrt-notification.workspace = true
+# 화면 소리(WASAPI 프로세스 루프백): COM 완료 알림 객체를 만들어야 해 windows-sys로는 어려움. 웹뷰(webview2-com)가 이미 씀.
+windows = { workspace = true, features = [
+  "Win32_Media_Audio",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+] }
+# `implement` 매크로가 펼친 코드가 이 크레이트를 이름으로 부릅니다.
+windows-core.workspace = true
+# 최소화를 사용자 동작으로 웹뷰에 알림(platform.rs, 화면공유 PiP).
+webview2-com.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk.workspace = true
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance.workspace = true
+
+# Android는 사이드카를 띄울 수 없어 데몬을 앱 프로세스 안에서 돌립니다(embedded.rs).
+[target.'cfg(target_os = "android")'.dependencies]
+yangpa-daemon.workspace = true
+# 화면이 닫힌 뒤의 알림(android.rs): Tauri 플러그인을 거치지 않고 Kotlin을 바로 부릅니다.
+jni.workspace = true
+ndk-context.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+
+[features]
+# `tauri build`가 켜는 기능(프런트엔드를 바이너리에 넣음). 개발 중에는 Vite 개발 서버를 씁니다.
+custom-protocol = ["tauri/custom-protocol"]
+# 실제 창 WebDriver 시험용 빌드(e2e-window). tauri-driver가 띄울 때만 incognito를 끕니다(src/lib.rs). 배포에는 넣지 않음.
+webdriver = []

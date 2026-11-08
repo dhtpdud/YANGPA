@@ -1,0 +1,36 @@
+# 웹 초대 페이지(web/)를 GitHub Pages(https://dhtpdud.github.io/YANGPA/)로 올립니다. 앱이 만드는 초대·연락처 링크가
+# 이 주소를 가리킵니다(crates/yangpa-core/src/links.rs의 WEB_BASE). 공개 저장소에서만 돕니다.
+name: 초대 페이지
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'dhtpdud/YANGPA'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # Pages에 올림
+      id-token: write # deploy-pages가 OIDC로 확인
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: web
+      - id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

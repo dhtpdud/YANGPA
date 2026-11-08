@@ -1,0 +1,15 @@
+# 신경망 음성 코덱 모델(설치 파일·포터블의 exe 옆 models 폴더)에 넣을 파일. 배포 빌드(build-windows-release.sh)가 받아 sha256을 맞춰 봅니다.
+# 실행 파일 안에는 넣지 않습니다. 앱은 실행 파일 옆 models(없으면 %APPDATA%\yangpa\models)에서 엽니다.
+# 형식: <모델 폴더 안 경로> <sha256> <주소>. 주소가 zip이면 <zip 안 경로>를 네 번째 칸에 적어 그 파일만 꺼냅니다.
+#
+# Mimi(Kyutai, CC BY 4.0): kyutai/mimi를 합성곱 상태·KV 캐시를 드러내 스트리밍으로 내보낸 ONNX(8코드북, 가중치 FP16).
+mimi/encoder_model.onnx f9b400104a8664641ae7cceafecda4e4edfe2b2392067e8312b49cb5d3ac0322 https://huggingface.co/BMekiker/mimi-onnx-streaming/resolve/5211efa837610e2e7a3ca92260eb48bd8f77c583/streaming-8cb-fp16/encoder_model.onnx
+mimi/decoder_model.onnx ea750bbc62723e3074911df02429e3683f074dde9057034583b7e0dd1753b4df https://huggingface.co/BMekiker/mimi-onnx-streaming/resolve/5211efa837610e2e7a3ca92260eb48bd8f77c583/streaming-8cb-fp16/decoder_model.onnx
+# DAC 24kHz(Descript, MIT): onnx-community가 내보낸 ONNX(FP16).
+dac/encoder_model.onnx 7f985f37236fa5ef581285bd9644f372c06e74bd4767cfb524ee94558228343d https://huggingface.co/onnx-community/dac_24khz-ONNX/resolve/4b180296388b0cebdca8191db999e87b03cd7a95/onnx/encoder_model_fp16.onnx
+dac/decoder_model.onnx adf016cf402816d0639fe3cd791580f85e48980259a6f3e3c4993c5a2d661ff8 https://huggingface.co/onnx-community/dac_24khz-ONNX/resolve/4b180296388b0cebdca8191db999e87b03cd7a95/onnx/decoder_model_fp16.onnx
+# ONNX Runtime 1.30.0(Microsoft, MIT). 앱이 실행 중에 엽니다(ort load-dynamic).
+onnxruntime/onnxruntime.dll 7e39e2bdbba836d98071ef28620735ba36a47c554cf794585269aecc50fab0da https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/lib/onnxruntime.dll
+onnxruntime/onnxruntime_providers_shared.dll b9b7ab9e2a8b08ee7ae4a7ac1c8bfd44a741f17ad8d0f764953140a57de0b796 https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/lib/onnxruntime_providers_shared.dll
+onnxruntime/LICENSE c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674 https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/LICENSE
+onnxruntime/ThirdPartyNotices.txt c53a76501ef60db6f865f20599f220761201ac4057683acefdab37d861b86622 https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/ThirdPartyNotices.txt

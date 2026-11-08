@@ -1,0 +1,107 @@
+/* 테마 변수. 어두운 테마가 기본이고 [data-theme='light']로 밝은 테마. */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --rail-bg: #1b1c1f;
+  --sidebar-bg: #2a2b30;
+  --panel-bg: #232428;
+  --main-bg: #313338;
+  --elev-bg: #383a40;
+  --input-bg: #383a40;
+  --overlay: rgba(0, 0, 0, 0.66);
+  --modal-bg: #313338;
+  --popover-bg: #111214;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --hover: rgba(78, 80, 88, 0.32);
+  --active: rgba(78, 80, 88, 0.6);
+  --msg-hover: rgba(4, 4, 5, 0.07);
+
+  --text: #dbdee1;
+  --text-strong: #f2f3f5;
+  --text-muted: #949ba4;
+  --text-faint: #6d6f78;
+  --link: #00a8fc;
+
+  /* 테마 색(사용자 결정): 어두운 테마는 #E8541E, 누르거나 올리면 #B8401A. */
+  --accent: #e8541e;
+  --accent-hover: #b8401a;
+  --accent-soft: rgba(232, 84, 30, 0.18);
+  --accent-text: #ffffff;
+
+  --volatile: #ff7a45;
+  --volatile-soft: rgba(255, 122, 69, 0.12);
+  --volatile-border: rgba(255, 122, 69, 0.35);
+  --danger: #f23f43;
+  --danger-soft: rgba(242, 63, 67, 0.14);
+  --success: #23a55a;
+  --success-soft: rgba(35, 165, 90, 0.15);
+  /* 전송 속도: 올리기 초록, 받기 빨강(레일 바탕에서 작은 글자로도 읽히게 조금 밝게). */
+  --rate-up: #2dc26b;
+  --rate-down: #f5585b;
+  --warning: #f0b232;
+  --warning-soft: rgba(240, 178, 50, 0.12);
+  --mention-bg: rgba(240, 178, 50, 0.08);
+  --mention-bar: #f0b232;
+  --mention-chip: rgba(232, 84, 30, 0.3);
+  --mention-chip-text: #ffc2a8;
+  --code-bg: #2b2d31;
+  --spoiler-bg: #1e1f22;
+  --spoiler-shown-bg: rgba(255, 255, 255, 0.06);
+  --scrollbar: #1a1b1e;
+
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --rail-bg: #e3e5e8;
+  --sidebar-bg: #f2f3f5;
+  --panel-bg: #ebedef;
+  --main-bg: #ffffff;
+  --elev-bg: #f2f3f5;
+  --input-bg: #ebedef;
+  --overlay: rgba(0, 0, 0, 0.5);
+  --modal-bg: #ffffff;
+  --popover-bg: #ffffff;
+  --border: rgba(6, 6, 7, 0.08);
+  --border-strong: rgba(6, 6, 7, 0.16);
+  --hover: rgba(116, 127, 141, 0.12);
+  --active: rgba(116, 127, 141, 0.24);
+  --msg-hover: rgba(6, 6, 7, 0.03);
+
+  --text: #313338;
+  --text-strong: #060607;
+  --text-muted: #5c5e66;
+  --text-faint: #8a8e96;
+  --link: #006ce7;
+
+  /* 밝은 바탕에서는 흰 글자·글자색으로 읽히도록 진한 쪽(#B8401A)을 씁니다. */
+  --accent: #b8401a;
+  --accent-hover: #9c3616;
+  --accent-soft: rgba(184, 64, 26, 0.12);
+
+  --volatile: #d9480f;
+  --volatile-soft: rgba(217, 72, 15, 0.08);
+  --volatile-border: rgba(217, 72, 15, 0.3);
+  --danger: #da373c;
+  --danger-soft: rgba(218, 55, 60, 0.1);
+  --success: #1a8a4a;
+  --success-soft: rgba(26, 138, 74, 0.12);
+  --rate-up: #137a3e;
+  --rate-down: #c4282d;
+  --warning: #b7791f;
+  --warning-soft: rgba(240, 178, 50, 0.16);
+  --mention-bg: rgba(240, 178, 50, 0.12);
+  --mention-chip: rgba(184, 64, 26, 0.15);
+  --mention-chip-text: #9c3616;
+  --code-bg: #f2f3f5;
+  --spoiler-bg: #b5bac1;
+  --spoiler-shown-bg: rgba(6, 6, 7, 0.06);
+  --scrollbar: #c4c9ce;
+
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.2);
+}

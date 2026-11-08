@@ -1,0 +1,90 @@
+# 양파 메신저(가칭) 헤드리스 시더: 코어 데몬(yangpad) systemd 단위.
+#
+# 설치(docs/headless.md "systemd로 실행"):
+#   install -m 0755 yangpad yangpa /usr/local/bin/
+#   install -m 0644 yangpa.sysusers.conf /etc/sysusers.d/yangpa.conf && systemd-sysusers
+#   install -m 0644 yangpad.service /etc/systemd/system/ && systemctl daemon-reload
+#   systemctl enable --now yangpad
+#
+# 서버에서 CLI 쓰기(소유자 토큰은 데이터 경로에 있어 yangpa 사용자만 읽음):
+#   sudo -u yangpa env YANGPA_DATA_DIR=/var/lib/yangpa YANGPA_ENDPOINT=/run/yangpa/yangpad.sock yangpa status
+#
+# 바꿀 것은 이 파일을 고치지 말고 `systemctl edit yangpad`(드롭인)로 덮어쓰세요.
+
+[Unit]
+Description=Yangpa messenger headless seeder (yangpad)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yangpa
+Group=yangpa
+# 데이터(DB·DB 키·블롭·소유자 토큰)는 /var/lib/yangpa(0700), 로컬 API 소켓은 /run/yangpa(0700, 재부팅·중지 때 사라짐).
+StateDirectory=yangpa
+StateDirectoryMode=0700
+RuntimeDirectory=yangpa
+RuntimeDirectoryMode=0700
+Environment=YANGPA_DATA_DIR=/var/lib/yangpa
+Environment=YANGPA_ENDPOINT=/run/yangpa/yangpad.sock
+# 데몬은 기본이 Tor지만 시더는 포트 47810을 열고 받는 서버라 직접 연결로 띄웁니다(Tor로 띄우려면 이 줄을 지움).
+Environment=YANGPA_DIRECT=1
+# 상시 시더라 휴면(구독 끊기)을 끕니다. 로그는 저널로(메시지 내용·키·토큰은 남지 않음).
+Environment=YANGPA_DORMANT_AFTER=0
+Environment=YANGPA_LOG=info
+# 큰 통화의 SFU 호스트를 먼저 맡고(참가하지 않은 통화도), 미디어는 UDP 47811로 받습니다(방화벽에서 열기).
+# NAT 뒤라면 드롭인으로 Environment=YANGPA_SFU_ANNOUNCE=<공인 IP>를, 맡지 않으려면 YANGPA_SFU_HOST=never를 넣으세요.
+Environment=YANGPA_SFU_HOST=prefer
+Environment=YANGPA_SFU_PORT=47811
+# 고정 포트 47810(TCP·QUIC). 같은 네트워크 탐색(mDNS)은 끔. DB 키는 0600 파일(서버에는 OS 키 저장소가 없음).
+# 수신 주소 하나라도 열지 못하면 데몬이 시작하지 않으므로 기본은 IPv4만 엽니다(ipv6.disable=1인 커널에서 IPv6
+# 주소를 넣으면 다시 시작을 되풀이함). IPv6를 쓰는 서버는 드롭인으로 --listen /ip6/::/tcp/47810 등을 더하세요
+# (docs/headless.md "IPv6"). 공인 IP가 있으면 --relay-server를 더해 크루의 릴레이 역할도 할 수 있습니다.
+ExecStart=/usr/local/bin/yangpad --key-storage file --no-mdns \
+    --listen /ip4/0.0.0.0/tcp/47810 --listen /ip4/0.0.0.0/udp/47810/quic-v1
+Restart=on-failure
+RestartSec=5s
+# 종료 신호를 받으면 네트워크를 닫고(최대 5초) 휘발성 상태를 지운 뒤 DB를 정리합니다.
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+# 자원
+UMask=0077
+# 메모리 덤프에 키가 남지 않게(기획서 '크래시 덤프' 대응).
+LimitCORE=0
+# 휘발성 채널 키를 잠긴 메모리(mlock)에 둘 수 있게.
+LimitMEMLOCK=8M
+LimitNOFILE=65536
+
+# 격리·권한 줄이기. 데몬이 쓰는 곳은 StateDirectory·RuntimeDirectory뿐입니다.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+KeyringMode=private
+# libp2p는 네트워크 인터페이스 변화를 netlink로 봅니다.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

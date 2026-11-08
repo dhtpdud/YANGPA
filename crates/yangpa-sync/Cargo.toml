@@ -1,0 +1,20 @@
+[package]
+name = "yangpa-sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+yangpa-core.workspace = true
+serde.workspace = true
+imbl.workspace = true
+postcard.workspace = true
+blake3.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "yangpa-zl"
+description = "기기 사이를 오가는 데이터의 OpenZL 압축(표시 바이트 + 내용, 커지면 그대로)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+openzl-sys.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true
