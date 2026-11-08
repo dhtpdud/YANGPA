@@ -21,6 +21,7 @@ import {
   memberView,
   profile,
   sceneSvg,
+  sample,
 } from './mockData';
 import {
   ANONYMOUS_DEVICE,
@@ -251,7 +252,7 @@ export class MockBackend {
       onion_addr: `/onion3/${'yangpamockonion'.repeat(4).slice(0, 56)}:4001`,
       peers: 9,
     };
-    if (!opts.noIdentity) this.createIdentity('세영', this.userIds.me);
+    if (!opts.noIdentity) this.createIdentity(sample('세영'), this.userIds.me);
     this.buildWorld();
     this.decorate();
     // 앞선 세계의 난수 순서가 바뀌지 않게 연락처와 P2P 전용 채널은 맨 나중에 만듭니다.
@@ -310,9 +311,9 @@ export class MockBackend {
     const device = this.devices.get(user) ?? this.rng.id(32);
     this.devices.set(user, device);
     this.myDevices = [
-      { device, box_key: 'B'.repeat(1620), name: '이 PC (데스크톱)', added_at: this.now0 - 40 * DAY, revoked_at: null },
-      { device: this.rng.id(32), box_key: 'D'.repeat(1620), name: '노트북', added_at: this.now0 - 12 * DAY, revoked_at: null },
-      { device: this.rng.id(32), box_key: 'F'.repeat(1620), name: 'NAS 시더(헤드리스)', added_at: this.now0 - 5 * DAY, revoked_at: null },
+      { device, box_key: 'B'.repeat(1620), name: sample('이 PC (데스크톱)'), added_at: this.now0 - 40 * DAY, revoked_at: null },
+      { device: this.rng.id(32), box_key: 'D'.repeat(1620), name: sample('노트북'), added_at: this.now0 - 12 * DAY, revoked_at: null },
+      { device: this.rng.id(32), box_key: 'F'.repeat(1620), name: sample('NAS 시더(헤드리스)'), added_at: this.now0 - 5 * DAY, revoked_at: null },
     ];
     const p = this.users.get(user) ?? profile(name);
     p.name = name;
@@ -329,13 +330,13 @@ export class MockBackend {
 
   /** 새 기기가 띄운 링크로 쓰던 기기가 곧 허용했다고 칩니다. */
   private acceptLink() {
-    this.createIdentity('새 기기', this.userIds.me);
+    this.createIdentity(sample('새 기기'), this.userIds.me);
     this.identity!.first_syncing = true;
     this.emit({ type: 'device.link_result', status: 'approved' });
     setTimeout(() => {
       if (!this.identity) return;
       this.identity.first_syncing = false;
-      this.identity.profile = { ...this.identity.profile, name: '양파' };
+      this.identity.profile = { ...this.identity.profile, name: sample('양파') };
       this.emit({ type: 'profile.updated', user: this.identity.user });
       this.emit({ type: 'device.synced' });
     }, 2000);
@@ -378,20 +379,20 @@ export class MockBackend {
         proposed: false,
       });
       this.safety.set(user, { digits: this.rng.digits(60), verified: key === 'minji' });
-      const chans: Array<[string, ChannelSettings, Partial<ChannelView>?]> = [[this.rng.id(16), channel('일반', 'text', { position: 0 })]];
+      const chans: Array<[string, ChannelSettings, Partial<ChannelView>?]> = [[this.rng.id(16), channel(sample('일반'), 'text', { position: 0 })]];
       if (key === 'minji') {
-        chans.push([this.rng.id(16), channel('여행-계획', 'text', { position: 1, topic: '부산 여행 준비' })]);
+        chans.push([this.rng.id(16), channel(sample('여행-계획'), 'text', { position: 1, topic: sample('부산 여행 준비') })]);
         chans.push([
           this.rng.id(16),
-          channel('비밀-이야기', 'text', {
+          channel(sample('비밀-이야기'), 'text', {
             position: 2,
             security: 'volatile',
             ttl: { mode: 'seconds', seconds: 300 },
             link_previews: false,
-            topic: '5분 뒤 사라지는 대화',
+            topic: sample('5분 뒤 사라지는 대화'),
           }),
         ]);
-        chans.push([this.rng.id(16), channel('통화', 'voice', { position: 3 })]);
+        chans.push([this.rng.id(16), channel(sample('통화'), 'voice', { position: 3 })]);
       }
       const members = [this.memberOf('me', roleIds, []), this.memberOf(key, roleIds, [])];
       const sp = this.makeSpace(spaceId, 'space', this.users.get(user)!.name, u.me, members, [
@@ -401,7 +402,7 @@ export class MockBackend {
       sp.view.my_permissions = ['administrator'];
       for (const [cid, s] of chans) {
         if (s.kind !== 'text' || s.security === 'volatile') continue;
-        const count = key === 'minji' ? (s.name === '일반' ? 60 : 14) : 12;
+        const count = key === 'minji' ? (s.name === sample('일반') ? 60 : 14) : 12;
         sp.messages.set(
           cid,
           generateHistory({
@@ -425,10 +426,10 @@ export class MockBackend {
     {
       const spaceId = this.rng.id(16);
       const cat = (name: string, position: number) => [this.rng.id(16), channel(name, 'category', { position })] as const;
-      const [catInfo, catInfoS] = cat('정보', 0);
-      const [catTalk, catTalkS] = cat('대화', 1);
-      const [catForum, catForumS] = cat('포럼', 2);
-      const [catVoice, catVoiceS] = cat('통화', 3);
+      const [catInfo, catInfoS] = cat(sample('정보'), 0);
+      const [catTalk, catTalkS] = cat(sample('대화'), 1);
+      const [catForum, catForumS] = cat(sample('포럼'), 2);
+      const [catVoice, catVoiceS] = cat(sample('통화'), 3);
       const ids = {
         notice: this.rng.id(16),
         rules: this.rng.id(16),
@@ -444,13 +445,13 @@ export class MockBackend {
         [catTalk, catTalkS],
         [catForum, catForumS],
         [catVoice, catVoiceS],
-        [ids.notice, channel('공지', 'text', { parent: catInfo, position: 0, topic: '운영진 공지 · 정모 일정', history: 'public' })],
-        [ids.rules, channel('규칙', 'text', { parent: catInfo, position: 1, history: 'public' })],
-        [ids.chat, channel('잡담', 'text', { parent: catTalk, position: 0, topic: '아무 이야기나 편하게 🧅', history: 'public' }), { unread: 12 }],
-        [ids.shots, channel('스크린샷', 'text', { parent: catTalk, position: 1, topic: '게임 스샷·사진' })],
+        [ids.notice, channel(sample('공지'), 'text', { parent: catInfo, position: 0, topic: sample('운영진 공지 · 정모 일정'), history: 'public' })],
+        [ids.rules, channel(sample('규칙'), 'text', { parent: catInfo, position: 1, history: 'public' })],
+        [ids.chat, channel(sample('잡담'), 'text', { parent: catTalk, position: 0, topic: sample('아무 이야기나 편하게 🧅'), history: 'public' }), { unread: 12 }],
+        [ids.shots, channel(sample('스크린샷'), 'text', { parent: catTalk, position: 1, topic: sample('게임 스샷·사진') })],
         [
           ids.secret,
-          channel('비밀-작전', 'text', {
+          channel(sample('비밀-작전'), 'text', {
             parent: catTalk,
             position: 2,
             security: 'volatile',
@@ -458,22 +459,22 @@ export class MockBackend {
             ttl: { mode: 'seconds', seconds: 60 },
             history: 'public',
             link_previews: false,
-            topic: '들어와 있는 동안만 대화 · 60초 뒤 사라짐',
+            topic: sample('들어와 있는 동안만 대화 · 60초 뒤 사라짐'),
           }),
           { joined: false, participants: [u.minji, u.doyun, u.hajun] },
         ],
-        [ids.forum, channel('공략-게시판', 'forum', { parent: catForum, position: 0, forum_tags: FORUM_TAGS, topic: '공략·질문·버그 제보' })],
+        [ids.forum, channel(sample('공략-게시판'), 'forum', { parent: catForum, position: 0, forum_tags: FORUM_TAGS, topic: sample('공략·질문·버그 제보') })],
         // 앱은 늘 Tor로 돌아 통화는 참가한 P2P 전용 채널에서만 됩니다. 통화 화면을 볼 수 있게 이 채널은 참가한 P2P 전용으로 둡니다.
         [
           ids.voice,
-          channel('일반 음성', 'voice', { parent: catVoice, position: 0 }),
+          channel(sample('일반 음성'), 'voice', { parent: catVoice, position: 0 }),
           { participants: [u.minji, u.doyun, u.hajun], p2p: true, p2p_joined: true },
         ],
-        [ids.voice2, channel('게임 음성', 'voice', { parent: catVoice, position: 1 }), { participants: [u.seoyeon, u.jiho] }],
+        [ids.voice2, channel(sample('게임 음성'), 'voice', { parent: catVoice, position: 1 }), { participants: [u.seoyeon, u.jiho] }],
       ];
       const members = MEMBER_SEEDS.map((s) => this.memberOf(s.key, roleIds, s.roles));
-      const sp = this.makeSpace(spaceId, 'crew', '게임 모임', u.me, members, crewRoles(roleIds), chans, emojis);
-      sp.view.settings.description = '주말 레이드 · 정모 · 잡담하는 크루';
+      const sp = this.makeSpace(spaceId, 'crew', sample('게임 모임'), u.me, members, crewRoles(roleIds), chans, emojis);
+      sp.view.settings.description = sample('주말 레이드 · 정모 · 잡담하는 크루');
       sp.view.my_permissions = ['administrator'];
       sp.servers = { stun: ['stun.game-crew.example:3478'] };
       const authors = MEMBER_SEEDS.filter((s) => !s.automation).map((s) => u[s.key]);
@@ -511,7 +512,7 @@ export class MockBackend {
           me: u.me,
           blobs: this.blobs,
           lamportBase: this.nextLamport(8),
-          extraLines: ['📢 이번 주 토요일 21시 정기 레이드 있습니다. 통화 채널로 모여 주세요!'],
+          extraLines: [sample('📢 이번 주 토요일 21시 정기 레이드 있습니다. 통화 채널로 모여 주세요!')],
         }),
       );
       sp.messages.set(ids.rules, []);
@@ -588,9 +589,9 @@ export class MockBackend {
       const spaceId = this.rng.id(16);
       const general = this.rng.id(16);
       const members = ['me', 'jiho', 'seoyeon'].map((k) => this.memberOf(k, {}, []));
-      const sp = this.makeSpace(spaceId, 'crew', '러스트 스터디', u.jiho, members, [
+      const sp = this.makeSpace(spaceId, 'crew', sample('러스트 스터디'), u.jiho, members, [
         { id: EVERYONE_ROLE, name: '@everyone', color: 0, rank: 0, permissions: 1983, automation: false },
-      ], [[general, channel('일반', 'text', { topic: '매주 수요일 21시' })]], []);
+      ], [[general, channel(sample('일반'), 'text', { topic: sample('매주 수요일 21시') })]], []);
       sp.view.my_permissions = ['view_channel', 'send_messages', 'read_history', 'add_reactions', 'attach_files', 'use_crew_stun'];
       sp.servers = { stun: ['stun.rust-study.example:3478'] };
       sp.messages.set(
@@ -606,7 +607,7 @@ export class MockBackend {
           me: u.me,
           blobs: this.blobs,
           lamportBase: this.nextLamport(30),
-          extraLines: ['소유권 개념 다시 보니까 이해가 되네요', 'async 트레잇 이제 안정화됐죠?', 'clippy 경고 0개 달성!'],
+          extraLines: [sample('소유권 개념 다시 보니까 이해가 되네요'), sample('async 트레잇 이제 안정화됐죠?'), sample('clippy 경고 0개 달성!')],
         }),
       );
     }
@@ -615,7 +616,7 @@ export class MockBackend {
       {
         request_id: 'req-' + this.rng.id(16),
         user: this.rng.id(32),
-        profile: profile('하은', { bio: '민지 친구예요' }),
+        profile: profile(sample('하은'), { bio: sample('민지 친구예요') }),
         received_at: now - 3 * 3600_000,
       },
     ];
@@ -625,26 +626,26 @@ export class MockBackend {
     this.tokens = [
       {
         id: 'tk-' + this.rng.id(16).slice(0, 10),
-        name: '요약봇(MCP)',
+        name: sample('요약봇(MCP)'),
         scopes: ['read', 'write'],
-        spaces: [[...this.spaces.values()].find((s) => s.view.settings.name === '게임 모임')!.view.space],
+        spaces: [[...this.spaces.values()].find((s) => s.view.settings.name === sample('게임 모임'))!.view.space],
         automation: true,
         created_at: now - 7 * DAY,
         last_used_at: now - 20 * 60_000,
       },
       { id: 'tk-' + this.rng.id(16).slice(0, 10), name: 'CLI', scopes: ['owner'], spaces: [], automation: false, created_at: now - 30 * DAY },
     ];
-    const crew = [...this.spaces.values()].find((s) => s.view.settings.name === '게임 모임')!;
+    const crew = [...this.spaces.values()].find((s) => s.view.settings.name === sample('게임 모임'))!;
     this.confirmations = [
       {
         id: 'cf-' + this.rng.id(16).slice(0, 10),
         method: 'member.kick',
-        params: { space: crew.view.space, user: u.taemin, reason: '장기 미접속' },
-        token_name: '요약봇(MCP)',
+        params: { space: crew.view.space, user: u.taemin, reason: sample('장기 미접속') },
+        token_name: sample('요약봇(MCP)'),
         space: crew.view.space,
         requested_at: now - 15 * 60_000,
         expires_at: now + 23 * 3600_000,
-        summary: '「게임 모임」에서 태민 추방(사유: 장기 미접속)',
+        summary: sample('「게임 모임」에서 태민 추방(사유: 장기 미접속)'),
       },
     ];
     const methods = ['message.list', 'space.get', 'message.send', 'member.kick', 'seed.coverage', 'message.list', 'channel.list'];
@@ -656,7 +657,7 @@ export class MockBackend {
         id: this.auditSeq++,
         at: now - (40 - i) * 7 * 60_000,
         method,
-        token_name: auto ? '요약봇(MCP)' : '데스크톱 앱',
+        token_name: auto ? sample('요약봇(MCP)') : sample('데스크톱 앱'),
         ok: !kick,
         code: kick ? 1006 : undefined,
         automation: auto,
@@ -695,18 +696,18 @@ export class MockBackend {
     if (!crew) return;
     crew.view.settings.icon = image(5, 128, 128, '🧅');
     const troll = this.rng.id(32);
-    this.users.set(troll, profile('도배꾼', { bio: '' }));
+    this.users.set(troll, profile(sample('도배꾼'), { bio: '' }));
     this.bans.set(crew.view.space, [
       {
         user: troll,
         profile: this.users.get(troll) ?? null,
-        reason: '광고 도배',
+        reason: sample('광고 도배'),
         banned_by: u.me,
         banned_at: this.now0 - 2 * DAY,
       },
     ]);
     this.blocked.set(u.jiho, this.now0 - 3 * DAY);
-    const chat = crew.view.channels.find((c) => c.settings.name === '잡담');
+    const chat = crew.view.channels.find((c) => c.settings.name === sample('잡담'));
     const list = chat ? crew.messages.get(chat.channel) ?? [] : [];
     const targets = list.filter((m) => !m.deleted && m.author !== u.me && m.text).slice(-40, -30);
     for (const [i, m] of targets.slice(0, 2).entries()) {
@@ -716,7 +717,7 @@ export class MockBackend {
         channel: chat!.channel,
         message: m.id,
         reporter: i === 0 ? u.minji : u.seoyeon,
-        reason: i === 0 ? '욕설이 있어요' : '스팸 링크 같아요',
+        reason: i === 0 ? sample('욕설이 있어요') : sample('스팸 링크 같아요'),
         reported_at: this.now0 - (i + 1) * 3600_000,
         status: 'open',
         resolution: null,
@@ -729,10 +730,10 @@ export class MockBackend {
         channel: chat!.channel,
         message: targets[2].id,
         reporter: u.doyun,
-        reason: '도배',
+        reason: sample('도배'),
         reported_at: this.now0 - 2 * DAY,
         status: 'resolved',
-        resolution: '기각 · 대화 맥락상 문제없음',
+        resolution: sample('기각 · 대화 맥락상 문제없음'),
       });
     }
     this.markMembersBlocked();
@@ -748,19 +749,19 @@ export class MockBackend {
     };
     const yangpa = emojis[0];
     const dance = emojis[2];
-    set(8, { author: u.doyun, text: '이번 주 토요일 레이드 몇 시였죠?', created_at: base - 9 * 60_000, reactions: [], attachments: [], embeds: [], deleted: false, reply_to: undefined });
-    set(7, { author: u.minji, text: '21시요! 공지 채널에 올려 뒀어요', created_at: base - 8 * 60_000, reactions: [{ emoji: '👍', count: 3, me: true }], attachments: [], embeds: [], deleted: false, reply_to: undefined });
+    set(8, { author: u.doyun, text: sample('이번 주 토요일 레이드 몇 시였죠?'), created_at: base - 9 * 60_000, reactions: [], attachments: [], embeds: [], deleted: false, reply_to: undefined });
+    set(7, { author: u.minji, text: sample('21시요! 공지 채널에 올려 뒀어요'), created_at: base - 8 * 60_000, reactions: [{ emoji: '👍', count: 3, me: true }], attachments: [], embeds: [], deleted: false, reply_to: undefined });
     set(6, {
       author: u.minji,
-      text: '공략 영상도 같이 봐 두세요 https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      text: sample('공략 영상도 같이 봐 두세요 https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
       created_at: base - 8 * 60_000 + 20_000,
       embeds: [
         {
           url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-          title: '보스 레이드 3페이즈 공략 (노데스 클리어)',
-          description: '패턴별 위치 선정과 딜 타이밍을 정리했습니다.',
+          title: sample('보스 레이드 3페이즈 공략 (노데스 클리어)'),
+          description: sample('패턴별 위치 선정과 딜 타이밍을 정리했습니다.'),
           site_name: 'YouTube',
-          thumbnail_base64: b64(sceneSvg(7, 320, 180, '▶ 공략 영상')),
+          thumbnail_base64: b64(sceneSvg(7, 320, 180, sample('▶ 공략 영상'))),
           player_url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
         },
       ],
@@ -771,7 +772,7 @@ export class MockBackend {
     });
     set(5, {
       author: u.hajun,
-      text: `오 감사합니다 <a:${dance.name}:${dance.id}>`,
+      text: `${sample('오 감사합니다')} <a:${dance.name}:${dance.id}>`,
       created_at: base - 6 * 60_000,
       reply_to: chat[n - 6].id,
       reactions: [],
@@ -781,7 +782,7 @@ export class MockBackend {
     });
     set(4, {
       author: u.seoyeon,
-      text: '어제 정모 사진 올려요 📸',
+      text: sample('어제 정모 사진 올려요 📸'),
       created_at: base - 5 * 60_000,
       attachments: [attachment(this.rng, this.blobs, 77)],
       reactions: [
@@ -795,7 +796,7 @@ export class MockBackend {
     set(3, { author: u.doyun, text: '', deleted: true, created_at: base - 3 * 60_000, reactions: [], attachments: [], embeds: [], reply_to: undefined });
     set(2, {
       author: u.me,
-      text: `<@${u.minji}> 레이드 끝나고 시더 커버리지 한번 봐 주세요. 스크린샷 채널이 0이에요`,
+      text: `<@${u.minji}> ${sample('레이드 끝나고 시더 커버리지 한번 봐 주세요. 스크린샷 채널이 0이에요')}`,
       created_at: base - 60_000,
       edited_at: base - 30_000,
       reactions: [],
@@ -806,7 +807,7 @@ export class MockBackend {
     });
     set(1, {
       author: u.minji,
-      text: `넵 확인할게요! NAS 시더에 스크린샷 채널 추가해 둘게요 <:${yangpa.name}:${yangpa.id}>`,
+      text: `${sample('넵 확인할게요! NAS 시더에 스크린샷 채널 추가해 둘게요')} <:${yangpa.name}:${yangpa.id}>`,
       created_at: base,
       reactions: [{ emoji: '🙏', count: 1, me: true }],
       attachments: [],
@@ -872,13 +873,13 @@ export class MockBackend {
   private addP2pChannel() {
     const crew = this.crew();
     if (!crew) return;
-    const talk = crew.view.channels.find((c) => c.settings.kind === 'category' && c.settings.name === '대화');
+    const talk = crew.view.channels.find((c) => c.settings.kind === 'category' && c.settings.name === sample('대화'));
     const id = this.rng.id(16);
     const position = crew.view.channels.filter((c) => c.settings.parent === (talk?.channel ?? null)).length;
-    const settings = channel('직접-대화', 'text', {
+    const settings = channel(sample('직접-대화'), 'text', {
       parent: talk?.channel ?? null,
       position,
-      topic: '참가한 기기끼리 직접 연결 · 서로 IP가 보입니다',
+      topic: sample('참가한 기기끼리 직접 연결 · 서로 IP가 보입니다'),
       history: 'public',
     });
     crew.view.channels.push(channelView(id, settings, { p2p: true, p2p_joined: false }));
@@ -904,16 +905,16 @@ export class MockBackend {
   private addAnonChannels() {
     const crew = this.crew();
     if (!crew) return;
-    const talk = crew.view.channels.find((c) => c.settings.kind === 'category' && c.settings.name === '대화');
-    const voiceCat = crew.view.channels.find((c) => c.settings.kind === 'category' && c.settings.name === '통화');
+    const talk = crew.view.channels.find((c) => c.settings.kind === 'category' && c.settings.name === sample('대화'));
+    const voiceCat = crew.view.channels.find((c) => c.settings.kind === 'category' && c.settings.name === sample('통화'));
     const text = this.rng.id(16);
     const voice = this.rng.id(16);
     const position = (parent: string | undefined) => crew.view.channels.filter((c) => c.settings.parent === (parent ?? null)).length;
     crew.view.channels.push(
-      channelView(text, channel('익명-건의함', 'text', { parent: talk?.channel ?? null, position: position(talk?.channel), topic: '누가 썼는지 보이지 않아요' }), {
+      channelView(text, channel(sample('익명-건의함'), 'text', { parent: talk?.channel ?? null, position: position(talk?.channel), topic: sample('누가 썼는지 보이지 않아요') }), {
         anonymous: true,
       }),
-      channelView(voice, channel('익명-수다', 'voice', { parent: voiceCat?.channel ?? null, position: position(voiceCat?.channel) }), {
+      channelView(voice, channel(sample('익명-수다'), 'voice', { parent: voiceCat?.channel ?? null, position: position(voiceCat?.channel) }), {
         anonymous: true,
         p2p: true,
         p2p_joined: true,
@@ -983,7 +984,7 @@ export class MockBackend {
         head.attachments = [
           {
             blob,
-            name: `공략_${i}.png`,
+            name: `${sample('공략')}_${i}.png`,
             mime: 'image/png',
             size: 840_000 + i,
             width: 1600,
@@ -1001,7 +1002,7 @@ export class MockBackend {
   /** 보낼 첨부(경로) → 보기. 이미지는 그림을 만들어 두고, 동영상은 앱이 실어 보낸 썸네일·길이를 씁니다. */
   private mockAttachments(list: AttachmentInput[]): AttachmentView[] {
     return list.map((a, i) => {
-      const name = a.name ?? a.path.split(/[\\/]/).pop() ?? '파일';
+      const name = a.name ?? a.path.split(/[\\/]/).pop() ?? sample('파일');
       const isImg = /\.(png|jpe?g|gif|webp)$/i.test(name);
       const isVideo = /\.(mp4|m4v|webm|mov)$/i.test(name);
       const blob = this.rng.id(32);
@@ -1164,7 +1165,7 @@ export class MockBackend {
   private contactSpace(user: string, members: MemberView[]): MockSpace {
     const sp = this.makeSpace(this.rng.id(16), 'space', this.users.get(user)?.name ?? '', this.me, members, [
       { id: EVERYONE_ROLE, name: '@everyone', color: 0, rank: 0, permissions: 1983, automation: false },
-    ], [[this.rng.id(16), channel('일반', 'text')]], []);
+    ], [[this.rng.id(16), channel(sample('일반'), 'text')]], []);
     sp.peer = user;
     sp.view.my_permissions = ['administrator'];
     return sp;
@@ -1254,12 +1255,12 @@ export class MockBackend {
       setInterval(() => {
         const crew = this.crew();
         if (!crew) return;
-        const ch = crew.view.channels.find((c) => c.settings.name === '잡담');
+        const ch = crew.view.channels.find((c) => c.settings.name === sample('잡담'));
         if (!ch) return;
         const authors = crew.view.members.filter((m) => m.online && m.user !== this.me && !m.automation);
         if (authors.length === 0) return;
         const a = this.rng.pick(authors);
-        this.postAs(crew, ch.channel, a.user, this.rng.pick(['ㅋㅋㅋ', '오 좋네요', '저도요!', '잠깐만요', '굿굿 👍', '확인했습니다']));
+        this.postAs(crew, ch.channel, a.user, this.rng.pick([sample('ㅋㅋㅋ'), sample('오 좋네요'), sample('저도요!'), sample('잠깐만요'), sample('굿굿 👍'), sample('확인했습니다')]));
       }, 45_000),
     );
     this.timers.push(
@@ -1332,7 +1333,7 @@ export class MockBackend {
   }
 
   crew(): MockSpace | undefined {
-    return [...this.spaces.values()].find((s) => s.view.settings.name === '게임 모임');
+    return [...this.spaces.values()].find((s) => s.view.settings.name === sample('게임 모임'));
   }
 
   postAs(sp: MockSpace, channelId: string, author: string, text: string, extra: Partial<MessageView> = {}) {
@@ -1374,7 +1375,7 @@ export class MockBackend {
       if (m.text.includes(`<@${this.me}>`)) sp.mention++;
     }
     const spaceName = sp.view.kind === 'space' ? this.users.get(author)?.name ?? '' : sp.view.settings.name;
-    const authorName = m.anonymous ? '익명' : this.users.get(author)?.name ?? '알 수 없음';
+    const authorName = m.anonymous ? sample('익명') : this.users.get(author)?.name ?? sample('알 수 없음');
     this.emit({
       type: 'message.new',
       space: sp.view.space,
@@ -1591,7 +1592,7 @@ export class MockBackend {
   }
 
   private auditLog(method: string, ok: boolean, code?: number) {
-    this.audit.push({ id: this.auditSeq++, at: Date.now(), method, token_name: '데스크톱 앱', ok, code, automation: false });
+    this.audit.push({ id: this.auditSeq++, at: Date.now(), method, token_name: sample('데스크톱 앱'), ok, code, automation: false });
     if (this.audit.length > 500) this.audit.shift();
   }
 
@@ -1665,7 +1666,7 @@ export class MockBackend {
         clearTimeout(this.linkTimer);
         // 잠시 뒤 새 기기가 이 링크로 들어왔다고 칩니다.
         this.linkTimer = setTimeout(() => {
-          this.linkRequest = { name: '새 휴대폰', code: '482913', contested: false };
+          this.linkRequest = { name: sample('새 휴대폰'), code: '482913', contested: false };
           this.emit({ type: 'device.link_request', ...this.linkRequest });
         }, 4000);
         return { url: `yangpa://device/${this.rng.id(32)}`, qr: this.fakeQr(), expires_at: Date.now() + 10 * 60_000 };
@@ -1812,7 +1813,7 @@ export class MockBackend {
         if (appLinkKind(url) !== 'friend' || url.length < 40) throw new RpcError(ErrorCode.InvalidInput, '연락처 링크 형식이 아닙니다');
         // 링크 주인의 승인 없이 바로 1대1 대화가 열리고, 링크가 만료될 때까지 임시 연락처로 남습니다.
         const user = this.rng.id(32);
-        const prof = profile(this.rng.pick(['지우', '나연', '현우', '소율']), { bio: '연락처 링크로 만남' });
+        const prof = profile(this.rng.pick([sample('지우'), sample('나연'), sample('현우'), sample('소율')]), { bio: sample('연락처 링크로 만남') });
         this.users.set(user, prof);
         this.devices.set(user, this.rng.id(32));
         this.online.set(user, true);
@@ -1889,7 +1890,7 @@ export class MockBackend {
         ];
         const sp = this.makeSpace(spaceId, 'space', req.profile.name, this.me, members, [
           { id: EVERYONE_ROLE, name: '@everyone', color: 0, rank: 0, permissions: 1983, automation: false },
-        ], [[general, channel('일반', 'text')]], []);
+        ], [[general, channel(sample('일반'), 'text')]], []);
         sp.peer = req.user;
         sp.view.my_permissions = ['administrator'];
         this.friends.push({ user: req.user, profile: req.profile, space: spaceId, online: true, safety_number_verified: false, kind: 'friend', proposed: false });
@@ -1990,8 +1991,8 @@ export class MockBackend {
           [{ user: this.me, profile: this.users.get(this.me)!, roles: [], online: true, automation: false }],
           [{ id: EVERYONE_ROLE, name: '@everyone', color: 0, rank: 0, permissions: 1983, automation: false }],
           [
-            [general, channel('일반', 'text')],
-            [voice, channel('통화', 'voice', { position: 1 })],
+            [general, channel(sample('일반'), 'text')],
+            [voice, channel(sample('통화'), 'voice', { position: 1 })],
           ],
           [],
         );
@@ -2049,7 +2050,7 @@ export class MockBackend {
         setTimeout(() => {
           sp.view.kind = 'crew';
           sp.view.pending_crew_conversion = undefined;
-          const admin: Role = { id: this.rng.id(16), name: '관리자', color: 0xf1c40f, rank: 50, permissions: 2 ** 31, automation: false };
+          const admin: Role = { id: this.rng.id(16), name: sample('관리자'), color: 0xf1c40f, rank: 50, permissions: 2 ** 31, automation: false };
           sp.view.roles.push(admin);
           const other = sp.view.members.find((m) => m.user !== this.me);
           if (other) other.roles = [admin.id];
@@ -2091,7 +2092,7 @@ export class MockBackend {
           .map(({ m, device }) => ({
             user: m.user,
             device,
-            name: m.user === this.me ? '이 컴퓨터' : `${m.profile.name}의 기기`,
+            name: m.user === this.me ? sample('이 컴퓨터') : sample('{name}의 기기').replace('{name}', m.profile.name),
             online: m.user === this.me || !!this.online.get(m.user),
             current: device === v.committer,
             mine: m.user === this.me,
@@ -2376,8 +2377,8 @@ export class MockBackend {
             ? [
                 {
                   url: text.match(/https?:\/\/\S+/)?.[0] ?? '',
-                  title: '동영상',
-                  description: '보내는 쪽이 만든 미리보기',
+                  title: sample('동영상'),
+                  description: sample('보내는 쪽이 만든 미리보기'),
                   site_name: 'YouTube',
                   player_url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
                 },
@@ -2470,7 +2471,7 @@ export class MockBackend {
         const now = Date.now();
         const post: ForumPostView = {
           id: this.rng.id(32),
-          title: String(p.title ?? '').trim() || '제목 없음',
+          title: String(p.title ?? '').trim() || sample('제목 없음'),
           tags: p.tags ?? [],
           author: this.me,
           created_at: now,
@@ -2504,7 +2505,7 @@ export class MockBackend {
           space: sp.view.space,
           channel: p.channel,
           message: this.present(sp, p.channel, head),
-          notify: { title: `${ch.anonymous ? '익명' : this.users.get(this.me)?.name ?? ''} (${sp.view.settings.name} #${ch.settings.name})`, body: post.title },
+          notify: { title: `${ch.anonymous ? sample('익명') : this.users.get(this.me)?.name ?? ''} (${sp.view.settings.name} #${ch.settings.name})`, body: post.title },
         });
         if (p.featured) {
           ch.featured_post = post.id;
@@ -2765,7 +2766,7 @@ export class MockBackend {
         const sp = this.space(p.space);
         const role: Role = {
           id: this.rng.id(16),
-          name: String(p.name ?? '새 역할'),
+          name: String(p.name ?? sample('새 역할')),
           color: p.color ?? 0x99aab5,
           rank: p.rank ?? 1,
           permissions: permsFromNames(p.permissions ?? []),
@@ -2876,7 +2877,7 @@ export class MockBackend {
         const sp = this.space(p.space);
         const url = String(p.url ?? '').trim();
         if (appLinkKind(url) !== 'archive') throw new RpcError(ErrorCode.InvalidInput, '보관 노드 링크 형식이 아닙니다');
-        const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : '보관 노드';
+        const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : sample('보관 노드');
         const view: ArchiveView = {
           device: this.rng.id(32),
           user: this.rng.id(32),
@@ -3198,7 +3199,7 @@ export class MockBackend {
   /** 블롭 원본 바이트. 이미지는 SVG를 캔버스로 PNG로 바꿔 MIME과 내용을 맞춥니다. */
   async blobBytes(blob: string): Promise<Uint8Array> {
     const b = this.blobs.get(blob);
-    if (!b) return new TextEncoder().encode('MOCK 파일 내용\n');
+    if (!b) return new TextEncoder().encode(sample('MOCK 파일 내용\n'));
     if (b.mime === 'image/svg+xml' || typeof document === 'undefined') return new TextEncoder().encode(b.svg);
     const cached = this.pngCache.get(blob);
     if (cached) return cached;
@@ -3284,7 +3285,7 @@ const PERM_BITS: Record<string, number> = {
 const MAX_REASON_CHARS = 512;
 
 /** 데몬의 `anon::name`처럼 같은 사람은 늘 같은 가명. */
-const ANON_NAMES = ['용감한 수달', '졸린 판다', '느긋한 고래', '수줍은 여우', '조용한 올빼미'];
+const ANON_NAMES = ['용감한 수달', '졸린 판다', '느긋한 고래', '수줍은 여우', '조용한 올빼미'].map(sample);
 function mockAnonName(user: string): string {
   return ANON_NAMES[[...user].reduce((sum, c) => sum + c.charCodeAt(0), 0) % ANON_NAMES.length];
 }
@@ -3337,7 +3338,7 @@ const VOLATILE_LINES = [
   '비밀번호는 음성으로 알려 줄게요',
   '오케이 접수',
   '스크린샷은 못 막으니까 조심 ㅎㅎ',
-];
+].map(sample);
 
 /** 브라우저 개발용 MOCK 전송. URL에 ?onboarding이면 신원 없이, ?quiet면 무작위 활동 없이 시작합니다. */
 export function createMockTransport(opts?: MockOptions): Transport & { backend: MockBackend } {

@@ -10,7 +10,7 @@ npm ci
 npm run dev          # 브라우저에서 http://localhost:1420 — 데몬 없이 MOCK 백엔드(api/mock.ts)로 동작
 npm run build        # tsc --noEmit + vite build → dist/
 npm test             # vitest: 단위·컴포넌트(happy-dom)·계약 시험 + 실제 데몬 종단 간 시험(아래)
-npm run screenshot   # dist를 MOCK으로 띄워 screenshots/에 1440x900 화면 저장(전역 Playwright 사용, 없으면 PLAYWRIGHT_MODULE·CHROME_PATH로 지정)
+npm run screenshot   # dist를 MOCK으로 띄워 screenshots/에 1440x900 영어 화면 저장(SHOT_LANG=ko면 한국어 화면을 screenshots/ko/에. 전역 Playwright 사용, 없으면 PLAYWRIGHT_MODULE·CHROME_PATH로 지정)
 
 # 데스크톱 앱(리눅스는 webkit2gtk-4.1, libsoup-3.0 개발 패키지 필요)
 cargo build -p yangpa-desktop        # 작업 공간 기본 멤버가 아니므로 -p로 지정

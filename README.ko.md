@@ -48,7 +48,7 @@
 </p>
 
 <p align="center">
-  <img src="apps/desktop/screenshots/01-crew-text-channel.png" alt="크루의 텍스트 채널 화면. 왼쪽에 채널 목록, 가운데에 대화, 오른쪽에 멤버 목록이 있고 왼쪽 아래에 Tor 연결 표시가 보입니다." width="100%">
+  <img src="apps/desktop/screenshots/ko/01-crew-text-channel.png" alt="크루의 텍스트 채널 화면. 왼쪽에 채널 목록, 가운데에 대화, 오른쪽에 멤버 목록이 있고 왼쪽 아래에 Tor 연결 표시가 보입니다." width="100%">
 </p>
 
 ## 왜 YANGPA인가
@@ -72,72 +72,72 @@
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="apps/desktop/screenshots/02-volatile-channel.png" alt="휘발성 채널. 보장하는 것과 막을 수 없는 것을 나란히 적은 안내가 위에 있고, 메시지마다 사라질 때까지의 남은 시간이 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/02-volatile-channel.png" alt="휘발성 채널. 보장하는 것과 막을 수 없는 것을 나란히 적은 안내가 위에 있고, 메시지마다 사라질 때까지의 남은 시간이 보입니다."><br>
       <strong>휘발성 채널</strong><br>
       내용·첨부는 메모리에만 있고 수명이 지나면 지워집니다. 보장하는 것과 막을 수 없는 것을 화면에 함께 보입니다.
     </td>
     <td width="50%" valign="top">
-      <img src="apps/desktop/screenshots/11-settings-network.png" alt="네트워크 설정. Tor 상태와 onion 주소, Tor라서 꺼지는 기능 목록, 브리지 설정이 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/11-settings-network.png" alt="네트워크 설정. Tor 상태와 onion 주소, Tor라서 꺼지는 기능 목록, 브리지 설정이 보입니다."><br>
       <strong>Tor와 브리지</strong><br>
       앱에서 끌 수 없는 Tor. 막힌 망에서는 Snowflake·obfs4 브리지로 들어갑니다. Tor라서 꺼지는 기능도 그대로 알립니다.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/20-trust-switch.png" alt="상대 프로필의 설정 탭. 안전 번호와 신뢰 스위치, 지금 연결 방식이 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/20-trust-switch.png" alt="상대 프로필의 설정 탭. 안전 번호와 신뢰 스위치, 지금 연결 방식이 보입니다."><br>
       <strong>안전 번호와 신뢰 스위치</strong><br>
       중간자를 막는 안전 번호를 직접 비교하고, IP를 보여도 되는 사람만 골라 직접 연결합니다.
     </td>
     <td valign="top">
-      <img src="apps/desktop/screenshots/19-p2p-channel-lock.png" alt="P2P 전용 채널의 잠금 화면. 참가자가 서로의 IP를 볼 수 있다는 경고와 참가 단추가 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/19-p2p-channel-lock.png" alt="P2P 전용 채널의 잠금 화면. 참가자가 서로의 IP를 볼 수 있다는 경고와 참가 단추가 보입니다."><br>
       <strong>P2P 전용 채널</strong><br>
       빠른 파일·통화가 필요한 채널은 경고를 보고 참가한 기기끼리만 직접 잇습니다. 참가 전에는 내용이 열리지 않습니다.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/15-device-link.png" alt="새 기기 연결 요청 창. 6자리 번호와 허용·거절 단추가 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/15-device-link.png" alt="새 기기 연결 요청 창. 6자리 번호와 허용·거절 단추가 보입니다."><br>
       <strong>새 기기 승인</strong><br>
       새 기기는 쓰던 기기의 일회용 QR로만 들어오고, 양쪽의 6자리 번호를 맞춰 본 사람이 허용합니다.
     </td>
     <td valign="top">
-      <img src="apps/desktop/screenshots/14-anonymous-channel.png" alt="익명 채널. 글쓴이 이름 대신 느긋한 고래 같은 가명이 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/14-anonymous-channel.png" alt="익명 채널. 글쓴이 이름 대신 느긋한 고래 같은 가명이 보입니다."><br>
       <strong>익명 채널</strong><br>
       글쓴이를 채널별 가명으로 표시합니다. 앱 화면에서만 가리는 기능입니다(<a href="#익명성-누구에게서-무엇을-숨기나">아래 표</a>).
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/22-tor-call.png" alt="Tor 통화 화면. 패킷 암호화와 Tor 통화 소리만 표시, 참가자 세 명이 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/22-tor-call.png" alt="Tor 통화 화면. 패킷 암호화와 Tor 통화 소리만 표시, 참가자 세 명이 보입니다."><br>
       <strong>Tor 통화</strong><br>
       WebRTC 없이 소리만 Tor로 나릅니다. 말이 0.5~1.5초쯤 늦는 대신 IP가 드러나지 않습니다.
     </td>
     <td valign="top">
-      <img src="apps/desktop/screenshots/04-voice-channel.png" alt="화면공유를 보는 통화 화면. 코드 편집기 화면이 크게 보이고 아래에 참가자가 있습니다."><br>
+      <img src="apps/desktop/screenshots/ko/04-voice-channel.png" alt="화면공유를 보는 통화 화면. 코드 편집기 화면이 크게 보이고 아래에 참가자가 있습니다."><br>
       <strong>화면공유</strong><br>
       P2P 전용 채널과 서로 신뢰한 상대는 WebRTC로 잇습니다. 프레임마다 종단간 암호화합니다.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/17-ai-confirmations.png" alt="확인 대기 화면. AI가 요청한 멤버 추방을 승인하거나 거절하는 단추가 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/17-ai-confirmations.png" alt="확인 대기 화면. AI가 요청한 멤버 추방을 승인하거나 거절하는 단추가 보입니다."><br>
       <strong>AI에는 사람의 승인을</strong><br>
       자동화 토큰이 요청한 파괴적 작업은 사람이 승인해야 실행됩니다. 인증한 모든 호출은 감사 기록에 남습니다.
     </td>
     <td valign="top">
-      <img src="apps/desktop/screenshots/16-settings-sync.png" alt="동기화 설정. 시더 켜기, 나눠 줄 데이터 종류, 속도 제한이 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/16-settings-sync.png" alt="동기화 설정. 시더 켜기, 나눠 줄 데이터 종류, 속도 제한이 보입니다."><br>
       <strong>시더 설정</strong><br>
       나눠 줄 데이터 종류, 대역폭, 동시 전송 수를 내가 정합니다. 사람·크루·채널마다 속도도 제한합니다.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/05-forum-light.png" alt="밝은 테마의 포럼 채널. 게시글 카드가 보입니다."><br>
+      <img src="apps/desktop/screenshots/ko/05-forum-light.png" alt="밝은 테마의 포럼 채널. 게시글 카드가 보입니다."><br>
       <strong>포럼과 밝은 테마</strong><br>
       게시글과 태그로 정리하는 포럼 채널이 있고, 밝은 테마와 어두운 테마를 고릅니다.
     </td>
     <td valign="top" align="center">
-      <img src="apps/desktop/screenshots/21-android.png" alt="Android 좁은 화면의 휘발성 채널." width="230"><br>
+      <img src="apps/desktop/screenshots/ko/21-android.png" alt="Android 좁은 화면의 휘발성 채널." width="230"><br>
       <strong>Android</strong><br>
       데스크톱과 같은 화면 코드를 쓰고, 데몬은 앱 안에서 돌아갑니다.
     </td>
@@ -458,7 +458,7 @@ zip(`target/portable/<커밋>/`)을 만들 수 있고, 단계마다 걸린 시�
 바이너리에 사용자 이름이 담긴 경로가 남지 않게 `C:\yangpa-build`(`DIST_DIR`로 바꿈)에서 하므로 설치 파일도 그 아래
 `target\x86_64-pc-windows-msvc\release\bundle\`에 생기고, 스크립트가 마지막에 전체 경로를 보여 줍니다.
 
-README의 스크린샷은 `apps/desktop`에서 `npm run build && npm run screenshot`으로 다시 만듭니다.
+README의 스크린샷은 `apps/desktop`에서 `npm run build && SHOT_LANG=ko npm run screenshot`으로 다시 만듭니다(`screenshots/ko/`). `SHOT_LANG` 없이 돌리면 다른 언어 README가 쓰는 영어판(`screenshots/`)을 찍습니다.
 
 </details>
 

@@ -458,7 +458,7 @@ zip (`target/portable/<commit>/`), and shows the time each step took (`BUNDLES=n
 so that no path containing the user name is left in the binaries, so the installers are also created under `target\x86_64-pc-windows-msvc\release\bundle\`,
 and the script shows the full path at the end.
 
-The README screenshots are regenerated in `apps/desktop` with `npm run build && npm run screenshot`.
+The README screenshots are regenerated in `apps/desktop` with `npm run build && npm run screenshot` (English, `screenshots/`); `SHOT_LANG=ko npm run screenshot` makes the Korean set in `screenshots/ko/`.
 
 </details>
 

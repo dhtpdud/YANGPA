@@ -1,7 +1,7 @@
 // 빌드한 프런트엔드(dist)를 MOCK 백엔드로 띄워 주요 화면을 1440x900으로 찍습니다.
-// 사용: npm run build && npm run screenshot
+// 사용: npm run build && npm run screenshot(영어, screenshots/) · SHOT_LANG=ko npm run screenshot(한국어, screenshots/ko/)
 // Playwright는 전역 설치본을 씁니다(PLAYWRIGHT_MODULE로 경로 지정 가능). 브라우저를 내려받지 않고, 없으면 CHROME_PATH로 설치된 Chrome을 씁니다.
-// 찍은 화면은 README가 그대로 씁니다.
+// 찍은 화면은 README가 그대로 씁니다(README.ko.md는 ko/, 나머지 언어는 영어판).
 
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -12,7 +12,21 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const dist = join(root, 'dist');
-const outDir = join(root, 'screenshots');
+const lang = process.env.SHOT_LANG === 'ko' ? 'ko' : 'en';
+const outDir = lang === 'ko' ? join(root, 'screenshots', 'ko') : join(root, 'screenshots');
+const locale = lang === 'ko' ? 'ko-KR' : 'en-US';
+
+// 고르개에 쓰는 한국어 원문을 화면 언어로 옮깁니다. 두 사전 모두 키가 한국어 원문이지만 같은 키('일반')가 뜻이 달라 나눕니다.
+const readJson = async (p) => JSON.parse(await readFile(join(root, 'src', p), 'utf8'));
+const pick = (dict) => (ko) => {
+  if (lang === 'ko') return ko;
+  if (typeof dict[ko] !== 'string') throw new Error(`영어 문구가 없습니다: ${ko}`);
+  return dict[ko];
+};
+/** 앱 화면 문구(locales/en.json) */
+const T = pick(lang === 'en' ? await readJson('locales/en.json') : {});
+/** 샘플 데이터의 크루·채널·사람 이름(api/mock.en.json) */
+const D = pick(lang === 'en' ? await readJson('api/mock.en.json') : {});
 
 async function loadPlaywright() {
   const candidates = [process.env.PLAYWRIGHT_MODULE, 'playwright', '/opt/node22/lib/node_modules/playwright/index.mjs'].filter(Boolean);
@@ -64,7 +78,7 @@ async function main() {
     executablePath: process.env.CHROME_PATH || undefined,
     args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'],
   });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, locale, timezoneId: 'Asia/Seoul' });
   await context.grantPermissions(['microphone', 'camera'], { origin: `http://127.0.0.1:${port}` });
   // 출시본에 없는 개발용 표시는 찍지 않습니다.
   const hideMockRibbon = () =>
@@ -93,16 +107,16 @@ async function main() {
   await page.waitForSelector('.rail');
 
   // 1) 크루 텍스트 채널(잡담, 2000개 메시지)
-  await page.click('.rail-btn[title="게임 모임"]');
-  await page.click('.ch-btn:has-text("잡담")');
+  await page.click(`.rail-btn[title="${D('게임 모임')}"]`);
+  await page.click(`.ch-btn:has-text("${D('잡담')}")`);
   await page.waitForSelector('.msg');
   await shot('01-crew-text-channel.png');
 
   // 2) 휘발성 채널(입장·퇴장 + 60초 수명)
-  await page.click('.ch-btn:has-text("비밀-작전")');
-  await page.click('button:has-text("입장하기")');
+  await page.click(`.ch-btn:has-text("${D('비밀-작전')}")`);
+  await page.click(`button:text-is("${T('입장하기')}")`);
   await page.waitForSelector('.msg .countdown');
-  await page.fill('.composer textarea', '집결지는 북쪽 다리, 9시 정각 🧅');
+  await page.fill('.composer textarea', lang === 'ko' ? '집결지는 북쪽 다리, 9시 정각 🧅' : 'Rally point: north bridge, 9 sharp 🧅');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(500);
   await shot('02-volatile-channel.png');
@@ -111,19 +125,19 @@ async function main() {
   await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'PrintScreen' })));
   await page.waitForSelector('.capture-shield');
   await shot('13-capture-shield.png');
-  await page.click('.capture-shield button:has-text("확인")');
+  await page.click(`.capture-shield button:has-text("${T('확인')}")`);
 
   // 3) 크루 설정 → 역할·권한
   await page.click('.sb-header');
-  await page.click('.menu-item:has-text("크루 설정")');
-  await page.click('.sn-item:has-text("역할·권한")');
-  await page.click('.role-pick:has-text("운영진")');
+  await page.click(`.menu-item:has-text("${T('크루 설정')}")`);
+  await page.click(`.sn-item:has-text("${T('역할·권한')}")`);
+  await page.click(`.role-pick:has-text("${D('운영진')}")`);
   await shot('03-crew-settings-roles.png');
   await page.keyboard.press('Escape');
 
   // 4) P2P 전용 통화: 참가하면 민지의 화면공유가 저절로 켜집니다.
-  await page.click('.ch-btn:has-text("일반 음성")');
-  await page.click('button:has-text("통화 참가")');
+  await page.click(`.ch-btn:has-text("${D('일반 음성')}")`);
+  await page.click(`button:has-text("${T('통화 참가')}")`);
   await page.waitForSelector('.voice-room');
   await page.waitForSelector('.vtile.has-video');
   await page.waitForTimeout(1200);
@@ -134,8 +148,8 @@ async function main() {
   await page.click('.round-btn.danger');
 
   // 22) 일반 통화 채널: WebRTC 없이 소리만 Tor로
-  await page.click('.ch-btn:has-text("게임 음성")');
-  await page.click('button:has-text("통화 참가")');
+  await page.click(`.ch-btn:has-text("${D('게임 음성')}")`);
+  await page.click(`button:has-text("${T('통화 참가')}")`);
   await page.waitForSelector('.voice-room');
   await page.waitForTimeout(800);
   await shot('22-tor-call.png');
@@ -143,7 +157,7 @@ async function main() {
   // 덤: 밝은 테마 + 포럼, 온보딩
   await page.click('.round-btn.danger');
   await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
-  await page.click('.ch-btn:has-text("공략-게시판")');
+  await page.click(`.ch-btn:has-text("${D('공략-게시판')}")`);
   await page.waitForSelector('.post');
   await shot('05-forum-light.png');
 
@@ -161,66 +175,66 @@ async function main() {
   });
   await page3.goto(`http://127.0.0.1:${port}/?quiet`);
   await page3.waitForSelector('.rail');
-  await page3.click('.rail-btn[title="게임 모임"]');
-  await page3.click('.ch-btn:has-text("잡담")');
+  await page3.click(`.rail-btn[title="${D('게임 모임')}"]`);
+  await page3.click(`.ch-btn:has-text("${D('잡담')}")`);
   await page3.waitForSelector('.msg');
 
   // 7) 크루 설정 → 모더레이션(한계 안내, 신고 목록, 밴 목록)
   await page3.click('.sb-header');
-  await page3.click('.menu-item:has-text("크루 설정")');
-  await page3.click('.sn-item:has-text("모더레이션")');
+  await page3.click(`.menu-item:has-text("${T('크루 설정')}")`);
+  await page3.click(`.sn-item:has-text("${T('모더레이션')}")`);
   await page3.waitForSelector('.report-row');
   await shotOf(page3, '07-crew-moderation.png');
   await page3.keyboard.press('Escape');
 
   // 8) 메시지 신고(운영진에게만 가며, 기본으로 내 화면에서 숨김)
-  const target = page3.locator('.msg').filter({ has: page3.locator('.msg-author', { hasText: '민지' }) }).last();
+  const target = page3.locator('.msg').filter({ has: page3.locator('.msg-author', { hasText: D('민지') }) }).last();
   await target.hover();
-  await target.locator('.qa[title="더 보기"]').click();
-  await page3.click('.menu-item:has-text("신고하기")');
-  await page3.fill('.modal textarea', '다른 크루원을 계속 비하합니다');
+  await target.locator(`.qa[title="${T('더 보기')}"]`).click();
+  await page3.click(`.menu-item:has-text("${T('신고하기')}")`);
+  await page3.fill('.modal textarea', lang === 'ko' ? '다른 크루원을 계속 비하합니다' : 'Keeps putting down other crew members');
   await shotOf(page3, '08-report-message.png');
   await page3.keyboard.press('Escape');
 
   // 9) 차단한 사용자의 메시지는 접혀 보입니다.
-  await page3.click('.rail-btn[title="러스트 스터디"]');
-  await page3.click('.ch-btn:has-text("일반")');
+  await page3.click(`.rail-btn[title="${D('러스트 스터디')}"]`);
+  await page3.click(`.ch-btn:has-text("${D('일반')}")`);
   await page3.waitForSelector('.msg-blocked');
   await shotOf(page3, '09-blocked-messages.png');
 
   // 사용자 설정: 차단 목록, 네트워크·Tor(브리지), 음성·화면공유, 동기화(시더), AI 확인 대기
-  await page3.click('.icon-btn[title="사용자 설정"]');
+  await page3.click(`.icon-btn[title="${T('사용자 설정')}"]`);
   for (const [tab, name] of [
-    ['개인정보', '10-settings-blocked.png'],
-    ['네트워크·Tor', '11-settings-network.png'],
-    ['음성·화면공유', '12-settings-voice.png'],
-    ['동기화', '16-settings-sync.png'],
-    ['확인 대기', '17-ai-confirmations.png'],
+    [T('개인정보'), '10-settings-blocked.png'],
+    [T('네트워크·Tor'), '11-settings-network.png'],
+    [T('음성·화면공유'), '12-settings-voice.png'],
+    [T('동기화'), '16-settings-sync.png'],
+    [T('확인 대기'), '17-ai-confirmations.png'],
   ]) {
     await page3.click(`.sn-item:has-text("${tab}")`);
     await shotOf(page3, name);
   }
 
   // 기기: 새 기기는 쓰던 기기의 QR로만, 양쪽 번호를 맞춰 본 사람이 허용
-  await page3.click('.sn-item:has-text("기기")');
-  await page3.click('button:has-text("QR 띄우기")');
-  await page3.waitForSelector('.modal:has-text("새 기기 연결 요청")');
+  await page3.click(`.sn-item:has-text("${T('기기')}")`);
+  await page3.click(`button:has-text("${T('QR 띄우기')}")`);
+  await page3.waitForSelector(`.modal:has-text("${T('새 기기 연결 요청')}")`);
   await shotOf(page3, '15-device-link.png');
-  await page3.click('.modal button:has-text("거절")');
+  await page3.click(`.modal button:has-text("${T('거절')}")`);
   await page3.keyboard.press('Escape');
 
   // 익명 채널(화면에서만 가명)과 P2P 전용 채널(참가 전 IP 경고)
-  await page3.click('.rail-btn[title="게임 모임"]');
-  await page3.click('.ch-btn:has-text("익명-건의함")');
+  await page3.click(`.rail-btn[title="${D('게임 모임')}"]`);
+  await page3.click(`.ch-btn:has-text("${D('익명-건의함')}")`);
   await page3.waitForSelector('.msg');
   await shotOf(page3, '14-anonymous-channel.png');
-  await page3.click('.ch-btn:has-text("직접-대화")');
-  await page3.waitForSelector('button:text-is("참가")');
+  await page3.click(`.ch-btn:has-text("${D('직접-대화')}")`);
+  await page3.waitForSelector(`button:text-is("${T('참가')}")`);
   await shotOf(page3, '19-p2p-channel-lock.png');
 
   // 신뢰 스위치: 사람마다 IP를 보여도 되는지 정함
-  await page3.click('.mem-row:has-text("민지")');
-  await page3.click('.modal-tabs button:has-text("설정")');
+  await page3.click(`.mem-row:has-text("${D('민지')}")`);
+  await page3.click(`.modal-tabs button:has-text("${T('설정')}")`);
   await shotOf(page3, '20-trust-switch.png');
 
   // Android: 좁은 화면은 칸을 하나씩 보여 줍니다.
@@ -230,16 +244,16 @@ async function main() {
     hasTouch: true,
     isMobile: true,
     userAgent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36',
-    locale: 'ko-KR',
+    locale,
     timezoneId: 'Asia/Seoul',
   });
   await phone.addInitScript(hideMockRibbon);
   const page4 = await phone.newPage();
   await page4.goto(`http://127.0.0.1:${port}/?quiet`);
   await page4.waitForSelector('.rail');
-  await page4.click('.rail-btn[title="게임 모임"]');
-  await page4.click('.ch-btn:has-text("비밀-작전")');
-  await page4.click('button:has-text("입장하기")');
+  await page4.click(`.rail-btn[title="${D('게임 모임')}"]`);
+  await page4.click(`.ch-btn:has-text("${D('비밀-작전')}")`);
+  await page4.click(`button:text-is("${T('입장하기')}")`);
   await page4.waitForSelector('.msg .countdown');
   await page4.waitForTimeout(500);
   await page4.screenshot({ path: join(outDir, '21-android.png') });

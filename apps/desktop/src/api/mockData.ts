@@ -15,6 +15,13 @@ import type {
   Role,
 } from './types';
 import { EVERYONE_ROLE } from './types';
+import { currentLang } from '../i18n';
+import MOCK_EN from './mock.en.json';
+
+/** 샘플 데이터 문구. 화면 언어가 한국어가 아니면 영어판(README 영어 스크린샷용). 언어는 이 모듈을 불러오기 전에 정해집니다(main.tsx). */
+export function sample(ko: string): string {
+  return currentLang() === 'ko' ? ko : ((MOCK_EN as Record<string, string>)[ko] ?? ko);
+}
 
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
@@ -117,7 +124,7 @@ export function sceneSvg(seed: number, w: number, h: number, label: string): str
     const pts = Array.from({ length: 6 }, (_, k) => `${(w / 5) * k},${y - r.int(0, Math.round(h * 0.15))}`).join(' ');
     return `<polygon points="0,${h} ${pts} ${w},${h}" fill="${p[(i + 1) % 3]}" opacity="${0.55 + i * 0.15}"/>`;
   }).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p[0]}"/><stop offset="1" stop-color="${p[1]}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g)"/><circle cx="${w * 0.75}" cy="${h * 0.28}" r="${h * 0.12}" fill="#fff8" />${hills}<text x="${w / 2}" y="${h - 24}" font-family="sans-serif" font-size="${Math.round(h / 14)}" text-anchor="middle" fill="#fff" opacity="0.85">${label}</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p[0]}"/><stop offset="1" stop-color="${p[1]}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g)"/><circle cx="${w * 0.75}" cy="${h * 0.28}" r="${h * 0.12}" fill="#fff8" />${hills}<text x="${w / 2}" y="${h - 24}" font-family="sans-serif" font-size="${Math.round(h / 14)}" text-anchor="middle" fill="#fff" opacity="0.85">${sample(label)}</text></svg>`;
 }
 
 export const EMOJI_SVGS: Record<string, string> = {
@@ -190,22 +197,22 @@ export const LINES = [
   '이 노래 좋네요 🎵',
   '플레이리스트 공유해 주세요',
   '나중에 링크 보내 드릴게요',
-];
+].map(sample);
 
 export const EMBEDS: EmbedView[] = [
   {
     url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    title: '보스 레이드 3페이즈 공략 (노데스 클리어)',
-    description: '패턴별 위치 선정과 딜 타이밍을 정리했습니다. 타임라인은 설명란 참고.',
+    title: sample('보스 레이드 3페이즈 공략 (노데스 클리어)'),
+    description: sample('패턴별 위치 선정과 딜 타이밍을 정리했습니다. 타임라인은 설명란 참고.'),
     site_name: 'YouTube',
     thumbnail_base64: b64(sceneSvg(7, 320, 180, '▶ 공략 영상')),
     player_url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
   },
   {
     url: 'https://blog.example.com/patch-notes-14-2',
-    title: '14.2 패치 노트 요약',
-    description: '탱커 방어력 계수 조정, 신규 던전 추가, 매칭 개선 사항을 한눈에 정리했습니다.',
-    site_name: 'example 블로그',
+    title: sample('14.2 패치 노트 요약'),
+    description: sample('탱커 방어력 계수 조정, 신규 던전 추가, 매칭 개선 사항을 한눈에 정리했습니다.'),
+    site_name: sample('example 블로그'),
     thumbnail_base64: b64(sceneSvg(11, 160, 160, '패치')),
   },
 ];
@@ -222,7 +229,7 @@ export interface MemberSeed {
   color?: number | null;
 }
 
-export const MEMBER_SEEDS: MemberSeed[] = [
+export const MEMBER_SEEDS: MemberSeed[] = ([
   { key: 'me', name: '세영', bio: '양파 메신저 만드는 중', status: '코딩 중 🧅', online: true, roles: ['admin'], color: 0x9b59b6 },
   { key: 'minji', name: '민지', bio: '서포터 장인', status: '레이드 준비', online: true, roles: ['admin'], color: 0xe91e63 },
   { key: 'doyun', name: '도윤', bio: '탱커', status: '', online: true, roles: ['veteran'] },
@@ -235,23 +242,23 @@ export const MEMBER_SEEDS: MemberSeed[] = [
   { key: 'sua', name: '수아', online: false, roles: [] },
   { key: 'taemin', name: '태민', online: false, roles: [] },
   { key: 'bot', name: '요약봇', bio: '채널 요약을 도와주는 AI(사람 확인 후 관리 작업)', online: true, roles: ['ai'], automation: true },
-];
+] satisfies MemberSeed[]).map((s) => ({ ...s, name: sample(s.name), bio: s.bio && sample(s.bio), status: s.status && sample(s.status) }));
 
 export function crewRoles(ids: Record<string, string>): Role[] {
   return [
     { id: EVERYONE_ROLE, name: '@everyone', color: 0, rank: 0, permissions: 0b111_1011_1111, automation: false },
     {
       id: ids.admin,
-      name: '운영진',
+      name: sample('운영진'),
       color: 0x1abc9c,
       rank: 30,
       // manage_messages | manage_channels | kick | create_invite | manage_emoji | manage_voice
       permissions: (1 << 16) + (1 << 17) + (1 << 19) + (1 << 20) + (1 << 21) + (1 << 22),
       automation: false,
     },
-    { id: ids.veteran, name: '고인물', color: 0xe67e22, rank: 20, permissions: (1 << 20) + (1 << 6), automation: false },
-    { id: ids.newbie, name: '뉴비', color: 0x3498db, rank: 10, permissions: 0, automation: false },
-    { id: ids.ai, name: 'AI 비서', color: 0x9b59b6, rank: 5, permissions: 0, automation: true },
+    { id: ids.veteran, name: sample('고인물'), color: 0xe67e22, rank: 20, permissions: (1 << 20) + (1 << 6), automation: false },
+    { id: ids.newbie, name: sample('뉴비'), color: 0x3498db, rank: 10, permissions: 0, automation: false },
+    { id: ids.ai, name: sample('AI 비서'), color: 0x9b59b6, rank: 5, permissions: 0, automation: true },
   ];
 }
 
@@ -266,21 +273,21 @@ export function memberView(user: string, seed: MemberSeed, roleIds: Record<strin
   };
 }
 
-export const FORUM_TAGS: ForumTag[] = [
+export const FORUM_TAGS: ForumTag[] = ([
   { id: 1, name: '공략', emoji: '📘' },
   { id: 2, name: '질문', emoji: '❓' },
   { id: 3, name: '버그', emoji: '🐞' },
   { id: 4, name: '잡담', emoji: '💬' },
-];
+] satisfies ForumTag[]).map((t) => ({ ...t, name: sample(t.name) }));
 
-export const FORUM_TITLES: Array<[string, number[], boolean, boolean]> = [
+export const FORUM_TITLES: Array<[string, number[], boolean, boolean]> = ([
   ['[필독] 공략 게시판 이용 안내', [1], true, true],
   ['보스 레이드 3페이즈 노데스 공략', [1], false, false],
   ['서포터 빌드 질문 있어요 (치유량 vs 쿨감)', [2], false, false],
   ['14.2 패치 이후 매칭 오래 걸리는 버그', [3], false, false],
   ['다들 첫 전설 언제 먹었어요?', [4], false, false],
   ['초보용 골드 파밍 루트 정리', [1, 2], false, false],
-];
+] satisfies Array<[string, number[], boolean, boolean]>).map(([title, tags, pinned, locked]) => [sample(title), tags, pinned, locked]);
 
 export interface GeneratedHistory {
   messages: MessageView[];
@@ -388,7 +395,7 @@ export function attachment(rng: Rng, blobs: Map<string, { svg: string; mime: str
   if (kind < 0.75) {
     const w = rng.pick([1280, 1600, 1080]);
     const h = rng.pick([720, 900, 1350]);
-    const label = rng.pick(['정모 사진', '스크린샷', '보스 처치!', '오늘의 하늘', '전설 획득']);
+    const label = rng.pick(['정모 사진', '게임 스샷', '보스 처치!', '오늘의 하늘', '전설 획득']);
     const svg = sceneSvg(seed + attachmentSeq, w, h, label);
     blobs.set(blob, { svg, mime: 'image/png' });
     return {
@@ -404,7 +411,7 @@ export function attachment(rng: Rng, blobs: Map<string, { svg: string; mime: str
   }
   return {
     blob,
-    name: rng.pick(['레이드_일정.xlsx', '공략_정리.pdf', 'build-notes.txt', '정모_회비.csv']),
+    name: sample(rng.pick(['레이드_일정.xlsx', '공략_정리.pdf', 'build-notes.txt', '정모_회비.csv'])),
     mime: 'application/octet-stream',
     size: rng.int(12_000, 2_400_000),
     downloaded: false,
@@ -431,8 +438,8 @@ export function forumPosts(rng: Rng, authors: string[], now: number): ForumPostV
   });
 }
 
-/** 포럼 시드 게시글 본문(마크다운). 키는 FORUM_TITLES 순서. */
-export const FORUM_BODIES: Record<number, string> = {
+/** 포럼 시드 게시글 본문(마크다운). 키는 FORUM_TITLES 순서. 영어판은 줄마다 옮깁니다. */
+const FORUM_BODIES_KO: Record<number, string> = {
   0: [
     '# 공략 게시판 이용 안내',
     '공략·질문·버그 제보를 나누는 곳입니다. **글을 쓰기 전에 꼭 읽어 주세요.**',
@@ -457,3 +464,6 @@ export const FORUM_BODIES: Record<number, string> = {
   ].join('\n'),
   5: '골드 파밍 루트입니다. **하루 30분**이면 충분해요.\n1. 북쪽 광산\n2. 강가 낚시터\n3. 마을 의뢰판',
 };
+export const FORUM_BODIES: Record<number, string> = Object.fromEntries(
+  Object.entries(FORUM_BODIES_KO).map(([k, body]) => [k, body.split('\n').map(sample).join('\n')]),
+);
