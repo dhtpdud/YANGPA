@@ -209,6 +209,10 @@ jobs:
           if [ ${#remap[@]} -gt 0 ]; then
             echo "RUSTFLAGS=${remap[*]}${RUSTFLAGS:+ $RUSTFLAGS}" >> "$GITHUB_ENV"
           fi
+      - name: Windows용 perl
+        if: runner.os == 'Windows'
+        # SQLCipher가 쓰는 OpenSSL(openssl-src)은 MSVC 빌드에 Windows용 perl이 필요합니다(Git bash의 MSYS perl은 실패).
+        run: echo 'OPENSSL_SRC_PERL=C:\Strawberry\perl\bin\perl.exe' >> "$GITHUB_ENV"
       - name: 데몬·CLI·MCP 서버 빌드
         run: |
           IFS=',' read -ra triples <<< "$RUST_TARGETS"
@@ -220,8 +224,9 @@ jobs:
           if [ "$TARGET" = universal-apple-darwin ]; then
             mkdir -p "target/$TARGET/release"
             for b in yangpad yangpa yangpa-mcp; do
-              lipo -create -output "target/$TARGET/release/$b" \
-                "target/aarch64-apple-darwin/release/$b" "target/x86_64-apple-darwin/release/$b"
+              # Xcode 26의 lipo는 -output을 입력 파일 뒤에 둬야 받습니다.
+              lipo -create "target/aarch64-apple-darwin/release/$b" "target/x86_64-apple-darwin/release/$b" \
+                -output "target/$TARGET/release/$b"
               lipo -verify_arch "target/$TARGET/release/$b" arm64 x86_64
             done
           fi
