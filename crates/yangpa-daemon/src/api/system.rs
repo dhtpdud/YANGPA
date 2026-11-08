@@ -64,6 +64,23 @@ pub(crate) async fn shutdown(
     Ok(super::empty())
 }
 
+pub(crate) async fn update_check(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    _p: P<m::UpdateCheck>,
+) -> R<m::UpdateCheck> {
+    crate::update::check(node).await
+}
+
+pub(crate) async fn update_download(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::UpdateDownload>,
+) -> R<m::UpdateDownload> {
+    crate::update::download(node, p)?;
+    Ok(super::empty())
+}
+
 pub(crate) async fn net_status(
     node: &Arc<Node>,
     _ctx: &CallCtx,

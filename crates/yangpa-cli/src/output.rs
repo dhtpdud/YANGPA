@@ -1422,6 +1422,17 @@ pub fn notification_line(n: &Notification, show_volatile: bool) -> String {
             Some(e) => format!("[후원] 후원 확인 로그인 실패({e})"),
             None => "[후원] 후원 확인 상태가 바뀌었습니다".to_owned(),
         },
+        Notification::UpdateProgress {
+            version,
+            done,
+            total,
+            ready,
+            error,
+        } => match (ready, error) {
+            (_, Some(e)) => format!("[업데이트] {version} 파일 받기 실패({e})"),
+            (true, None) => format!("[업데이트] {version} 파일을 받았습니다"),
+            _ => format!("[업데이트] {version} 파일 받는 중 {done}/{total}"),
+        },
         Notification::DeviceWiped => {
             "[기기 폐기] 다른 기기에서 이 기기를 폐기해 로컬 데이터를 모두 지웠습니다".to_owned()
         }

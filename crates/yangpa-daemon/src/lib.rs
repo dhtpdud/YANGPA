@@ -64,6 +64,7 @@ pub(crate) mod tor;
 pub(crate) mod transfer;
 pub(crate) mod trust;
 mod typing;
+pub(crate) mod update;
 pub(crate) mod voice;
 pub(crate) mod volatile;
 

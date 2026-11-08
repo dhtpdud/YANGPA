@@ -119,6 +119,8 @@ if [[ -z "${NO_PORTABLE:-}" ]]; then
   cp "$OUT/yangpa-desktop.exe" "$OUT/yangpad.exe" "$OUT/yangpa.exe" "$pdir/$name/"
   cp LICENSE "$pdir/$name/LICENSE.txt"
   cp NOTICE.md LICENSE-SUPPORTER.md TRADEMARK.md "$pdir/$name/"
+  # 앱 업데이트가 포터블을 알아보는 표시(exe가 설치 파일 묶음에서 복사돼 Tauri 묶음 표시로는 구분되지 않음).
+  : > "$pdir/$name/.yangpa-portable"
   # 신경망 음성 코덱 모델은 설치본과 같이 exe 옆 models 폴더로.
   if [[ -z "${NO_MODELS:-}" ]]; then
     cp -r "$models_stage" "$pdir/$name/models"
@@ -147,7 +149,9 @@ ffmpeg 폴더는 화면공유의 ffmpeg 인코더(AOM AV1·SVT-AV1·NVENC)입니
 FFmpeg 9.0.2(LGPL 2.1 이상, 화면공유에 쓰는 것만 넣은 빌드, ffmpeg/LICENSE.txt·THIRD-PARTY-NOTICES.txt·README.txt).
 pt 폴더는 Tor 브리지(검열 우회)의 전송 프로그램 lyrebird입니다. exe 옆에 그대로 두세요(지우면 브리지를 쓸 수 없습니다).
 lyrebird(Tor 프로젝트, BSD 계열, Tor Expert Bundle 16.0에서 꺼낸 그대로, pt/LICENSE.txt·README.txt).
-새 판으로 바꿀 때는 앱을 닫고, 작업 관리자에 예전 yangpad.exe가 남아 있지 않은지 확인한 뒤 새 폴더의 앱을 여세요.
+새 판은 사용자 설정 → 정보에서 받아 설치하면 앱이 이 폴더를 바꾸고 다시 띄웁니다(Data 폴더와 data-dir.json은 그대로).
+.yangpa-portable은 앱이 포터블임을 알아보는 표시이니 지우지 마세요.
+손으로 바꿀 때는 앱을 닫고, 작업 관리자에 예전 yangpad.exe가 남아 있지 않은지 확인한 뒤 새 폴더의 앱을 여세요.
 서명하지 않은 파일이라 처음 실행할 때 Windows 경고가 뜰 수 있습니다.
 EOF
   # Git bash의 tar(GNU)는 zip을 못 만들어 Windows의 bsdtar를 씁니다.

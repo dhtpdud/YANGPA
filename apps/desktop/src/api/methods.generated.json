@@ -165,6 +165,20 @@
     {
       "destructive": "no",
       "human_only": false,
+      "name": "update.check",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "update.download",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
       "name": "presence.get",
       "scope": "read",
       "space": "global"
@@ -1227,6 +1241,7 @@
     "device.link_result",
     "device.synced",
     "supporter.updated",
+    "update.progress",
     "device.wiped",
     "channel.typing",
     "checkpoint.alert"

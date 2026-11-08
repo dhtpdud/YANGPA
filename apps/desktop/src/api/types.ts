@@ -1012,6 +1012,14 @@ export interface VersionResult {
   version: string;
   protocol: number;
 }
+/** `update.check`: 공개 저장소의 최신 정식 릴리스. */
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  newer: boolean;
+}
+/** 업데이트 파일을 받지 못한 까닭: 서명 없는 릴리스·연결·SHA-256 불일치·디스크. */
+export type UpdateError = 'unsigned' | 'network' | 'hash' | 'failed';
 export interface StatusResult {
   identity?: UserId;
   device?: DeviceId;
@@ -1231,6 +1239,8 @@ export interface Methods {
   'supporter.patreon_begin': [Empty, { url: string }];
   'supporter.refresh': [Empty, SupporterStatus];
   'supporter.unlink': [{ provider: SupporterProvider }, Empty];
+  'update.check': [Empty, UpdateInfo];
+  'update.download': [{ version: string; asset: string }, Empty];
   'presence.get': [Empty, PresenceView];
   'presence.set': [PresenceSetParams, PresenceView];
   'flair.list': [Empty, FlairView[]];
@@ -1513,6 +1523,8 @@ export type Notification =
   | { type: 'device.synced' }
   /** 후원 확인 상태가 바뀌었거나 로그인이 끝났음(`supporter.status`로 다시 읽음). 로그인 실패면 까닭 코드. */
   | { type: 'supporter.updated'; error?: 'denied' | 'expired' | 'creator' | 'network' | 'failed' }
+  /** 업데이트 파일 받는 중(`update.download`). `ready`면 서명·SHA-256까지 확인하고 다 받음. */
+  | { type: 'update.progress'; version: string; done: number; total: number; ready?: boolean; error?: UpdateError }
   | { type: 'device.wiped' }
   /** 같은 순번의 갈라진 체크포인트를 봤거나(conflict·equivocation), 체크포인트 상태를 버리고 처음부터 받는 중(fallback). */
   | { type: 'checkpoint.alert'; space: SpaceId; kind: CheckpointAlertKind }

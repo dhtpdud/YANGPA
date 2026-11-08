@@ -168,6 +168,8 @@ routes! {
     SystemVersion => system::version,
     SystemStatus => system::status,
     SystemShutdown => system::shutdown,
+    UpdateCheck => system::update_check,
+    UpdateDownload => system::update_download,
     NetStatusGet => system::net_status,
     NetPeers => system::net_peers,
     EventsSubscribe => system::events_subscribe,

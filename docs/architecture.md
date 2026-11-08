@@ -533,6 +533,9 @@ src/
                    통화·화면 공유 시간(1분마다 `voice::talking`을 봄)
   cards.rs       — 프로필·뱃지 카드를 빠뜨리지 않기: 공간마다 실린 판 기억하고 빠진 공간에 내기(`cards.sent.<공간>`, `MemberProfile`·`MemberBadges`),
                    체크포인트로 들어온 뒤 묻힌 프로필·카드 물어 받기(`GetMemberCards`, `cards.pull.<공간>`)
+  update.rs      — 앱 업데이트(`update.*`): `releases/latest` 넘겨주기로 최신 판 확인, 배포자 서명(`yangpa_core::release`)을 확인한
+                   `SHA256SUMS.txt`에 있는 릴리스 파일만 데이터 폴더 `updates/`에 받기(`update.progress`). Tor로 도는 기기는 Arti로만
+                   (`blobs::preview::http_location`·`http_open`), 설치는 앱 셸(`src-tauri/src/update.rs`)
   supporter/flair.rs — 후원자 표시(카드 배너 월 14달러·후광 월 50달러 이상, GitHub 1회 후원은 30일): 확인한 단계와 후광 색을 상태 이벤트(`MemberFlair`)로 내
                    공간마다 내기, 해소기가 적용한 것을 사용자마다 모으기(`flair.user.<사용자>`, `crews::on_resolved`),
                    내 표시가 빠지거나 경계 아래로 묻힌 공간에 다시 내기(`flair.sent.<공간>`, 상태가 바뀔 때·`supporter::check_due`)
@@ -693,6 +696,10 @@ ONNX Runtime은 실행 파일·설치 파일 밖의 모델 폴더(`YANGPA_MODELS
 잠금(`yangpad.lock`)을 쥔 채 맨 위 항목마다 같은 드라이브면 이름 바꾸기, 아니면 복사(크기 확인) 뒤 원본 삭제, 실패하면 되돌림,
 `data-dir.json`을 쓰고 앱을 다시 시작합니다. DB 키의 OS 키 저장소 계정 이름은 처음 쓴 데이터 경로의 해시라, 데몬이 데이터
 폴더의 `db.keyring`에 적어 두고 다음부터 그 이름을 씁니다(폴더를 옮겨도 같은 키).
+앱 업데이트 설치는 `src-tauri/src/update.rs`(명령 `update_target`·`update_install`)가 맡습니다. 웹뷰는 판 번호만 넘기고, 셸이
+데몬이 받은 `<데이터>/updates/`의 파일을 배포자 서명·SHA-256으로 다시 확인한 뒤 묶음에 맞게 설치합니다(NSIS·MSI 설치 파일,
+포터블은 exe 옆 `.yangpa-portable` 표시로 알아보고 앱이 끝난 뒤 배치 파일이 덮어씀, AppImage 교체, deb·dmg는 열기,
+decisions.md "앱 업데이트").
 음성·화면공유는 웹뷰 WebRTC + 프레임 암호화(보내는·받는 트랙마다 변환, `createEncodedStreams`가 있으면 그것, 없으면
 `RTCRtpScriptTransform`. 변환은 트랜시버를 만들자마자 달고 트랙은 그 뒤에 넣음, decisions.md "통화 프레임 암호화 방식"). `voice/session.ts`가
 메시(참가자 쌍마다 연결)와 SFU(호스트에 연결 하나, 화면 simulcast 3층, 받을 층 고르기)를 `voice.participants`의 토폴로지에

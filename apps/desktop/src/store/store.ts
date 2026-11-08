@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { ApiClient, RpcError, getClient, type DaemonState, type DataMovePlan, type ScreenSource } from '../api/client';
 import {
   ErrorCode,
+  type UpdateError,
   type AttachmentInput,
   type BlobId,
   type ChannelId,
@@ -192,6 +193,8 @@ export interface Prefs {
   stripMetadata: boolean;
   /** 화면 언어(설정 → 모양). 없으면 OS 언어를 따릅니다. main.tsx·src-tauri가 같은 키를 읽습니다. */
   lang?: Lang;
+  /** 새 판을 저절로 확인(설정 › 정보, 기본 켬). Tor로 GitHub 릴리스를 봅니다. */
+  updateCheck: boolean;
 }
 
 export interface ForumViewPrefs {
@@ -227,6 +230,7 @@ const DEFAULT_PREFS: Prefs = {
   viewer: DEFAULT_VIEWER,
   library: DEFAULT_LIBRARY,
   stripMetadata: true,
+  updateCheck: true,
 };
 
 /** 검색 결과 쪽 크기 범위(데몬 상한 500). */
@@ -316,7 +320,26 @@ export interface State extends ApplyState {
   rateLimits: RateLimitView[] | null;
   /** 연결된 데몬이 범위별 속도 제한을 모름(옛 데몬). */
   rateLimitsUnsupported: boolean;
+  /** 새 판 알림과 받기 진행(`update.check`·`update.progress`). 새 판을 모르면 null. */
+  update: UpdateView | null;
 }
+
+export interface UpdateView {
+  latest: string;
+  /** 받는 중(바이트). */
+  progress?: { done: number; total: number };
+  /** 서명·SHA-256까지 확인하고 다 받음. */
+  ready?: boolean;
+  error?: UpdateError;
+  /** 배너를 닫음(이번 실행 동안만). */
+  dismissed?: boolean;
+}
+
+/** 공개 저장소의 릴리스 페이지(설정 › 정보의 소스 주소와 같은 저장소). */
+export const RELEASES_URL = 'https://github.com/dhtpdud/YANGPA/releases';
+/** 시작 뒤 첫 확인(Tor가 준비될 시간)과 그 뒤 간격. */
+const UPDATE_FIRST_MS = 2 * 60_000;
+const UPDATE_EVERY_MS = 6 * 60 * 60_000;
 
 export interface Actions {
   boot(): Promise<void>;
@@ -332,6 +355,13 @@ export interface Actions {
   /** 휴대폰의 뒤로 가기: 창을 닫거나 한 칸 뒤로 갑니다. 첫 화면이라 갈 곳이 없으면 false. */
   mobileBack(): boolean;
   refreshSupporter(): Promise<void>;
+  /** 새 판을 확인합니다(`update.check`). `manual`이면 결과·실패를 알림으로 보입니다. */
+  checkUpdate(manual?: boolean): Promise<void>;
+  /** 새 판 파일을 받습니다. 앱 안에서 설치할 수 없는 설치본이면 릴리스 페이지를 엽니다. */
+  downloadUpdate(): Promise<void>;
+  /** 받은 새 판을 설치합니다(앱이 끝나거나 다시 시작할 수 있음). */
+  installUpdate(): Promise<void>;
+  dismissUpdate(): void;
   /** 표시 상태·마지막 동기화 비공개를 바꿉니다(`presence.set`). 오프라인으로 들어가거나 나오면 데몬이 다시 뜹니다. */
   setPresence(p: PresenceSetParams): Promise<void>;
   /** 후원자 전용 기능을 열어도 되는지. 아니면 후원 확인 창을 엽니다. */
@@ -612,6 +642,12 @@ export const useStore = create<Store>()((set, get) => {
       case 'supporter':
         void s.refreshSupporter();
         break;
+      case 'updateProgress': {
+        const u = get().update;
+        if (u?.latest !== e.version) break;
+        set({ update: { latest: u.latest, progress: { done: e.done, total: e.total }, ready: e.ready, error: e.error, dismissed: u.dismissed } });
+        break;
+      }
       case 'badges':
         set({ badgesTick: get().badgesTick + 1 });
         break;
@@ -886,6 +922,7 @@ export const useStore = create<Store>()((set, get) => {
     deviceLinkResult: null,
     deviceLinkUrl: null,
     supporter: null,
+    update: null,
     badgesTick: 0,
     rateLimits: null,
     rateLimitsUnsupported: false,
@@ -939,6 +976,11 @@ export const useStore = create<Store>()((set, get) => {
         // 기본값 사용
       }
       await get().loadAll();
+      const tick = () => {
+        if (get().prefs.updateCheck && get().daemon.state === 'connected') void get().checkUpdate();
+      };
+      setTimeout(tick, UPDATE_FIRST_MS);
+      setInterval(tick, UPDATE_EVERY_MS);
     },
 
     loadAll() {
@@ -995,6 +1037,42 @@ export const useStore = create<Store>()((set, get) => {
         const kind = get().modal?.kind;
         if (kind === 'viewer' || kind === 'fileViewer') get().closeModal();
       }
+    },
+
+    async checkUpdate(manual) {
+      const c = get().client;
+      if (!c) return;
+      const r = manual ? await get().call(c.call('update.check', {})) : await c.call('update.check', {}).catch(() => undefined);
+      if (!r) return;
+      if (!r.newer) {
+        if (manual) get().toast('success', t('최신 버전입니다'));
+        return;
+      }
+      const cur = get().update;
+      if (cur?.latest !== r.latest) set({ update: { latest: r.latest } });
+      else if (manual && cur.dismissed) set({ update: { ...cur, dismissed: false } });
+    },
+    async downloadUpdate() {
+      const { client: c, update: u } = get();
+      if (!c || !u || (u.progress && !u.ready && !u.error)) return;
+      const target = await c.transport.update?.target().catch(() => null);
+      if (!target) {
+        void c.transport.openExternal(`${RELEASES_URL}/tag/v${u.latest}`);
+        return;
+      }
+      set({ update: { latest: u.latest, progress: { done: 0, total: 0 } } });
+      const ok = await get().call(c.call('update.download', { version: u.latest, asset: `YANGPA_${u.latest}_${target.suffix}` }));
+      if (ok === undefined) set({ update: { latest: u.latest } });
+    },
+    async installUpdate() {
+      const { client: c, update: u } = get();
+      if (!c?.transport.update || !u?.ready) return;
+      const kind = await get().call(c.transport.update.install(u.latest));
+      if (kind === 'open') get().toast('info', t('설치 프로그램을 열었습니다. 설치가 끝나면 앱을 다시 시작하세요.'));
+    },
+    dismissUpdate() {
+      const u = get().update;
+      if (u) set({ update: { ...u, dismissed: true } });
     },
 
     async setPresence(p) {
@@ -1949,6 +2027,7 @@ export function sanitizePrefs(raw: Record<string, unknown>): Partial<Prefs> {
   if (typeof raw.skipTrustWarning === 'boolean') out.skipTrustWarning = raw.skipTrustWarning;
   if (typeof raw.closeToTray === 'boolean') out.closeToTray = raw.closeToTray;
   if (typeof raw.stripMetadata === 'boolean') out.stripMetadata = raw.stripMetadata;
+  if (typeof raw.updateCheck === 'boolean') out.updateCheck = raw.updateCheck;
   if (isLang(raw.lang)) out.lang = raw.lang;
   if (typeof raw.autoStart === 'boolean') out.autoStart = raw.autoStart;
   if (typeof raw.autoStartToTray === 'boolean') out.autoStartToTray = raw.autoStartToTray;

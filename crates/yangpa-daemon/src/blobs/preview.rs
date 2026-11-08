@@ -488,7 +488,7 @@ struct Fetched {
     body: Vec<u8>,
 }
 
-trait Io: AsyncRead + AsyncWrite + Unpin + Send {}
+pub(crate) trait Io: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> Io for T {}
 
 fn tls_config() -> Option<Arc<ClientConfig>> {
@@ -722,6 +722,66 @@ pub(crate) async fn http_request(
         return None;
     };
     Some((status, body))
+}
+
+/// GET 한 번의 상태와 `Location` 머리(본문은 읽지 않음). 업데이트 확인이 `releases/latest`의 넘겨주기를 읽습니다.
+pub(crate) async fn http_location(route: &Route, url: &Url) -> Option<(u16, Option<String>)> {
+    let mut io = open(&LinkPreviewOptions::default(), route, url).await?;
+    send_get(&mut io, url).await?;
+    let head = read_head(&mut io).await?;
+    Some((head.status, head.header("location").map(str::to_owned)))
+}
+
+/// 받을 본문: 머리 뒤에 이미 읽은 앞부분(`rest`)과 나머지를 읽을 연결, 전체 길이(`Content-Length`).
+pub(crate) struct Body {
+    pub(crate) io: Box<dyn Io>,
+    pub(crate) rest: Vec<u8>,
+    pub(crate) len: u64,
+}
+
+/// https GET을 넘겨주기를 따라(최대 5번, 주소마다 `allow` 검사) 열고 상태 200의 본문을 돌려줍니다.
+/// `Content-Length`가 있고 `max` 이하여야 합니다(청크 인코딩은 받지 않음). 업데이트 파일 받기(`update`)가 씁니다.
+pub(crate) async fn http_open(
+    route: &Route,
+    mut url: Url,
+    allow: impl Fn(&Url) -> bool,
+    max: u64,
+) -> Option<Body> {
+    for _ in 0..=5 {
+        if url.scheme() != "https" || !allow(&url) {
+            debug!("HTTP 받기: 허용하지 않은 주소");
+            return None;
+        }
+        let mut io = open(&LinkPreviewOptions::default(), route, &url).await?;
+        send_get(&mut io, &url).await?;
+        let head = read_head(&mut io).await?;
+        if (300..400).contains(&head.status) {
+            url = url.join(head.header("location")?).ok()?;
+            continue;
+        }
+        let len: u64 = head.header("content-length")?.trim().parse().ok()?;
+        if head.status != 200 || len > max || head.header("transfer-encoding").is_some() {
+            debug!(status = head.status, len, "HTTP 받기: 받을 수 없는 응답");
+            return None;
+        }
+        return Some(Body {
+            io,
+            rest: head.rest,
+            len,
+        });
+    }
+    None
+}
+
+async fn send_get(io: &mut Box<dyn Io>, url: &Url) -> Option<()> {
+    let host = url.host_str()?;
+    let target = &url[Position::BeforePath..Position::AfterQuery];
+    let req = format!(
+        "GET {target} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: {USER_AGENT}\r\nAccept: */*\r\n\
+         Accept-Encoding: identity\r\nConnection: close\r\n\r\n"
+    );
+    io.write_all(req.as_bytes()).await.ok()?;
+    io.flush().await.ok()
 }
 
 struct Head {

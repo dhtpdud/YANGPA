@@ -206,6 +206,24 @@ pub struct VersionResult {
     pub protocol: u32,
 }
 
+/// `update.check`: 공개 저장소의 최신 정식 릴리스.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateInfo {
+    /// 이 데몬의 판.
+    pub current: String,
+    /// 최신 릴리스 판(`x.y.z`).
+    pub latest: String,
+    /// `latest`가 `current`보다 새 판인지.
+    pub newer: bool,
+}
+
+/// `update.download`: 그 판의 릴리스 파일(`YANGPA_<판>_…`) 하나를 데이터 폴더 `updates/`로 받습니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateDownloadParams {
+    pub version: String,
+    pub asset: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatusResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]

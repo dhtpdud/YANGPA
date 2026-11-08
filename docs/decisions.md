@@ -1182,7 +1182,7 @@ Tor 브리지를 더함. 기본 꺼짐, 검열로 Tor에 들어가지 못하면 
 | --- | --- | --- |
 | 릴리스 대상 | 리눅스 x86_64(`ubuntu-22.04`)·aarch64(`ubuntu-22.04-arm`, 둘 다 glibc 2.35 이상), Windows x86_64(MSVC), macOS 유니버설 dmg 하나(aarch64·x86_64를 따로 빌드해 `lipo`로 합친 앱·사이드카, Tauri `universal-apple-darwin`) | 데스크톱 세 운영체제와 ARM 리눅스(라즈베리 파이 등). ARM도 교차 컴파일 없이 같은 glibc의 네이티브 러너에서 빌드·설치 시험. 맥은 사용자가 칩을 고르다 틀리는 일(Intel 맥에 arm64 dmg)이 묶음이 두 배인 것보다 큼 |
 | 릴리스 빌드 도구 | Rust 1.99.1 고정, 빌드 캐시 없음(Rust 산출물도 npm 캐시도 되살리지 않음), `--locked`·`npm ci` | 같은 태그면 같은 도구·의존성으로. 캐시를 거친 오염 가능성을 없앰(태그 실행은 기본 가지 CI의 캐시를 되살릴 수 있음) |
-| 릴리스에 올리는 것 | 데스크톱 묶음(deb·AppImage 두 아키텍처, msi·nsis, 유니버설 dmg), 대상별 CLI 압축(`yangpad`·`yangpa`·`yangpa-mcp`와 문서, 리눅스 x86_64·aarch64, Windows, macOS 유니버설), 시더 Docker 이미지 파일(linux/amd64·linux/arm64, 각자의 러너에서 빌드·연기 시험), `SHA256SUMS.txt` | 이미지 저장소 자격 증명 없이 배포(`docker load`). 에뮬레이션(QEMU)으로 만든 이미지는 시험이 느리고 실제와 달라 쓰지 않음 |
+| 릴리스에 올리는 것 | 데스크톱 묶음(deb·AppImage 두 아키텍처, msi·nsis, 유니버설 dmg), 대상별 CLI 압축(`yangpad`·`yangpa`·`yangpa-mcp`와 문서, 리눅스 x86_64·aarch64, Windows, macOS 유니버설), 시더 Docker 이미지 파일(linux/amd64·linux/arm64, 각자의 러너에서 빌드·연기 시험), `SHA256SUMS.txt`와 배포자 서명 `SHA256SUMS.txt.sig`(앱 업데이트가 확인, "앱 업데이트") | 이미지 저장소 자격 증명 없이 배포(`docker load`). 에뮬레이션(QEMU)으로 만든 이미지는 시험이 느리고 실제와 달라 쓰지 않음 |
 | 게시 | 초안(draft)으로만 만들고 사람이 게시. 이미 게시한 릴리스는 덮어쓰지 않음(초안이면 파일 교체) | 서명 없는 배포물을 사람이 확인하고 내보내게 |
 | 코드 서명 | 하지 않음. macOS는 ad-hoc 서명(`signingIdentity: "-"`), 서명 단계는 주석으로만 둠 | 비밀값 없이 돌아가게. Apple 실리콘은 서명 없는 실행 파일을 거부해 ad-hoc 서명이 필요 |
 | 리버스 엔지니어링 강화 | 배포본만: 네이티브 기호·디버그 정보 제거(`strip`)·`panic=abort`(이미 있음), 빌드 머신 경로 제거(Rust 코드는 `--remap-path-prefix`를 `RUSTFLAGS`로 넣음. 데몬에 함께 들어가는 C 라이브러리(aws-lc의 `__FILE__`, OpenSSL 설치 경로 상수)에는 그 옵션이 닿지 않아, `scripts/build-windows-release.sh`는 `CARGO_HOME`·`CARGO_TARGET_DIR`를 사용자 이름이 없는 `DIST_DIR`(기본 `C:\yangpa-build`)에 두고 빌드함. 개발용 `~/.cargo`·`target/`은 그대로. `release.yml`은 GitHub 러너 경로라 remap만), 프런트엔드 번들 최소화(식별자 축약·주석·공백 제거)·소스맵 미포함, 배포 Tauri 빌드(`TAURI_ENV_PLATFORM` 있고 `TAURI_ENV_DEBUG` 없음)에서 MOCK 백엔드(`src/api/mock.ts`) 제외(`__YANGPA_SHIPPED__` 컴파일 상수, `apps/desktop/vite.config.ts`·`src/api/client.ts`. 스크린샷용 `npm run build`에는 그대로 들어감), 릴리스 웹뷰 개발자 도구 없음(Tauri 기본). fat LTO·네이티브 패커·JS 난독화 도구는 넣지 않음 | 사용자 요청(Seyoung, 2026-10-22). "리버스 엔지니어링 불가능"한 클라이언트는 없고 비용만 높일 수 있음. 보안은 번들의 비밀에 기대지 않음(상대가 개조한 클라이언트를 쓸 수 있다는 전제, [SECURITY.md](../SECURITY.md)). 더 강한 난독화는 빌드·실행 안정성 비용이 크고 효과는 제한적이라 뺌. 릴리스·배포 프로필은 일반 CI(`ci.yml`, nextest·`npm run build`)가 쓰지 않아 CI 빌드 시간에 영향 없음. 셸 빌드는 `DIST_DIR`를 처음 쓸 때 레지스트리를 새로 받고 전체를 빌드하고, 그 뒤로는 증분 |
@@ -1330,3 +1330,21 @@ Tor 브리지를 더함. 기본 꺼짐, 검열로 Tor에 들어가지 못하면 
 | 켜 둔 계정 | 목록의 OTP 키는 다음 판이 그대로 이어받고 아무것도 묻지 않음. 키를 빼는 판은 따로 내지 않음 | 남아도 해가 없고, 옛 빌드 친구가 복구 판을 막는 효과가 이어짐 |
 | 옛 빌드 기기 | 내 옛 빌드 기기가 보내는 맡김은 이 빌드가 풀지 못해 그 요청만 실패함 | 없어진 요청이라 받을 곳이 없음 |
 | 민감 작업 | 코드 확인만 없어짐. 사람 전용 메서드·사람 확인(`1006`)·범위 검사는 그대로. AI가 요청한 소유권 넘기기는 사람이 승인하면 실행됨 | OTP를 켜지 않은 계정의 동작과 같음 |
+
+## 앱 업데이트 (2026-11-08)
+
+사용자 요청(Seyoung, 2026-11-08): 공개 저장소에 새 릴리스가 올라오면 앱이 알리고, 원하면 업데이트합니다.
+
+| 항목 | 정한 동작 | 까닭 |
+|---|---|---|
+| 확인 경로 | 데몬이 `https://github.com/dhtpdud/YANGPA/releases/latest`의 넘겨주기 주소(`…/releases/tag/v<판>`)를 Arti로 읽음(`update.check`). 정식 판만 보고 시험판·초안은 빠짐 | 앱은 Tor 전용이라 GitHub가 IP를 보면 안 됨. Tauri 업데이터는 앱 프로세스에서 직접 받아 쓰지 않음. GitHub API는 출구 IP마다 시간당 60번이라 Tor 출구에서 자주 막힘 |
+| 확인 때 | 앱이 시작 2분 뒤와 6시간마다(설정 › 정보의 "자동으로 업데이트 확인", 기본 켬). 같은 화면의 "업데이트 확인"으로 바로. 오프라인 모드에서는 하지 않음 | Tor가 준비될 시간을 두고, 자주 묻지 않음 |
+| 알림 | 새 판이면 화면 위 배너("새 버전이 나왔습니다: x.y.z"). 누르면 설정 › 정보, 닫으면 이번 실행 동안 숨김 | 옛 판 경고 문구는 쓰지 않음(알림만) |
+| 믿음의 뿌리 | 릴리스마다 배포자 PC에만 있는 Ed25519 키로 `SHA256SUMS.txt`를 서명해 `SHA256SUMS.txt.sig`로 올림(`scripts/sign-release.sh`). 공개 키는 `yangpa-core` `release.rs`. 서명이 없거나 틀리면 받지도 설치하지도 않고 릴리스 페이지를 안내 | 키가 GitHub·CI에 없으므로 GitHub 계정이나 CI가 털려도 모든 사용자에게 가짜 업데이트를 밀어 넣지 못함. 서명 키가 생기기 전 판(1.0.0)은 서명이 없음 |
+| 받기 | 데몬이 서명한 목록에 있는 그 판의 파일만 데이터 폴더 `updates/`에 받음(`update.download`, 진행은 `update.progress`). 넘겨주기는 `github.com`·`release-assets.githubusercontent.com`·`objects.githubusercontent.com`만, 1GiB까지, 읽기마다 60초 안에 와야 함. SHA-256이 맞을 때만 제 이름으로 둠 | Tor로 수백 MB를 받으면 몇 분 걸려 긴 RPC 대신 알림으로. 직접 연결로 물러나지 않음 |
+| 설치 | 앱 셸이 판 번호만 받아(웹뷰가 경로를 넘기지 못함) 서명·SHA-256을 다시 확인하고, 더 새 판일 때만: NSIS는 `/P /UPDATE /R`(지우지 않고 덮어쓰고 다시 띄움), MSI는 `msiexec /i … /passive AUTOLAUNCHAPP=True`, 포터블은 exe 옆 `.yangpa-update`에 zip을 풀고 앱이 끝나면 배치 파일이 `Data`·`data-dir.json`을 빼고 robocopy로 덮어쓴 뒤 다시 띄움, AppImage는 `$APPIMAGE`를 바꾸고 다시 시작. deb·dmg는 받은 설치 파일을 시스템으로 엶 | 웹뷰가 뚫려도 아무 파일이나 실행하지 못하게. 옛 서명 판으로 되돌리기 막기. 실행 중인 exe·데몬은 Windows가 덮어쓰지 못해 앱이 끝난 뒤 바꿈 |
+| 포터블 구분 | 포터블 zip에만 `.yangpa-portable` 표시 파일(`scripts/build-windows-release.sh`)을 넣고 그것을 먼저 봄. 그다음 Tauri 묶음 표시(`bundle_type`) | 포터블 exe는 설치 파일 묶음을 만든 뒤 복사해 묶음 표시가 NSIS·MSI로 남음. 잘못 보면 포터블 사용자에게 설치판이 따로 깔림 |
+| Android | 알림만 하고 "업데이트 받기"는 릴리스 페이지를 엶 | Google Play는 Play 밖 자체 업데이트와 실행 코드 내려받기를 막고 `REQUEST_INSTALL_PACKAGES`를 제한함 |
+| 뺀 것 | 자동 내려받기·자동 설치, 되돌리기, 시험판 채널, 차분 업데이트, deb·dmg 제자리 설치, CLI 알림 | 사용자가 고를 때만 받음. 나머지는 요청이 없음 |
+| 서명 키를 잃으면 | 앱 업데이트가 멈추고 사용자가 손으로 새 판을 받아야 함(새 키를 넣은 판부터 다시 됨). 키 백업은 배포자가 맡음 | 공개 키가 앱에 박혀 있음 |
+

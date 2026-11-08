@@ -35,11 +35,14 @@
     "allow-screen-audio-start",
     "allow-screen-audio-stop",
     "allow-secret-copy",
-    "allow-deep-link-take",
+    "allow-deep-link-take"
+,
     "allow-data-dir-info",
     "allow-data-dir-plan",
     "allow-data-dir-change",
     "allow-app-restart",
+    "allow-update-target",
+    "allow-update-install",
     "allow-file-import",
     "allow-file-export",
     "allow-file-release",

@@ -1,7 +1,7 @@
 {
   "name": "yangpa-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "양파 메신저(가칭) 데스크톱 앱 프런트엔드",
   "type": "module",
   "scripts": {

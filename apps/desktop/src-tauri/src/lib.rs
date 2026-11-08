@@ -42,6 +42,7 @@ pub mod screen;
 pub mod secret;
 #[cfg(test)]
 pub(crate) mod testutil;
+pub mod update;
 
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -493,6 +494,8 @@ pub fn run() {
             datadir::data_dir_plan,
             datadir::data_dir_change,
             datadir::app_restart,
+            update::update_target,
+            update::update_install,
             #[cfg(target_os = "android")]
             android::file_import,
             #[cfg(target_os = "android")]
@@ -514,6 +517,7 @@ pub fn run() {
             #[cfg(target_os = "android")]
             android::use_private_data_dir(app.handle())?;
             datadir::import_old_prefs(app.path().app_config_dir().ok());
+            update::cleanup();
             let prefs = prefs_dir(app.handle())
                 .map(|dir| prefs::load(&dir))
                 .unwrap_or_default();

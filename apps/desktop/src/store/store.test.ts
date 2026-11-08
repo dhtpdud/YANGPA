@@ -687,3 +687,41 @@ describe('후원자 전용 기능', () => {
     expect(useStore.getState().modal).toBeNull();
   });
 });
+
+describe('앱 업데이트', () => {
+  it('새 판이면 배너 상태를 두고, 받기는 이 설치본의 파일 이름으로 데몬에 맡긴다', async () => {
+    const call = vi.fn(async (method: string) => (method === 'update.check' ? { current: '1.0.0', latest: '1.2.0', newer: true } : {}));
+    const target = vi.fn(async () => ({ kind: 'portable' as const, suffix: 'x64_portable.zip' }));
+    const openExternal = vi.fn(async () => undefined);
+    useStore.setState({ client: { call, transport: { update: { target, install: vi.fn() }, openExternal } } as unknown as ApiClient, update: null });
+    await useStore.getState().checkUpdate();
+    expect(useStore.getState().update).toEqual({ latest: '1.2.0' });
+    await useStore.getState().downloadUpdate();
+    expect(call).toHaveBeenCalledWith('update.download', { version: '1.2.0', asset: 'YANGPA_1.2.0_x64_portable.zip' });
+    expect(useStore.getState().update?.progress).toEqual({ done: 0, total: 0 });
+    expect(openExternal).not.toHaveBeenCalled();
+  });
+
+  it('앱 안에서 설치할 수 없는 설치본(Android·개발 빌드)은 릴리스 페이지를 연다', async () => {
+    const call = vi.fn(async () => ({}));
+    const openExternal = vi.fn(async () => undefined);
+    useStore.setState({ client: { call, transport: { openExternal } } as unknown as ApiClient, update: { latest: '1.2.0' } });
+    await useStore.getState().downloadUpdate();
+    expect(openExternal).toHaveBeenCalledWith('https://github.com/dhtpdud/YANGPA/releases/tag/v1.2.0');
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('최신 판이면 상태를 두지 않고, 받기 진행 알림은 효과로 넘긴다', async () => {
+    const call = vi.fn(async () => ({ current: '1.2.0', latest: '1.2.0', newer: false }));
+    useStore.setState({ client: { call } as unknown as ApiClient, update: null });
+    await useStore.getState().checkUpdate();
+    expect(useStore.getState().update).toBeNull();
+    const { effects } = applyBatch(useStore.getState(), [{ type: 'update.progress', version: '1.2.0', done: 5, total: 10 }]);
+    expect(effects).toEqual([{ type: 'updateProgress', version: '1.2.0', done: 5, total: 10, ready: false, error: undefined }]);
+  });
+
+  it('설정 파일의 자동 확인 값을 읽는다', () => {
+    expect(sanitizePrefs({ updateCheck: false })).toEqual({ updateCheck: false });
+    expect(sanitizePrefs({ updateCheck: 'no' })).toEqual({});
+  });
+});

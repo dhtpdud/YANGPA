@@ -22,6 +22,7 @@ import type {
   SpaceView,
   Topology,
   TransferRates,
+  UpdateError,
   UserId,
   VoiceParticipant,
 } from '../api/types';
@@ -122,6 +123,7 @@ export type Effect =
   | { type: 'loadAll' }
   | { type: 'refreshIdentity' }
   | { type: 'supporter' }
+  | { type: 'updateProgress'; version: string; done: number; total: number; ready: boolean; error?: UpdateError }
   | { type: 'badges' }
   | { type: 'voiceSignal'; space: SpaceId; channel: ChannelId; call: string; from: string; payload: SignalPayload }
   | { type: 'voiceMedia'; space: SpaceId; channel: ChannelId; call: string; from: string; data: string }
@@ -427,6 +429,9 @@ export function applyBatch(s: ApplyState, batch: Notification[]): { patch: Parti
         break;
       case 'badges.updated':
         if (!effects.some((e) => e.type === 'badges')) effects.push({ type: 'badges' });
+        break;
+      case 'update.progress':
+        effects.push({ type: 'updateProgress', version: n.version, done: n.done, total: n.total, ready: !!n.ready, error: n.error });
         break;
       case 'supporter.updated':
         effects.push({ type: 'supporter' });

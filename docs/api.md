@@ -115,6 +115,16 @@ GUI·CLI·MCP 서버가 모두 이 API를 씁니다. 원격 접근은 기본 비
 - `supporter.refresh() → supporter.status` (owner) — 연결한 계정을 지금 다시 확인(닿지 못하면 마지막 결과 그대로)
 - `supporter.unlink({provider}) → {}` (owner, 사람만) — 그 연결과 토큰을 이 기기에서 지움
 
+### 앱 업데이트
+공개 저장소(`dhtpdud/YANGPA`)의 GitHub 릴리스를 봅니다. Tor로 도는 기기는 Arti로만(받기 한 번마다 새 회로) 보내고, 오프라인
+모드에서는 `1009`(decisions.md "앱 업데이트"). 설치는 앱 셸(`update_install`)이 받은 파일의 서명·SHA-256을 다시 확인한 뒤 합니다.
+- `update.check() → {current, latest, newer}` (owner) — `releases/latest`가 넘겨주는 태그(`v<x.y.z>`, 정식 판만)를 읽음.
+  `newer`면 `latest`가 이 데몬 판(`current`)보다 새 판. GitHub에 닿지 못하면 `1009`
+- `update.download({version, asset}) → {}` (owner, 사람만) — 그 판의 릴리스 파일(`YANGPA_<version>_…`)을 데이터 폴더
+  `updates/`에 받기 시작. 먼저 `SHA256SUMS.txt`와 `SHA256SUMS.txt.sig`(배포자 Ed25519 서명)를 받아 확인하고 그 목록에 있는
+  파일만 받으며, SHA-256이 맞아야 제 이름으로 둠. 진행·끝은 `update.progress`. 이름이 그 꼴이 아니면 `-32602`, 이미 받는
+  중이면 그대로 둠. 데몬이 뜰 때 `updates/`를 지움
+
 ### 후원자 표시
 월 정기 후원자의 프로필 카드 배너(14달러 이상)와 프로필 사진 후광(50달러 이상). GitHub 1회 후원도 같은 금액 이상이면 결제 뒤 30일 동안. 규칙은 protocol.md "후원자 표시", decisions.md
 "후원자 카드 배너와 후광".
@@ -814,5 +824,6 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
 | `device.link_result` | `{status}` — 이 새 기기의 연결 요청이 끝남. `status`: `approved`(신원을 설치함, `identity.get`의 `first_syncing`이 켜짐), `rejected`, `expired`, `failed`(승인됐지만 받은 묶음이 링크와 맞지 않거나 저장하지 못함) |
 | `device.synced` | `{}` — 연결된 기기의 첫 동기화가 끝남(`identity.get`의 `first_syncing`이 꺼짐) |
 | `supporter.updated` | `{error?}` — 후원 확인 상태가 바뀌었거나 로그인이 끝났음(`supporter.status`로 다시 읽음). 로그인 실패면 `error`: `denied`(거절)·`expired`(시간 초과)·`creator`(크리에이터 본인 계정이라 버림)·`network`(확인 실패)·`failed`. 공간에 묶이지 않음 |
+| `update.progress` | `{version, done, total, ready?, error?}` — `update.download` 진행(바이트, 0.5초마다). `ready`면 서명·SHA-256을 확인하고 다 받음. 실패면 `error`: `unsigned`(서명 없는 릴리스이거나 목록에 없음)·`network`·`hash`(SHA-256 불일치)·`failed`(디스크). 공간에 묶이지 않음 |
 | `device.wiped` | `{}` — 이 기기가 다른 기기에서 폐기됐거나 `identity.delete`로 로컬 데이터를 모두 지웠음(신원 없음, 네트워크 설정만 남음) |
 | `checkpoint.alert` | `{space, kind}` — 상태 체크포인트 경보(protocol.md "상태 체크포인트"). `kind`: `conflict`(같은 순번에 서명이 맞는 다른 체크포인트가 보임: 정한 규칙으로 한쪽을 따르지만 소유자 기기가 갈라졌거나 탈취됐을 수 있음), `equivocation`(같은 기기가 같은 순번에 둘을 씀), `fallback`(체크포인트로 들어온 상태가 다른 출처와 다르거나 확인되지 않아 버리고 처음부터 따라잡는 중). 겨룬 체크포인트 하나에 한 번. 공간 제한 토큰에는 그 공간 것만 |

@@ -151,6 +151,8 @@ export interface Transport {
   secret?: SecretTransport;
   /** 데이터 폴더(데스크톱 앱만, 바꾸기는 윈도 설치판·포터블). */
   dataDir?: DataDirTransport;
+  /** 앱 업데이트 설치(데스크톱 앱만, src-tauri/src/update.rs). 받기는 데몬의 `update.download`. */
+  update?: UpdateTransport;
   /** `saveDialog`가 준 경로에 데몬이 다 쓴 뒤 부릅니다(Android: 임시 파일을 저장 창이 고른 곳으로 옮김). */
   finishSave?(path: string): Promise<void>;
   /** 통화 중인지(Android: 앱을 내려도 마이크가 끊기지 않게 서비스 종류를 바꿈). */
@@ -159,6 +161,15 @@ export interface Transport {
   onBackButton?(handler: () => void): () => void;
   /** 앱을 뒤로 내립니다(Android: 첫 화면에서 뒤로 가기). */
   minimize?(): void;
+}
+
+/** 업데이트 방식: 설치 파일 실행(nsis·msi), 덮어쓰기(portable·app_image), 받은 설치 파일 열기(open, deb·dmg). */
+export type UpdateKind = 'nsis' | 'msi' | 'portable' | 'app_image' | 'open';
+export interface UpdateTransport {
+  /** 이 설치본의 방식과 릴리스 파일 이름의 판 뒤 부분(`YANGPA_<판>_<suffix>`). 앱 안에서 못 하면(Android·개발 빌드) null. */
+  target(): Promise<{ kind: UpdateKind; suffix: string } | null>;
+  /** 받은 파일의 서명·SHA-256을 다시 확인하고 설치합니다. nsis·msi·portable은 앱이 끝나고, app_image는 다시 시작합니다. */
+  install(version: string): Promise<UpdateKind>;
 }
 
 export interface SecretTransport {
@@ -535,6 +546,10 @@ export async function createTauriTransport(): Promise<Transport> {
     secret: {
       copy: (text) => core.invoke<boolean>('secret_copy', { text }),
     },
+    update: {
+      target: () => core.invoke<{ kind: UpdateKind; suffix: string } | null>('update_target'),
+      install: (version) => core.invoke<UpdateKind>('update_install', { version }),
+    },
     loadPrefs: () => core.invoke<Record<string, unknown>>('ui_prefs_get'),
     savePrefs: (prefs) => core.invoke('ui_prefs_set', { prefs }),
     async openLocalPreview(path) {
@@ -595,6 +610,7 @@ function androidTransport(base: Transport, core: typeof import('@tauri-apps/api/
     neural: undefined,
     screen: undefined,
     dataDir: undefined,
+    update: undefined,
     onFileDrop: () => () => undefined,
     async pickFiles(opts) {
       const list = await base.pickFiles(opts);

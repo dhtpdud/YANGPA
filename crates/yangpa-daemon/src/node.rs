@@ -131,6 +131,8 @@ pub struct Node {
     pub(crate) badges: crate::badges::BadgeState,
     /// 프로필·뱃지 카드 싣기와 받아오기(`cards`).
     pub(crate) cards: crate::cards::CardState,
+    /// 앱 업데이트 받기(`update`).
+    pub(crate) update: crate::update::UpdateState,
 }
 
 impl std::fmt::Debug for Node {
@@ -223,6 +225,7 @@ impl Node {
             presence: Default::default(),
             badges: Default::default(),
             cards: Default::default(),
+            update: Default::default(),
         });
 
         if node.cfg.owner_token_file {
@@ -249,6 +252,7 @@ impl Node {
         crate::supporter::start(&node);
         crate::badges::start(&node);
         crate::cards::start(&node);
+        crate::update::start(&node);
         node.spawn_net_loop(events);
         sync_service::spawn_periodic(&node);
         peers::spawn_redial(&node);

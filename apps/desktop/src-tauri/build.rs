@@ -87,6 +87,8 @@ fn main() {
         "data_dir_plan",
         "data_dir_change",
         "app_restart",
+        "update_target",
+        "update_install",
         "file_import",
         "file_export",
         "file_release",

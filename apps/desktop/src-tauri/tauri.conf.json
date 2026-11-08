@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "YANGPA",
   "mainBinaryName": "yangpa-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "identifier": "app.yangpa.desktop",
   "build": {
     "frontendDist": "../dist",

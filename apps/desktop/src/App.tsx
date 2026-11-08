@@ -1,6 +1,6 @@
 // 앱 뼈대: 레일 | 사이드바 | 가운데 | 멤버 목록. 데몬 연결 상태·온보딩·토스트·모달.
 
-import { AlertTriangle, CheckCircle2, CloudOff, Info, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CloudOff, Download, Info, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { NetStatus } from './api/types';
 import flameLogo from './assets/flame.png';
@@ -80,6 +80,26 @@ function DaemonBanner() {
           {t('다시 시도')}
         </button>
       )}
+    </div>
+  );
+}
+
+/** 새 판 알림. 누르면 설정 › 정보에서 받고 설치합니다. 닫으면 이번 실행 동안 숨깁니다. */
+function UpdateBanner() {
+  const update = useStore((s) => s.update);
+  const openModal = useStore((s) => s.openModal);
+  const dismiss = useStore((s) => s.dismissUpdate);
+  if (!update || update.dismissed) return null;
+  return (
+    <div className="daemon-banner">
+      <Download size={14} />
+      {t('새 버전이 나왔습니다: {version}', { version: update.latest })}
+      <button type="button" className="banner-btn" onClick={() => openModal({ kind: 'userSettings', tab: 'about' })}>
+        {t('업데이트')}
+      </button>
+      <button type="button" className="banner-btn" aria-label={t('닫기')} onClick={dismiss}>
+        <X size={13} />
+      </button>
     </div>
   );
 }
@@ -201,6 +221,7 @@ export function App() {
   return (
     <div className="app">
       <DaemonBanner />
+      <UpdateBanner />
       <div className={cx('layout', `m-${mobilePane}`, library ? libraryPreview && 'with-preview' : showMembers && 'with-members')}>
         <Rail />
         {library ? (

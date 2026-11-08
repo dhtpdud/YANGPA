@@ -89,6 +89,11 @@ api_methods! {
     SupporterRefresh = "supporter.refresh" [Owner, Global] (Empty) -> SupporterStatus;
     SupporterUnlink = "supporter.unlink" [Owner, Global, human_only] (SupporterUnlinkParams) -> Empty;
 
+    // 앱 업데이트(공개 저장소의 GitHub 릴리스, Tor로 도는 기기는 Arti로만). 받은 파일은 앱이 서명을 다시 확인하고 설치합니다.
+    UpdateCheck = "update.check" [Owner, Global] (Empty) -> UpdateInfo;
+    /// 받기를 시작합니다. 진행과 끝은 `update.progress` 알림.
+    UpdateDownload = "update.download" [Owner, Global, human_only] (UpdateDownloadParams) -> Empty;
+
     // 표시 상태(온라인·자리 비움·숨기·오프라인)와 마지막 동기화 시각 비공개. 오프라인으로 바꾸거나 오프라인에서
     // 나오면 데몬이 다시 뜹니다.
     PresenceGet = "presence.get" [Read, Global] (Empty) -> PresenceView;

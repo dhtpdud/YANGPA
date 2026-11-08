@@ -133,7 +133,8 @@ describe('P2P 전용 채널 잠금', () => {
     expect(el.textContent).toContain('이 채널의 참가자는 내 IP 주소를 볼 수 있습니다');
     expect(el.textContent).toContain('메시지·파일·통화가 Tor를 거치지 않고 참가한 기기끼리 직접 오갑니다');
     expect(el.textContent).toContain('다시 숨길 수 없습니다');
-    expect(call).not.toHaveBeenCalled();
+    // 앞 시험이 걸어 둔 공간 다시 읽기(80ms 타이머)가 느린 러너에서 여기로 넘어올 수 있어 참가 요청만 봅니다.
+    expect(call).not.toHaveBeenCalledWith('channel.p2p_join', expect.anything());
     await click(button(el, '참가'));
     expect(call).toHaveBeenCalledWith('channel.p2p_join', { space: SPACE, channel: CH });
     expect(useStore.getState().views[SPACE]?.channels[0].p2p_joined).toBe(true);

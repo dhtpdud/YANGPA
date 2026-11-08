@@ -137,7 +137,10 @@ cd apps/desktop && npm ci && npm run build && npm test
    - 헤드리스 시더 Docker 이미지를 linux/amd64·linux/arm64 각자의 러너에서 빌드해 비루트·읽기 전용으로 띄워 보고
      이미지 파일로 저장
    - 모든 파일과 `SHA256SUMS.txt`를 **초안(draft) 릴리스**에 올림
-4. 초안의 파일과 설명을 확인하고 아래 사람 확인을 마친 뒤 GitHub에서 직접 게시합니다. 이미 게시한 릴리스에는
+4. 초안에 손으로 붙이는 파일(APK·포터블 zip)을 올렸으면 `SHA256SUMS.txt`를 그 파일까지 넣어 고친 뒤, 배포자 PC에서
+   `scripts/sign-release.sh SHA256SUMS.txt`로 서명해 `SHA256SUMS.txt.sig`를 함께 올립니다(키는 배포자 PC에만, GitHub·CI에
+   두지 않음). 앱 업데이트는 이 서명이 맞는 릴리스만 받습니다(decisions.md "앱 업데이트"). 서명 뒤에 목록을 고치면 다시 서명합니다.
+5. 초안의 파일과 설명을 확인하고 아래 사람 확인을 마친 뒤 GitHub에서 직접 게시합니다. 이미 게시한 릴리스에는
    파이프라인이 덮어쓰지 않습니다.
 
 자동화하지 않은 것(게시 전에 사람이 확인):

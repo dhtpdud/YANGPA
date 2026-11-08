@@ -1612,6 +1612,11 @@ export class MockBackend {
     switch (method) {
       case 'system.version':
         return { version: '0.1.0-mock', protocol: 1 };
+      // 데몬 없이 띄우면 GitHub를 보지 않고 늘 최신으로 답합니다.
+      case 'update.check':
+        return { current: '0.1.0-mock', latest: '0.1.0-mock', newer: false };
+      case 'update.download':
+        return {};
       case 'system.status':
         return {
           identity: this.identity?.user,

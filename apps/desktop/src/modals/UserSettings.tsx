@@ -26,7 +26,7 @@ import { hasEmoji } from '../lib/emoji';
 import { formatBytes, formatFull, formatLimit, formatRelative } from '../lib/format';
 import { colorHex, cx, hexToInt, roleColor } from '../lib/misc';
 import { isAndroid } from '../lib/platform';
-import { useStore, type NotifyCrew, type UserTab } from '../store/store';
+import { RELEASES_URL, useStore, type NotifyCrew, type UserTab } from '../store/store';
 import { Field, Modal } from './Modal';
 import { ScopedLimitsSection } from './RateLimits';
 import { SupporterPanel } from '../supporter/SupporterModal';
@@ -1268,6 +1268,87 @@ function AboutTab() {
           {t('후원 기능 라이선스')}
         </button>
       </div>
+      <UpdateSection />
     </div>
+  );
+}
+
+/** 새 판 확인·받기·설치. 확인과 받기는 데몬이 Tor로 하고, 설치는 앱이 서명을 다시 확인한 뒤 합니다. */
+function UpdateSection() {
+  const client = useStore((s) => s.client);
+  const update = useStore((s) => s.update);
+  const auto = useStore((s) => s.prefs.updateCheck);
+  const setPrefs = useStore((s) => s.setPrefs);
+  const checkUpdate = useStore((s) => s.checkUpdate);
+  const downloadUpdate = useStore((s) => s.downloadUpdate);
+  const installUpdate = useStore((s) => s.installUpdate);
+  const [current, setCurrent] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void client
+      ?.call('system.version', {})
+      .then((v) => setCurrent(v.version))
+      .catch(() => undefined);
+  }, [client]);
+  const run = (f: () => Promise<void>) => async () => {
+    setBusy(true);
+    await f();
+    setBusy(false);
+  };
+  const p = update?.progress;
+  const downloading = !!p && !update?.ready && !update?.error;
+  return (
+    <>
+      <h3>{t('업데이트')}</h3>
+      {current && <p>{t('현재 버전 {version}', { version: current })}</p>}
+      <div className="card row between">
+        <div>
+          <strong>{t('자동으로 업데이트 확인')}</strong>
+          <div className="muted small">{t('GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.')}</div>
+        </div>
+        <Toggle checked={auto} label={t('자동으로 업데이트 확인')} onChange={(v) => setPrefs({ updateCheck: v })} />
+      </div>
+      {!update ? (
+        <div className="row gap">
+          <button type="button" className="btn" disabled={busy} onClick={run(() => checkUpdate(true))}>
+            {busy ? <Spinner size={12} /> : <RefreshCw size={14} />} {t('업데이트 확인')}
+          </button>
+        </div>
+      ) : (
+        <div className="stack">
+          <strong>{t('새 버전이 나왔습니다: {version}', { version: update.latest })}</strong>
+          {downloading && (
+            <div className="progress" role="progressbar" aria-valuenow={p.done} aria-valuemin={0} aria-valuemax={p.total || undefined}>
+              <div className="track">
+                <div className="bar" style={{ width: p.total ? `${Math.floor((p.done / p.total) * 100)}%` : '0%' }} />
+              </div>
+              <span>{t('받는 중… {done} / {total}', { done: formatBytes(p.done), total: p.total ? formatBytes(p.total) : '?' })}</span>
+            </div>
+          )}
+          {update.error && (
+            <div className="warn-box">
+              <AlertTriangle size={16} />
+              {update.error === 'unsigned'
+                ? t('서명이 없는 릴리스라 앱 안에서 설치할 수 없습니다. 릴리스 페이지에서 받으세요.')
+                : t('업데이트 파일을 받지 못했습니다. 다시 시도하세요.')}
+            </div>
+          )}
+          <div className="row gap">
+            {update.ready ? (
+              <button type="button" className="btn primary" disabled={busy} onClick={run(installUpdate)}>
+                {t('업데이트 설치')}
+              </button>
+            ) : (
+              <button type="button" className="btn primary" disabled={busy || downloading} onClick={run(downloadUpdate)}>
+                {t('업데이트 받기')}
+              </button>
+            )}
+            <button type="button" className="btn" onClick={() => void client?.transport.openExternal(`${RELEASES_URL}/tag/v${update.latest}`)}>
+              {t('릴리스 페이지')}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

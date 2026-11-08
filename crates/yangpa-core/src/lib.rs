@@ -43,6 +43,7 @@ pub mod ids;
 pub mod keyupdate;
 pub mod links;
 pub mod model;
+pub mod release;
 pub mod sign;
 pub mod time;
 pub mod wire;

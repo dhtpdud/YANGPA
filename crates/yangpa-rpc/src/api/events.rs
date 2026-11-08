@@ -173,6 +173,18 @@ pub enum Notification {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
+    /// 업데이트 파일 받는 중(`update.download`). `ready`면 서명·SHA-256을 확인하고 다 받았고, 실패면 `error`
+    /// (`unsigned`·`network`·`hash`·`failed`).
+    #[serde(rename = "update.progress")]
+    UpdateProgress {
+        version: String,
+        done: u64,
+        total: u64,
+        #[serde(default)]
+        ready: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
     /// 이 기기가 다른 기기에서 폐기되어 로컬 데이터를 모두 지웠음(신원도 없어짐).
     #[serde(rename = "device.wiped")]
     DeviceWiped,
@@ -224,6 +236,7 @@ impl Notification {
         "device.link_result",
         "device.synced",
         "supporter.updated",
+        "update.progress",
         "device.wiped",
         "channel.typing",
         "checkpoint.alert",
@@ -260,6 +273,7 @@ impl Notification {
             Notification::DeviceLinkResult { .. } => "device.link_result",
             Notification::DeviceSynced => "device.synced",
             Notification::SupporterUpdated { .. } => "supporter.updated",
+            Notification::UpdateProgress { .. } => "update.progress",
             Notification::DeviceWiped => "device.wiped",
             Notification::CheckpointAlert { .. } => "checkpoint.alert",
         }
@@ -297,6 +311,7 @@ impl Notification {
             | Notification::DeviceLinkResult { .. }
             | Notification::DeviceSynced
             | Notification::SupporterUpdated { .. }
+            | Notification::UpdateProgress { .. }
             | Notification::DeviceWiped => None,
         }
     }
