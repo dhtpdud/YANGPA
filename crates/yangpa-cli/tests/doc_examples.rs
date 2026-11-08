@@ -12,6 +12,7 @@ use yangpa_cli::args::Cli;
 /// 검사할 문서(저장소 루트 기준). 더하면 `.github/workflows/ci.yml`의 `paths`에도 더해야 그 문서만 바뀐 PR에서 CI가 돕니다.
 const DOCS: &[&str] = &[
     "README.md",
+    "README.ko.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/user-guide.md",

@@ -6,8 +6,8 @@
 </h1>
 
 <p align="center">
-  <b>한국어</b> ·
-  <a href="README.en.md">English</a> ·
+  <a href="README.ko.md">한국어</a> ·
+  <b>English</b> ·
   <a href="README.ja.md">日本語</a> ·
   <a href="README.zh-CN.md">简体中文</a> ·
   <a href="README.zh-TW.md">繁體中文</a> ·
@@ -23,380 +23,380 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>서버도 전화번호도 없는, Tor 위의 종단간 암호화 메신저</strong></p>
+<p align="center"><strong>An end-to-end encrypted messenger over Tor, with no servers and no phone numbers</strong></p>
 
 <p align="center">
-  기기에서 만든 키가 곧 계정입니다. IP는 Tor로 숨기고, 채널·통화·화면공유가 있는<br>
-  디스코드형 공간을 운영사 없이 친구와 크루끼리 돌립니다.
+  A key generated on your device is your account. Tor hides your IP, and friends and crews run<br>
+  a Discord-style space with channels, calls and screen share, with no operator in the middle.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="라이선스 AGPL-3.0-or-later">
-  <a href="https://github.com/dhtpdud/YANGPA/releases/latest"><img src="https://img.shields.io/github/v/release/dhtpdud/YANGPA?color=E8541E" alt="최신 릴리스"></a>
-  <img src="https://img.shields.io/badge/network-Tor_always_on-7D4698" alt="Tor 항상 켜짐">
-  <img src="https://img.shields.io/badge/crypto-post--quantum_hybrid-E8541E" alt="양자 내성 혼합 암호">
-  <img src="https://img.shields.io/badge/platforms-Windows_|_macOS_|_Linux_|_Android-555" alt="지원 플랫폼">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License AGPL-3.0-or-later">
+  <a href="https://github.com/dhtpdud/YANGPA/releases/latest"><img src="https://img.shields.io/github/v/release/dhtpdud/YANGPA?color=E8541E" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/network-Tor_always_on-7D4698" alt="Tor always on">
+  <img src="https://img.shields.io/badge/crypto-post--quantum_hybrid-E8541E" alt="Post-quantum hybrid cryptography">
+  <img src="https://img.shields.io/badge/platforms-Windows_|_macOS_|_Linux_|_Android-555" alt="Supported platforms">
 </p>
 
 <p align="center">
-  <a href="#왜-yangpa인가">왜 YANGPA인가</a> ·
-  <a href="#화면">화면</a> ·
-  <a href="#보안-설계">보안 설계</a> ·
-  <a href="#지켜-주지-못하는-것">지켜 주지 못하는 것</a> ·
-  <a href="#시작하기">시작하기</a> ·
-  <a href="#문서">문서</a>
+  <a href="#why-yangpa">Why YANGPA</a> ·
+  <a href="#screens">Screens</a> ·
+  <a href="#security-design">Security design</a> ·
+  <a href="#what-it-cant-protect">What it can't protect</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#documentation">Documentation</a>
 </p>
 
 <p align="center">
-  <img src="apps/desktop/screenshots/01-crew-text-channel.png" alt="크루의 텍스트 채널 화면. 왼쪽에 채널 목록, 가운데에 대화, 오른쪽에 멤버 목록이 있고 왼쪽 아래에 Tor 연결 표시가 보입니다." width="100%">
+  <img src="apps/desktop/screenshots/01-crew-text-channel.png" alt="A crew's text channel. The channel list is on the left, the conversation in the middle and the member list on the right, with a Tor connection indicator at the bottom left." width="100%">
 </p>
 
-## 왜 YANGPA인가
+## Why YANGPA
 
-- **가입이 없습니다.** 전화번호도 이메일도 받지 않습니다. 계정은 내 기기에서 만든 키뿐이고, 명단을 쥔 운영사도 계정 서버도
-  없습니다. 부트스트랩·릴레이·시더까지 누구나 띄울 수 있는 일반 노드입니다.
-- **IP를 Tor 뒤에 둡니다.** 앱에는 내장 Arti(Tor)를 끄는 설정이 없고(헤드리스 노드만 `--direct`로 띄울 수 있습니다), Tor를 쓸 수
-  없으면 직접 연결로 넘어가지 않고 시작을 멈춥니다. 예외는 [아래 표](#앱이-바깥과-통신하는-곳)에 모두 적었습니다.
-- **고전 암호와 양자 내성 암호를 함께 씁니다.** 서명은 Ed25519 + FN-DSA-512, 키 교환은 X-Wing(X25519 + ML-KEM-768),
-  전송은 X25519MLKEM768입니다. 지금 모은 트래픽을 나중에 풀려는 공격을 염두에 둔 구성입니다.
-- **남기지 않는 대화가 있습니다.** 휘발성 채널의 내용과 키는 RAM에만 있고, 코드에서도 저장 경로와 타입으로 갈라 놓았습니다.
-- **내 데이터의 범위는 내가 정합니다.** 무엇을 저장하고, 남에게 내주고, 받아 올지 데이터 종류와 채널 단위로 고릅니다.
-- **스크립트로 다룰 수 있습니다.** 앱·CLI·로컬 API·MCP가 모두 같은 코어 데몬(`yangpad`)의 클라이언트입니다.
-- **한계를 숨기지 않습니다.** 못 지키는 것을 [문서](#지켜-주지-못하는-것)에도, 앱 화면에도 적습니다. 아래 휘발성 채널 화면의
-  '막을 수 없는 것'이 그 예입니다.
+- **There is no sign-up.** It asks for no phone number and no email. Your account is just a key generated on your device, and there is
+  no operator holding a roster and no account server. Even bootstrap nodes, relays and seeders are ordinary nodes that anyone can run.
+- **Your IP stays behind Tor.** The app has no setting to turn off the built-in Arti (Tor); only a headless node can be started with `--direct`.
+  If Tor can't be used, the app stops starting instead of falling back to a direct connection. The exceptions are all listed in the [table below](#where-the-app-talks-to-the-outside).
+- **It uses classical and post-quantum cryptography together.** Signatures are Ed25519 + FN-DSA-512, key exchange is X-Wing (X25519 + ML-KEM-768),
+  and transport is X25519MLKEM768. The design takes into account attacks that collect traffic now to decrypt it later.
+- **Some conversations leave no trace.** The content and keys of ephemeral channels exist only in RAM, and the code separates them from storage paths by type.
+- **You decide how far your data goes.** You choose what to store, hand out to others and fetch, by data type and per channel.
+- **You can script it.** The app, the CLI, the local API and MCP are all clients of the same core daemon (`yangpad`).
+- **It doesn't hide its limits.** What it can't protect is written down in the [docs](#what-it-cant-protect) and in the app. The
+  "What can't be prevented" note on the ephemeral channel screen below is one example.
 
-## 화면
+## Screens
 
-앱의 개발용 예시 데이터로 찍은 화면입니다. 이미지를 누르면 크게 볼 수 있습니다.
+These screenshots use the app's development sample data. Click an image to enlarge it.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="apps/desktop/screenshots/02-volatile-channel.png" alt="휘발성 채널. 보장하는 것과 막을 수 없는 것을 나란히 적은 안내가 위에 있고, 메시지마다 사라질 때까지의 남은 시간이 보입니다."><br>
-      <strong>휘발성 채널</strong><br>
-      내용·첨부는 메모리에만 있고 수명이 지나면 지워집니다. 보장하는 것과 막을 수 없는 것을 화면에 함께 보입니다.
+      <img src="apps/desktop/screenshots/02-volatile-channel.png" alt="An ephemeral channel. A notice at the top lists what is guaranteed and what can't be prevented side by side, and each message shows the time left until it disappears."><br>
+      <strong>Ephemeral channel</strong><br>
+      Content and attachments exist only in memory and are erased when their lifetime ends. The screen shows both what is guaranteed and what can't be prevented.
     </td>
     <td width="50%" valign="top">
-      <img src="apps/desktop/screenshots/11-settings-network.png" alt="네트워크 설정. Tor 상태와 onion 주소, Tor라서 꺼지는 기능 목록, 브리지 설정이 보입니다."><br>
-      <strong>Tor와 브리지</strong><br>
-      앱에서 끌 수 없는 Tor. 막힌 망에서는 Snowflake·obfs4 브리지로 들어갑니다. Tor라서 꺼지는 기능도 그대로 알립니다.
+      <img src="apps/desktop/screenshots/11-settings-network.png" alt="Network settings. They show the Tor status and onion address, the list of features that are off because of Tor, and the bridge settings."><br>
+      <strong>Tor and bridges</strong><br>
+      Tor can't be turned off in the app. On blocked networks it connects through Snowflake or obfs4 bridges. It also tells you which features are off because of Tor.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/20-trust-switch.png" alt="상대 프로필의 설정 탭. 안전 번호와 신뢰 스위치, 지금 연결 방식이 보입니다."><br>
-      <strong>안전 번호와 신뢰 스위치</strong><br>
-      중간자를 막는 안전 번호를 직접 비교하고, IP를 보여도 되는 사람만 골라 직접 연결합니다.
+      <img src="apps/desktop/screenshots/20-trust-switch.png" alt="The Settings tab of another person's profile. It shows the safety number, the trust switch and the current connection method."><br>
+      <strong>Safety number and trust switch</strong><br>
+      You compare the safety number yourself to stop a man in the middle, and connect directly only with people you allow to see your IP.
     </td>
     <td valign="top">
-      <img src="apps/desktop/screenshots/19-p2p-channel-lock.png" alt="P2P 전용 채널의 잠금 화면. 참가자가 서로의 IP를 볼 수 있다는 경고와 참가 단추가 보입니다."><br>
-      <strong>P2P 전용 채널</strong><br>
-      빠른 파일·통화가 필요한 채널은 경고를 보고 참가한 기기끼리만 직접 잇습니다. 참가 전에는 내용이 열리지 않습니다.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <img src="apps/desktop/screenshots/15-device-link.png" alt="새 기기 연결 요청 창. 6자리 번호와 허용·거절 단추가 보입니다."><br>
-      <strong>새 기기 승인</strong><br>
-      새 기기는 쓰던 기기의 일회용 QR로만 들어오고, 양쪽의 6자리 번호를 맞춰 본 사람이 허용합니다.
-    </td>
-    <td valign="top">
-      <img src="apps/desktop/screenshots/14-anonymous-channel.png" alt="익명 채널. 글쓴이 이름 대신 느긋한 고래 같은 가명이 보입니다."><br>
-      <strong>익명 채널</strong><br>
-      글쓴이를 채널별 가명으로 표시합니다. 앱 화면에서만 가리는 기능입니다(<a href="#익명성-누구에게서-무엇을-숨기나">아래 표</a>).
+      <img src="apps/desktop/screenshots/19-p2p-channel-lock.png" alt="The lock screen of a P2P-only channel. It shows a warning that participants can see each other's IPs and a join button."><br>
+      <strong>P2P-only channel</strong><br>
+      In channels that need fast files and calls, only devices that joined after seeing the warning connect directly. The content stays closed until you join.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/22-tor-call.png" alt="Tor 통화 화면. 패킷 암호화와 Tor 통화 소리만 표시, 참가자 세 명이 보입니다."><br>
-      <strong>Tor 통화</strong><br>
-      WebRTC 없이 소리만 Tor로 나릅니다. 말이 0.5~1.5초쯤 늦는 대신 IP가 드러나지 않습니다.
+      <img src="apps/desktop/screenshots/15-device-link.png" alt="The new device connection request window. It shows a 6-digit number and allow and deny buttons."><br>
+      <strong>Approving a new device</strong><br>
+      A new device can join only through a one-time QR code from a device you already use, and the person who matched the 6-digit numbers on both sides approves it.
     </td>
     <td valign="top">
-      <img src="apps/desktop/screenshots/04-voice-channel.png" alt="화면공유를 보는 통화 화면. 코드 편집기 화면이 크게 보이고 아래에 참가자가 있습니다."><br>
-      <strong>화면공유</strong><br>
-      P2P 전용 채널과 서로 신뢰한 상대는 WebRTC로 잇습니다. 프레임마다 종단간 암호화합니다.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top">
-      <img src="apps/desktop/screenshots/17-ai-confirmations.png" alt="확인 대기 화면. AI가 요청한 멤버 추방을 승인하거나 거절하는 단추가 보입니다."><br>
-      <strong>AI에는 사람의 승인을</strong><br>
-      자동화 토큰이 요청한 파괴적 작업은 사람이 승인해야 실행됩니다. 인증한 모든 호출은 감사 기록에 남습니다.
-    </td>
-    <td valign="top">
-      <img src="apps/desktop/screenshots/16-settings-sync.png" alt="동기화 설정. 시더 켜기, 나눠 줄 데이터 종류, 속도 제한이 보입니다."><br>
-      <strong>시더 설정</strong><br>
-      나눠 줄 데이터 종류, 대역폭, 동시 전송 수를 내가 정합니다. 사람·크루·채널마다 속도도 제한합니다.
+      <img src="apps/desktop/screenshots/14-anonymous-channel.png" alt="An anonymous channel. Instead of the author's name, it shows a pseudonym like a leisurely whale."><br>
+      <strong>Anonymous channel</strong><br>
+      Authors are shown under a per-channel pseudonym. It hides them only in the app's display (<a href="#anonymity-who-is-hidden-from-what">table below</a>).
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <img src="apps/desktop/screenshots/05-forum-light.png" alt="밝은 테마의 포럼 채널. 게시글 카드가 보입니다."><br>
-      <strong>포럼과 밝은 테마</strong><br>
-      게시글과 태그로 정리하는 포럼 채널이 있고, 밝은 테마와 어두운 테마를 고릅니다.
+      <img src="apps/desktop/screenshots/22-tor-call.png" alt="The Tor call screen. It shows only packet encryption and Tor call audio, with three participants."><br>
+      <strong>Tor call</strong><br>
+      Only audio is carried over Tor, without WebRTC. Speech arrives about 0.5 to 1.5 seconds late, but your IP is not revealed.
+    </td>
+    <td valign="top">
+      <img src="apps/desktop/screenshots/04-voice-channel.png" alt="A call screen showing a screen share. A code editor fills most of the screen, with the participants below."><br>
+      <strong>Screen share</strong><br>
+      P2P-only channels and mutually trusted peers connect over WebRTC. Every frame is end-to-end encrypted.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="apps/desktop/screenshots/17-ai-confirmations.png" alt="The pending confirmations screen. It shows buttons to approve or reject an AI-requested member kick."><br>
+      <strong>A human approves for the AI</strong><br>
+      Destructive actions requested by an automation token run only after a human approves them. Every authenticated call is recorded in the audit log.
+    </td>
+    <td valign="top">
+      <img src="apps/desktop/screenshots/16-settings-sync.png" alt="Sync settings. They show turning the seeder on, the data types to hand out, and speed limits."><br>
+      <strong>Seeder settings</strong><br>
+      You decide the data types to hand out, the bandwidth and the number of concurrent transfers. Speed is also limited per person, crew and channel.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="apps/desktop/screenshots/05-forum-light.png" alt="A forum channel in the light theme. It shows post cards."><br>
+      <strong>Forum and light theme</strong><br>
+      There are forum channels organized by posts and tags, and you can choose the light or dark theme.
     </td>
     <td valign="top" align="center">
-      <img src="apps/desktop/screenshots/21-android.png" alt="Android 좁은 화면의 휘발성 채널." width="230"><br>
+      <img src="apps/desktop/screenshots/21-android.png" alt="An ephemeral channel on Android's narrow screen." width="230"><br>
       <strong>Android</strong><br>
-      데스크톱과 같은 화면 코드를 쓰고, 데몬은 앱 안에서 돌아갑니다.
+      It uses the same UI code as the desktop, and the daemon runs inside the app.
     </td>
   </tr>
 </table>
 
-## 기능
+## Features
 
-| 영역 | 내용 |
+| Area | What it does |
 | --- | --- |
-| **대화** | 1대1 스페이스와 크루가 같은 구조라 그대로 넓힐 수 있습니다. 텍스트·포럼·통화 채널, 마크다운, 반응, 커스텀 이모지, 첨부, 링크 미리보기, 역할·권한, 초대 링크. |
-| **휘발성** | 내용이 RAM 밖으로 나가지 않는 채널, 입장·퇴장 방식, 초 단위 수명. 첨부도 참가자의 메모리에만 있습니다. |
-| **통화** | Tor 통화(소리는 Opus 또는 약 1.1kbps 신경망 코덱 Mimi, 화면은 경고를 확인한 비상용 저화질). P2P 전용 채널과 서로 신뢰한 상대는 WebRTC 메시로 잇고 화면공유는 최대 120fps입니다. 큰 통화는 직접 연결로 띄운 시더가 프레임을 풀지 않고 중계합니다(SFU). |
-| **저장·제공** | 시더(남에게 주기)·피어(받아 오기) 설정으로 데이터 종류, 채널 제외, 대역폭, 우선순위를 고릅니다. 받은 첨부는 디스크 한도(기본 2GB) 안에서 오래 안 쓴 것부터 비우고, 남길 것은 고정합니다. |
-| **네트워크** | 브리지(Snowflake·obfs4·직접 입력), 사람·크루마다 고르는 신뢰 스위치, P2P 전용 채널, 내 STUN 서버 목록과 크루 STUN 서버, 선택 기능인 Tor 파일 회로. |
-| **기기** | 일회용 QR과 6자리 번호 승인으로만 추가합니다. 폐기한 기기는 다음 연결 때 스스로 로컬 데이터를 지웁니다. 복구 문구가 없어서 기기를 모두 잃으면 계정도 없어집니다. |
-| **운영** | 차단(이 기기만, 상대는 모름), 운영진만 여는 봉인 신고, 모든 멤버 노드가 같은 결과로 적용하는 밴. |
-| **자동화** | CLI `yangpa`, 로컬 JSON-RPC, MCP 서버 `yangpa-mcp`. 앱으로 할 수 있는 일은 CLI로도 할 수 있습니다. |
-| **자체 운영** | NAS·VPS에서 데몬만 돌리는 헤드리스 시더(Docker·systemd 예시), 키 없이 암호문만 보관하는 보관 전용 노드. |
-| **언어** | 화면은 15개 언어입니다. 번역은 AI가 했고 원어민 검토는 아직입니다. |
+| **Conversation** | One-to-one spaces and crews share one structure, so they scale as they are. Text, forum and call channels, Markdown, reactions, custom emoji, attachments, link previews, roles and permissions, invite links. |
+| **Ephemeral** | Channels whose content never leaves RAM, join and leave modes, lifetimes in seconds. Attachments too exist only in participants' memory. |
+| **Calls** | Tor calls (audio in Opus or Mimi, a neural codec at about 1.1 kbps; screen only as an emergency low-quality stream after you confirm a warning). P2P-only channels and mutually trusted peers connect through a WebRTC mesh, and screen share goes up to 120 fps. For large calls, a seeder brought up with a direct connection relays frames without decrypting them (SFU). |
+| **Storage and serving** | Seeder (giving to others) and peer (fetching) settings let you choose data types, channel exclusions, bandwidth and priority. Received attachments are cleared oldest-unused first within a disk limit (2 GB by default), and you pin the ones to keep. |
+| **Network** | Bridges (Snowflake, obfs4, manual entry), a trust switch you set per person and per crew, P2P-only channels, your own STUN server list and crew STUN servers, and the optional Tor file circuits. |
+| **Devices** | You add them only with a one-time QR code and a 6-digit number approval. A revoked device erases its local data by itself at its next connection. There is no recovery phrase, so if you lose all your devices, the account is gone too. |
+| **Moderation** | Blocking (this device only, the other person doesn't know), sealed reports that only the moderators can open, and bans that every member node applies with the same result. |
+| **Automation** | The CLI `yangpa`, a local JSON-RPC API, and the MCP server `yangpa-mcp`. Anything you can do in the app, you can do from the CLI. |
+| **Self-hosting** | A headless seeder that runs only the daemon on a NAS or VPS (Docker and systemd examples), and an archive-only node that keeps just ciphertext without keys. |
+| **Languages** | The UI is in 15 languages. The translations were done by AI and have not yet been reviewed by native speakers. |
 
-라이브러리 탭과 콘텐츠 뷰어 같은 일부 기능은 후원자 전용입니다([라이선스](#라이선스)).
+Some features, such as the Library tab and the content viewer, are for supporters only ([License](#license)).
 
-## 익명성: 누구에게서 무엇을 숨기나
+## Anonymity: who is hidden from what
 
-"익명"은 층마다 뜻이 다릅니다. YANGPA가 하는 일과 하지 않는 일을 나눠 적습니다.
+"Anonymous" means something different at each layer. This table separates what YANGPA does from what it doesn't.
 
-| 층 | 하는 일 | 그래도 드러나는 것 |
+| Layer | What it does | What is still exposed |
 | --- | --- | --- |
-| **가입** | 전화번호·이메일 없이 기기에서 만든 키로 계정을 만듭니다. | 내가 정한 이름과 프로필. 신원은 하나라서 여러 크루에 있으면 크루끼리 같은 사람임을 알 수 있습니다. |
-| **네트워크** | Tor가 IP를 숨깁니다. 친구·크루 멤버·시더에게도 IP가 보이지 않습니다. | 망 관찰자는 Tor를 쓴다는 사실과 트래픽 양·시각을 봅니다. 예외는 [아래 표](#앱이-바깥과-통신하는-곳). |
-| **크루 안** | 익명 채널은 글쓴이를 채널마다 정해지는 가명으로 표시합니다. | **앱 화면에서만 가립니다.** 서명자는 데이터에 그대로 남아 개조한 클라이언트를 쓰는 멤버는 글쓴이를 알 수 있습니다. |
+| **Sign-up** | Creates an account from a key generated on your device, without a phone number or email. | The name and profile you choose. There is a single identity, so if you are in several crews, the crews can tell you are the same person. |
+| **Network** | Tor hides your IP. Even friends, crew members and seeders can't see it. | A network observer sees that you use Tor, plus traffic volume and timing. For exceptions, see the [table below](#where-the-app-talks-to-the-outside). |
+| **Inside a crew** | An anonymous channel shows authors under a pseudonym set per channel. | **It hides them only in the app's display.** The signer remains in the data, so a member using a modified client can learn the author. |
 
-Tor는 친구에게서 나를 숨기지 않습니다. 친구와 멤버는 암호화된 채널 안에서 내 신원을 압니다.
+Tor does not hide you from your friends. Friends and members know your identity inside the encrypted channel.
 
-## 보안 설계
+## Security design
 
 ```mermaid
 flowchart LR
-  subgraph device["내 기기"]
-    clients["앱 · CLI · MCP"] -->|"로컬 API(토큰)"| daemon["코어 데몬 yangpad"]
+  subgraph device["My device"]
+    clients["App · CLI · MCP"] -->|"Local API (token)"| daemon["Core daemon yangpad"]
     daemon --> db[("SQLCipher")]
-    daemon --> ram[["휘발성 RAM 저장소"]]
+    daemon --> ram[["Ephemeral RAM store"]]
   end
-  daemon -->|"Tor(Arti)"| peers["친구 · 크루 기기 · 시더"]
-  daemon -.->|"직접 연결(예외)"| direct["P2P 전용 채널 · 신뢰한 상대 · 내 기기"]
+  daemon -->|"Tor (Arti)"| peers["Friends · crew devices · seeders"]
+  daemon -.->|"Direct connection (exception)"| direct["P2P-only channels · trusted peers · my devices"]
 ```
 
-| 영역 | 방식 |
+| Area | Method |
 | --- | --- |
-| 서명 | Ed25519 + FN-DSA-512 혼합. 둘 다 맞아야 통과합니다. 모든 이벤트는 기기 키로, 기기 목록은 신원 키로 서명합니다. |
-| 키 교환·봉인 | X-Wing(X25519 + ML-KEM-768) → HKDF-SHA256 → XChaCha20-Poly1305 |
-| 메시지·첨부 | XChaCha20-Poly1305. 본문은 OpenZL로 압축한 뒤 Padmé로 채워(덧붙는 양 12% 이하), 정확한 길이 대신 크기 구간만 드러납니다. |
-| 그룹 키 | 자체 키 그룹. 256대까지는 직접 봉인하고 넘으면 LKH 이진 트리를 씁니다. 키 일정은 BLAKE3 `derive_key`입니다. |
-| 키 교체 | 멤버 제거 때 바로, 기록 공개 키는 24시간마다, 크루 전체는 일주일마다 바꿉니다. 크루 설정의 '엄격한 키 회전'을 켜면 갱신이 올 때까지 보내지 않습니다. |
-| 통화 | 프레임마다 AES-256-GCM(WebRTC Encoded Transform). 참가자가 바뀔 때마다 새 키를 만들어 X-Wing으로 봉인해 나눕니다. |
-| 전송 | libp2p TLS 1.3, 키 교환 X25519MLKEM768. Tor 스웜과 릴레이 회로는 TLS만 씁니다. |
-| 네트워크 | 내장 Arti, onion 서비스 v3, vanguards(나가는 회로 lite, onion 서비스 회로 full). |
-| 저장 | SQLCipher, DB 키는 OS 키 저장소. 메시지마다 무작위 저장 키로 한 번 더 봉인해 삭제 때 그 키를 지웁니다(암호학적 삭제). |
-| 휘발성 메모리 | 세션 키는 잠긴 메모리(mlock·VirtualLock)에 두고 지울 때 0으로 덮습니다. 내용은 RAM에서도 암호문으로 두고 화면에 보낼 때만 풉니다. |
-| 로컬 API | Unix 소켓(0600)이나 named pipe만 엽니다. TCP를 열지 않고, 토큰마다 범위와 크루를 제한합니다. |
-| 로그 | 어떤 로그 수준에서도 메시지 내용·키·토큰을 남기지 않습니다. |
+| Signatures | Ed25519 + FN-DSA-512 hybrid. Both must verify to pass. Every event is signed with a device key, and the device list with the identity key. |
+| Key exchange and sealing | X-Wing (X25519 + ML-KEM-768) → HKDF-SHA256 → XChaCha20-Poly1305 |
+| Messages and attachments | XChaCha20-Poly1305. The body is compressed with OpenZL, then padded with Padmé (at most 12% added), so only a size bucket is revealed instead of the exact length. |
+| Group keys | Own key group. Up to 256 devices are sealed to directly, and beyond that an LKH binary tree is used. The key schedule is BLAKE3 `derive_key`. |
+| Key rotation | Immediately when a member is removed, history public keys every 24 hours, and the whole crew every week. With 'Strict key rotation' on in crew settings, nothing is sent until the update arrives. |
+| Calls | AES-256-GCM per frame (WebRTC Encoded Transform). Each time participants change, a new key is generated, sealed with X-Wing and distributed. |
+| Transport | libp2p TLS 1.3, key exchange X25519MLKEM768. The Tor swarm and relay circuits use TLS only. |
+| Network | Built-in Arti, onion service v3, vanguards (lite for outgoing circuits, full for onion service circuits). |
+| Storage | SQLCipher, with the DB key in the OS key store. Each message is sealed once more with a random storage key, and that key is erased on deletion (cryptographic erasure). |
+| Ephemeral memory | Session keys are held in locked memory (mlock, VirtualLock) and overwritten with zeros when erased. Content stays ciphertext even in RAM and is decrypted only when sent to the screen. |
+| Local API | Opens only a Unix socket (0600) or a named pipe. It opens no TCP port, and each token is limited in scope and crews. |
+| Logs | At no log level does it write message content, keys or tokens. |
 
-전문가가 먼저 볼 만한 설계 결정 세 가지입니다.
+Here are three design decisions experts may want to look at first.
 
-- **MLS 대신 자체 키 그룹을 씁니다.** 4만 5천 대 크루에서 MLS 웰컴·제거 커밋이 50~61MB까지 커져 바꿨습니다. 표준이 아니고 외부
-  검토도 받지 않았습니다. 설계는 [docs/protocol.md](docs/protocol.md), 측정은 [docs/performance.md](docs/performance.md)에 있습니다.
-- **메시지 단위 순방향 비밀성이 없습니다.** 키는 위 표의 주기로 바뀌고 메시지마다 돌지는 않습니다. 1대1 대화도 같은 구조입니다.
-  키가 새면 같은 키 기간의 메시지가 열립니다.
-- **Tor 회로는 아직 고전 암호입니다.** Arti 0.47에 양자 내성 회로 핸드셰이크가 없습니다. 그 안의 libp2p 연결과 종단간 내용은
-  혼합 키 교환으로 보호되지만, 가드 쪽 연결을 모아 두었다가 나중에 풀면 언제 어느 onion 주소에 걸었는지는 드러날 수 있습니다.
+- **It uses its own key group instead of MLS.** In a crew of 45,000 devices, MLS Welcome and Remove commits grew to 50 to 61 MB, so it was replaced. It is not a standard and
+  has had no external review. The design is in [docs/protocol.md](docs/protocol.md) and the measurements are in [docs/performance.md](docs/performance.md).
+- **There is no per-message forward secrecy.** Keys change at the intervals in the table above, not for every message. One-to-one conversations have the same structure.
+  If a key leaks, the messages of that same key period can be opened.
+- **Tor circuits still use classical cryptography.** Arti 0.47 has no post-quantum circuit handshake. The libp2p connection inside it and the end-to-end content are
+  protected by hybrid key exchange, but if someone stores guard-side connections and breaks them later, when you connected to which onion address may be revealed.
 
-### 앱이 바깥과 통신하는 곳
+### Where the app talks to the outside
 
-앱에는 사용 통계, 오류 보고, 자동 업데이트 확인 코드가 없습니다. 앱이 바깥과 통신하는 곳은 다음이 전부입니다. 앱 화면(웹뷰)의
-[CSP](apps/desktop/src-tauri/tauri.conf.json)는 `connect-src`를 앱 내부로만 열어 둡니다. 운영체제와 웹뷰 엔진(WebView2 등)의 자체
-통신은 앱이 제어하지 않습니다.
+The app has no usage statistics, error reporting or automatic update check code. The places where the app talks to the outside are the following, and nothing else. The
+[CSP](apps/desktop/src-tauri/tauri.conf.json) of the app's UI (the webview) opens `connect-src` only to the app itself. The operating system's and the webview engine's (WebView2 and so on) own
+traffic is not controlled by the app.
 
-| 언제 | 어디로 | 드러나는 것 |
+| When | To where | What is exposed |
 | --- | --- | --- |
-| 늘 | Tor 가드 또는 브리지 | 내 IP와 Tor를 쓴다는 사실 |
-| Tor에 들어가지 못할 때(브리지 설정을 바꾼 적이 없으면 자동) | Snowflake 브로커와 자원봉사 프록시 | 내 IP |
-| **기기가 2대 이상일 때(자동, 오프라인 모드 제외)** | 공개 STUN 서버(기본 Google·Cloudflare), 내 다른 기기, 공유기(UPnP) | **내 공인 IP** |
-| P2P 전용 채널에 참가했을 때 | 함께 참가한 기기, STUN 서버 | 내 IP(경고 확인 뒤) |
-| 신뢰 스위치를 켰을 때 | 신뢰한 상대, STUN 서버 | 내 IP(경고 확인 뒤). 한쪽만 신뢰하면 신뢰한 쪽 IP만 |
-| 크루 STUN 서버를 쓰기로 했을 때(역할 권한과 내 설정이 모두 켜져야 함) | 그 크루의 STUN 서버 | 내 공인 IP |
-| 링크가 든 메시지를 보낼 때 | 그 사이트 | Tor 출구 노드의 IP. 받는 사람은 조회하지 않습니다. 휘발성 채널은 기본 꺼짐입니다. |
-| GitHub로 후원을 확인할 때 | github.com | Tor 출구 노드의 IP와 내 GitHub 계정 |
-| **Patreon으로 후원을 확인할 때** | patreon.com | **내 실제 IP**와 내 Patreon 계정. Patreon이 Tor 출구를 막아 직접 연결합니다. |
+| Always | Tor guard or bridge | Your IP and the fact that you use Tor |
+| When it can't get into Tor (automatic if you have never changed the bridge settings) | Snowflake broker and volunteer proxies | Your IP |
+| **When you have 2 or more devices (automatic, except in offline mode)** | Public STUN servers (Google and Cloudflare by default), your other devices, your router (UPnP) | **Your public IP** |
+| When you have joined a P2P-only channel | The devices that joined with you, STUN servers | Your IP (after you confirm the warning) |
+| When you have turned on the trust switch | The trusted peer, STUN servers | Your IP (after you confirm the warning). If only one side trusts, only the trusting side's IP |
+| When you have chosen to use crew STUN servers (both the role permission and your own setting must be on) | That crew's STUN server | Your public IP |
+| When you send a message containing a link | That site | The IP of a Tor exit node. Recipients don't look it up. Off by default in ephemeral channels. |
+| When checking sponsorship through GitHub | github.com | The IP of a Tor exit node and your GitHub account |
+| **When checking sponsorship through Patreon** | patreon.com | **Your real IP** and your Patreon account. Patreon blocks Tor exits, so it connects directly. |
 
-후원 확인은 내가 버튼을 눌러 켠 뒤에만 돌고, 그 뒤로는 하루에 한 번 다시 확인합니다. YANGPA 신원은 보내지 않습니다.
+Sponsorship checking runs only after you press a button to turn it on, and after that it re-checks once a day. Your YANGPA identity is not sent.
 
-## 지켜 주지 못하는 것
+## What it can't protect
 
-전체 목록과 공격자 모델은 [SECURITY.md](SECURITY.md)에 있습니다.
+The full list and the attacker model are in [SECURITY.md](SECURITY.md).
 
-- **상대 기기로 간 데이터.** 삭제·수명·휘발성은 정직한 클라이언트에서만 지켜집니다. 스크린샷, 카메라 촬영, 개조한 클라이언트는 막지 못합니다.
-- **메타데이터.** 이벤트 헤더는 서명 확인과 동기화를 위해 암호화하지 않아서, 이벤트를 받는 멤버와 시더는 누가 언제 어느 채널에 썼는지 압니다.
-- **내 기기가 뚫린 경우.** 같은 OS 사용자로 도는 악성 프로그램은 데몬을 조작할 수 있습니다. DB 키를 따로 암호로 감싸는 기능은 아직 없습니다.
-- **Tor 자체의 한계.** 망 전체를 보는 관찰자의 시간 상관 분석은 막지 못합니다.
-- **휘발성 채널의 범위 밖 경로.** 최대 절전 파일, 크래시 덤프, 클립보드 기록, 리눅스의 화면 캡처.
-- **직접 연결 상대에게서 IP 숨기기.** P2P 전용 채널과 신뢰한 상대에게는 내 IP가 그대로 보입니다.
-- **배포물의 진위.** 코드 서명이 없고, `SHA256SUMS.txt`는 내려받기 손상만 확인해 줍니다. 진위가 중요하면 소스에서 빌드하세요.
-- **기기 분실.** 기기를 모두 잃으면 계정을 되살릴 수 없습니다.
+- **Data that has reached the other person's device.** Deletion, lifetimes and ephemerality hold only with honest clients. Screenshots, camera photos and modified clients can't be stopped.
+- **Metadata.** Event headers are not encrypted, for signature verification and sync, so members who receive an event and seeders know who wrote in which channel and when.
+- **When your device is compromised.** Malware running as the same OS user can manipulate the daemon. There is not yet a feature to wrap the DB key separately with a password.
+- **Tor's own limits.** It can't stop timing correlation by an observer who sees the whole network.
+- **Paths outside the scope of ephemeral channels.** Hibernation files, crash dumps, clipboard history, and screen capture on Linux.
+- **Hiding your IP from direct-connection peers.** P2P-only channels and trusted peers see your IP as it is.
+- **The authenticity of the distribution.** There is no code signing, and `SHA256SUMS.txt` only confirms that the download wasn't corrupted. If authenticity matters, build from source.
+- **Device loss.** If you lose all your devices, the account can't be restored.
 
-## 직접 확인하기
+## Verify it yourself
 
-믿지 말고 확인할 수 있는 것들입니다.
+These are things you can check instead of trusting.
 
-| 궁금한 것 | 확인 방법 |
+| What you want to know | How to check |
 | --- | --- |
-| 휘발성 내용이 디스크·로그에 남는가 | 휘발성 채널에 표식 문자열을 보낸 뒤 `yangpa diag leakcheck <표식>` |
-| Tor 밖으로 패킷이 새는가 | `sudo scripts/tor-leak-check.sh`(리눅스, 실제 Tor 망). 네트워크 이름공간에서 패킷을 잡아, Tor 릴레이가 아닌 곳으로 나간 패킷이 하나라도 있으면 실패합니다. 내 기기를 잇는 마지막 단계만 STUN·UPnP·내 공인 주소를 따로 셉니다. |
-| 지금 네트워크 상태는 어떤가 | `yangpa net status` |
-| 프로토콜이 문서대로인가 | [docs/protocol.md](docs/protocol.md)와 `crates/yangpa-crypto`, `crates/yangpa-sync` |
-| 기획서와 무엇이 달라졌는가 | [docs/decisions.md](docs/decisions.md)에 결정과 이유를 모두 적습니다. |
+| Whether ephemeral content remains on disk or in logs | Send a marker string in an ephemeral channel, then run `yangpa diag leakcheck <marker>` |
+| Whether packets leak outside Tor | `sudo scripts/tor-leak-check.sh` (Linux, real Tor network). It captures packets in a network namespace and fails if even one packet goes anywhere other than a Tor relay. Only the last stage, which connects your own devices, counts STUN, UPnP and your own public address separately. |
+| What the network status is now | `yangpa net status` |
+| Whether the protocol is as documented | [docs/protocol.md](docs/protocol.md), `crates/yangpa-crypto` and `crates/yangpa-sync` |
+| What changed from the original plan | [docs/decisions.md](docs/decisions.md) lists every decision and its reason. |
 
-취약점은 공개 이슈 대신 [비공개로 알려](SECURITY.md#취약점-알리기) 주세요.
+Please [report vulnerabilities privately](SECURITY.md#취약점-알리기) instead of in a public issue.
 
-## 시작하기
+## Getting started
 
-### 지원 플랫폼
+### Supported platforms
 
-Windows x86_64, macOS(Apple 실리콘·Intel 공용), 리눅스 x86_64·ARM64. Android ARM64는 릴리스의 APK(`YANGPA_…_arm64.apk`)를 설치합니다([docs/android.md](docs/android.md)).
+Windows x86_64, macOS (one build for Apple silicon and Intel), Linux x86_64 and ARM64. For Android ARM64, install the APK from the release (`YANGPA_…_arm64.apk`, [docs/android.md](docs/android.md)).
 
-### 데스크톱 앱
+### Desktop app
 
-1. [릴리스](../../releases)에서 운영체제에 맞는 묶음을 받습니다.
+1. Download the bundle for your operating system from the [releases](../../releases).
 
-   | 운영체제 | 파일 |
+   | Operating system | File |
    | --- | --- |
-   | Windows | `…_x64-setup.exe`(권장) 또는 `…_x64_en-US.msi` |
+   | Windows | `…_x64-setup.exe` (recommended) or `…_x64_en-US.msi` |
    | macOS | `…_universal.dmg` |
-   | 리눅스 x86_64 | `…_amd64.deb` 또는 `…_amd64.AppImage` |
-   | 리눅스 ARM64 | `…_arm64.deb` 또는 `…_aarch64.AppImage`(glibc 2.35 이상) |
+   | Linux x86_64 | `…_amd64.deb` or `…_amd64.AppImage` |
+   | Linux ARM64 | `…_arm64.deb` or `…_aarch64.AppImage` (glibc 2.35 or later) |
 
-2. 같은 릴리스의 `SHA256SUMS.txt`로 확인합니다.
+2. Verify it with `SHA256SUMS.txt` from the same release.
 
    ```bash
    sha256sum -c SHA256SUMS.txt --ignore-missing
    ```
 
-   서명하지 않은 묶음이라 macOS는 "시스템 설정 → 개인정보 보호 및 보안"에서 열기를 허용하고, Windows는 SmartScreen에서
-   "추가 정보 → 실행"을 고릅니다.
-3. 앱을 열고 **새로 시작하기**로 신원을 만듭니다. 다른 기기는 설정 › 기기의 **새 기기 연결**로 들입니다.
-4. 연락처 링크를 만들어 보내거나 받은 링크를 붙여 넣어 대화를 시작합니다.
+   The bundles are unsigned, so on macOS allow opening in "System Settings → Privacy & Security", and on Windows choose
+   "More info → Run anyway" in SmartScreen.
+3. Open the app and create your identity with **Get started**. Add other devices with **Connect a new device** in Settings › Devices.
+4. Start a conversation by creating a contact link and sending it, or by pasting a link you received.
 
 <details>
-<summary><strong>데몬을 앱과 따로 돌리거나 끄기</strong></summary>
+<summary><strong>Running the daemon separately from the app, or stopping it</strong></summary>
 
-앱은 데몬(`yangpad`)을 함께 싣고 있다가 필요하면 띄우고, 앱을 끝내면 붙어 있던 데몬도 끕니다(그동안은 시딩·알림도 멈춤).
-데몬을 앱과 상관없이 계속 돌리려면 앱을 `YANGPA_NO_SPAWN=1`로 실행하세요. 앱이 강제로 꺼지거나 튕겨도 앱이 띄운 데몬은 앱이
-끝난 것을 보고 스스로 끝납니다. 앱이 띄우지 않은 데몬(CLI로 띄운 것)은 남아 시딩을 계속할 수 있습니다. 그런 데몬을 끄려면:
+The app ships with the daemon (`yangpad`), starts it when needed, and stops the attached daemon when you quit the app (seeding and notifications also pause meanwhile).
+To keep the daemon running regardless of the app, run the app with `YANGPA_NO_SPAWN=1`. Even if the app is killed or crashes, a daemon the app started notices
+the app has ended and ends itself. A daemon the app did not start (one started from the CLI) can stay and keep seeding. To stop such a daemon:
 
-- 명령줄 도구가 있으면 `yangpa shutdown`. 데스크톱 묶음에는 CLI가 들어 있지 않으니 아래 `yangpa-cli-…` 묶음을 받으세요.
-- CLI가 없으면 OS에서 `yangpad` 프로세스를 끝냅니다. Windows는 작업 관리자 → 세부 정보의 `yangpad.exe`, macOS는 활동
-  모니터의 `yangpad`, 리눅스는 `pkill -x yangpad`(정상 종료 신호). 다음에 앱을 열면 다시 띄웁니다.
-- 설치 파일은 업데이트·제거 전에 그 설치본의 데몬을 먼저 끕니다: Windows `-setup.exe`·`.msi`는 설치 폴더의 `yangpad.exe`를,
-  리눅스 `.deb`은 바뀌거나 지워진 `/usr/bin/yangpad`를 끕니다. 열려 있던 앱은 다시 시작하세요(다시 띄우지 않음). Windows에서
-  다른 사용자 계정이 띄운 데몬은 끄지 못해 재부팅 뒤에 바뀔 수 있습니다.
+- If you have the command-line tool, `yangpa shutdown`. The desktop bundle does not include the CLI, so download the `yangpa-cli-…` bundle below.
+- Without the CLI, end the `yangpad` process in the OS. On Windows, `yangpad.exe` under Task Manager → Details; on macOS, `yangpad` in Activity
+  Monitor; on Linux, `pkill -x yangpad` (a normal termination signal). The next time you open the app, it starts the daemon again.
+- The installers stop that installation's daemon before an update or removal: on Windows, `-setup.exe` and `.msi` stop `yangpad.exe` in the install folder,
+  and on Linux, `.deb` stops a changed or removed `/usr/bin/yangpad`. Restart any app that was open (it is not started again). On Windows, a daemon started by
+  another user account can't be stopped, so it may be replaced after a reboot.
 
 </details>
 
-### 명령줄(CLI)
+### Command line (CLI)
 
-릴리스의 `yangpa-cli-<판>-<타깃>.tar.gz`(Windows는 `.zip`)에 `yangpad`·`yangpa`·`yangpa-mcp`가 들어 있습니다.
-세 파일을 같은 디렉터리(또는 `PATH`)에 두세요.
+The release's `yangpa-cli-<version>-<target>.tar.gz` (`.zip` on Windows) contains `yangpad`, `yangpa` and `yangpa-mcp`.
+Put the three files in the same directory (or on your `PATH`).
 
 ```bash
-yangpa daemon &                         # 데몬 띄우기(이미 앱이 띄웠으면 생략). 인자는 yangpad에 그대로 넘어감
-yangpa identity create --name 나         # 신원 만들기
+yangpa daemon &                         # Start the daemon (skip if the app already started it). Arguments pass straight to yangpad
+yangpa identity create --name me         # Create an identity
 yangpa status
 
-yangpa friend link create --single-use --expires 24h    # 상대에게 보낼 연락처 링크
-yangpa friend add 'yangpa://friend/…'                    # 받은 링크로 바로 임시 연락처·1대1 스페이스
-yangpa friend propose 상대이름                           # 친구로 올리기(상대도 하면 친구)
+yangpa friend link create --single-use --expires 24h    # A contact link to send to the other person
+yangpa friend add 'yangpa://friend/…'                    # Immediately get a temporary contact and a one-to-one space from a received link
+yangpa friend propose their-name                         # Propose to make them a friend (a friend once they do too)
 
-yangpa space list                                        # 1대1 스페이스·크루 이름
-yangpa channel list --crew <이름>
-yangpa message send --crew <이름> -c <채널> "안녕"
-yangpa watch                                             # 새 메시지·상태 변화를 실시간으로
+yangpa space list                                        # One-to-one space and crew names
+yangpa channel list --crew <name>
+yangpa message send --crew <name> -c <channel> "Hello"
+yangpa watch                                             # New messages and status changes in real time
 ```
 
 <details>
-<summary><strong>CLI 연결 방식과 인자</strong></summary>
+<summary><strong>How the CLI connects and its arguments</strong></summary>
 
-- CLI는 데몬의 로컬 API(Unix 소켓 0600, Windows named pipe)에 붙습니다. 같은 사용자라면 데이터 경로의 소유자 토큰을 자동으로
-  씁니다. 다른 위치의 데몬은 `--endpoint`(`YANGPA_ENDPOINT`), 다른 토큰은 `YANGPA_TOKEN`으로 정합니다.
-- 모든 명령은 `yangpa <명령> --help`로 인자를 볼 수 있고, `--json`이면 결과를 JSON 그대로 냅니다.
-- 이름으로 받는 값(`--crew "게임 모임"`, `-c 공지`, 역할·멤버 이름)은 실행할 때 ID로 바꿉니다. 같은 이름이 여럿이면 ID를 쓰라고
-  알려 줍니다.
+- The CLI connects to the daemon's local API (Unix socket 0600, Windows named pipe). For the same user, it automatically uses the owner token
+  in the data path. For a daemon in another location, set `--endpoint` (`YANGPA_ENDPOINT`), and for another token, `YANGPA_TOKEN`.
+- Every command shows its arguments with `yangpa <command> --help`, and with `--json` it prints the result as raw JSON.
+- Values given by name (`--crew "Game group"`, `-c announcements`, role and member names) are turned into IDs at run time. If several share the same name, it
+  tells you to use the ID.
 
 </details>
 
-### 헤드리스 시더(NAS·VPS)
+### Headless seeder (NAS, VPS)
 
-크루 기록을 늘 제공하는 노드입니다. 자세한 설정·원격 관리·Tor로 띄우기는 [docs/headless.md](docs/headless.md).
+A node that serves crew history all the time. For detailed setup, remote management and running over Tor, see [docs/headless.md](docs/headless.md).
 
 <details>
-<summary><strong>Docker·systemd로 띄우기</strong></summary>
+<summary><strong>Running with Docker or systemd</strong></summary>
 
 ```bash
-# Docker(저장소 루트에서): 데이터는 볼륨에만, 비루트 사용자, 고정 포트 47810(TCP·UDP)
+# Docker (from the repository root): data only in a volume, non-root user, fixed port 47810 (TCP and UDP)
 docker compose -f deploy/docker-compose.yml up -d --build
 alias yangpa='docker exec -it yangpa-seeder yangpa'
 
-# 또는 systemd: deploy/systemd/yangpad.service(격리 설정 포함)
+# Or systemd: deploy/systemd/yangpad.service (includes isolation settings)
 
-yangpa identity create --name "게임 모임 시더"
+yangpa identity create --name "Game group seeder"
 yangpa invite join 'yangpa://invite/…'
 yangpa seed set --all-channels --types text,image,video,file,emoji,history_bundle --upload-limit 5MB/s --prefetch on
-yangpa seed coverage --crew "게임 모임"
-yangpa blob cache limit 200GB --min-free 10GB           # 받은 첨부에 쓸 디스크 한도(기본 2GB)
+yangpa seed coverage --crew "Game group"
+yangpa blob cache limit 200GB --min-free 10GB           # Disk limit for received attachments (2 GB by default)
 ```
 
-기본 시더 범위는 "본인이 연 채널만"이라 헤드리스 노드는 `--all-channels`로 범위를 넓혀야 제공하고, 열어 보지 않은 채널의 첨부는
-`--prefetch on`이어야 미리 받습니다. 시더 패키지는 큰 통화의 SFU 호스트를 먼저 맡습니다(`YANGPA_SFU_HOST=prefer`, 미디어 UDP
-47811). 패키지대로 직접 연결로 띄운 시더는 Tor로 도는 멤버의 onion 주소에 먼저 걸지 못하고 앱에도 시더 주소를 등록하는 설정이
-없으므로, 앱 사용자와 닿게 하려면 시더를 Tor로 띄웁니다([docs/headless.md](docs/headless.md#멤버가-닿게-하기)). 크루에 가입하지
-않고 암호문만 보관하려면 `--archive`로 띄웁니다([docs/headless.md](docs/headless.md#보관-전용-노드로-쓰기)). 헤드리스 시더는 키를
-가진 크루 멤버이고, 보관 노드도 누가 언제 얼마나 썼는지 같은 메타데이터는 봅니다.
+The default seeder scope is "only channels you opened yourself", so a headless node serves only if you widen the scope with `--all-channels`, and attachments in channels
+you haven't opened are fetched ahead of time only with `--prefetch on`. The seeder package takes the SFU host role for large calls first (`YANGPA_SFU_HOST=prefer`, media UDP
+47811). A seeder brought up with a direct connection as packaged can't dial the onion addresses of members running over Tor first, and the app has
+no setting to register a seeder address, so to reach app users, bring the seeder up over Tor ([docs/headless.md](docs/headless.md#멤버가-닿게-하기)). To keep only ciphertext without
+joining a crew, start it with `--archive` ([docs/headless.md](docs/headless.md#보관-전용-노드로-쓰기)). A headless seeder is a crew member holding keys,
+and even an archive node sees metadata such as who wrote when and how much.
 
 </details>
 
-## 지금 안 되는 것
+## What doesn't work yet
 
-- 데스크톱 앱은 아직 카메라 영상을 보내지 않습니다(음성·화면공유만).
-- Tor 통화의 화면은 비상용 저화질(가로 최대 1280px, 초당 2프레임)입니다. 제대로 된 화면공유는 P2P 전용 통화 채널이나 서로 신뢰한
-  상대와 합니다.
-- 화면 소리는 Windows의 메시 통화에서만 보냅니다. SFU·Tor 통화는 화면만 보냅니다.
-- Tor로 도는 앱 기기는 SFU 호스트를 맡지 않습니다.
-- 리눅스(WebKitGTK)의 음성·화면공유는 불안정할 수 있고, 창 캡처 제외를 지원하지 않습니다.
-- 실제 Tauri 창 자동 시험은 리눅스에서만 돕니다. macOS·Windows 창과 서명·공증은 사람이 확인합니다([CONTRIBUTING.md](CONTRIBUTING.md#릴리스-절차)).
+- The desktop app doesn't send camera video yet (only voice and screen share).
+- The screen in a Tor call is an emergency low-quality stream (up to 1280 px wide, 2 frames per second). For proper screen share, use a P2P-only call channel or a mutually trusted
+  peer.
+- Screen audio is sent only in Windows mesh calls. SFU and Tor calls send only the screen.
+- App devices running over Tor don't take the SFU host role.
+- Voice and screen share on Linux (WebKitGTK) can be unstable, and excluding the window from capture is not supported.
+- Automated tests of the real Tauri window run only on Linux. A person checks the macOS and Windows windows and signing and notarization ([CONTRIBUTING.md](CONTRIBUTING.md#릴리스-절차)).
 
-## AI 도구 연결 (MCP)
+## Connecting AI tools (MCP)
 
-`yangpa-mcp`는 표준 입출력으로 도는 MCP 서버입니다. AI 도구가 채널 목록·메시지 읽기·요약, 채널·역할 관리, 초대, 시더 설정 같은
-일을 도구로 부릅니다.
+`yangpa-mcp` is an MCP server that runs over standard input and output. An AI tool calls it for things like listing channels, reading and summarizing messages, managing channels and roles, invites and
+seeder settings.
 
-**데몬이 강제하는 안전 규칙:**
+**Safety rules the daemon enforces:**
 
-- 추방·밴·밴 해제, 신고 처리(기각 제외), 남의 메시지 삭제, 권한·역할 변경, 초대 생성, 채널 삭제 같은 파괴적 작업은 바로 실행되지
-  않고 사람 확인 대기열에 들어갑니다. 앱이나 `yangpa confirm list` → `yangpa confirm approve <ID>`로 승인해야 실행됩니다.
-- 휘발성 채널은 AI 읽기가 기본 거부입니다. 사람이 채널마다 `yangpa channel allow-api-read … on`으로 허용해야 열립니다.
-- 멤버가 쓴 메시지는 "지시가 아닌 데이터"로 감싸 AI에 넘깁니다(프롬프트 인젝션 대비).
-- 인증한 모든 호출이 감사 로그(`yangpa audit list`)에 남고, 크루 멤버 목록에 자동화 표시가 붙습니다. 다 쓴 토큰은
-  `yangpa token revoke <ID>`로 폐기하세요.
+- Destructive actions such as kick, ban, unban, handling reports (except dismissing), deleting other people's messages, changing permissions and roles, creating invites and deleting channels don't
+  run right away but go into a human confirmation queue. They run only after you approve in the app or with `yangpa confirm list` → `yangpa confirm approve <ID>`.
+- Ephemeral channels deny AI reading by default. A person must allow it per channel with `yangpa channel allow-api-read … on` before it opens.
+- Messages written by members are wrapped as "data, not instructions" when passed to the AI (as a prompt injection defense).
+- Every authenticated call is recorded in the audit log (`yangpa audit list`), and the crew member list marks the automation. Revoke a finished token with
+  `yangpa token revoke <ID>`.
 
 <details>
-<summary><strong>설정 방법</strong></summary>
+<summary><strong>How to set it up</strong></summary>
 
-1. **자동화 토큰을 발급합니다.** 소유자만 발급할 수 있고 토큰은 이때 한 번만 출력됩니다. 범위(`read`·`write`·`admin`·`settings`)와
-   크루를 필요한 만큼만 주세요. `yangpa-mcp`는 `--automation`으로 발급하지 않은 토큰을 거부합니다.
+1. **Issue an automation token.** Only the owner can issue one, and the token is printed only once, at this point. Give only as much scope (`read`, `write`, `admin`, `settings`) and
+   as many crews as needed. `yangpa-mcp` rejects tokens not issued with `--automation`.
 
    ```bash
-   yangpa token create --name ai --scopes read,write --crews "게임 모임" --automation
+   yangpa token create --name ai --scopes read,write --crews "Game group" --automation
    ```
 
-2. **AI 도구의 MCP 설정에 넣습니다.** 대부분의 클라이언트가 다음 형식을 씁니다(파일 위치는 도구마다 다름).
+2. **Put it in the AI tool's MCP settings.** Most clients use the following format (the file location differs by tool).
 
    ```json
    {
@@ -404,35 +404,35 @@ yangpa blob cache limit 200GB --min-free 10GB           # 받은 첨부에 쓸 �
        "yangpa": {
          "command": "yangpa-mcp",
          "env": {
-           "YANGPA_TOKEN": "<위에서 받은 자동화 토큰>"
+           "YANGPA_TOKEN": "<the automation token from above>"
          }
        }
      }
    }
    ```
 
-   `yangpa-mcp`가 `PATH`에 없으면 `command`에 전체 경로를 적습니다. 데몬이 기본 위치가 아니면 `env`에
-   `"YANGPA_ENDPOINT": "<소켓 경로 또는 named pipe>"`를 더합니다. 로그 수준은 `YANGPA_MCP_LOG`(기본 `warn`, 표준 오류로만 출력).
+   If `yangpa-mcp` isn't on your `PATH`, write the full path in `command`. If the daemon isn't in the default location, add
+   `"YANGPA_ENDPOINT": "<socket path or named pipe>"` to `env`. The log level is `YANGPA_MCP_LOG` (default `warn`, output only to standard error).
 
 </details>
 
-자세한 규칙은 [사용자 안내서 10장](docs/user-guide.md#10-ai-연동과-안전-규칙).
+For the detailed rules, see [chapter 10 of the user guide](docs/user-guide.md#10-ai-연동과-안전-규칙).
 
-## 소스에서 빌드
+## Build from source
 
-필요한 것:
+What you need:
 
-- Rust 1.91 이상(릴리스는 1.99.1로 빌드), C 컴파일러, `perl`·`make`(SQLCipher용 OpenSSL을 소스에서 빌드),
-  `cmake`(일부 환경에서 aws-lc 빌드 대비). Windows는 MSVC 빌드 도구와 Strawberry Perl.
-- 데스크톱 앱: Node.js 22, 리눅스는 `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev`.
+- Rust 1.91 or later (releases are built with 1.99.1), a C compiler, `perl` and `make` (to build OpenSSL for SQLCipher from source),
+  `cmake` (in case aws-lc needs to be built in some environments). On Windows, the MSVC build tools and Strawberry Perl.
+- Desktop app: Node.js 22, and on Linux `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev`.
 
 ```bash
-# 코어: 데몬(yangpad)·CLI(yangpa)·MCP 서버(yangpa-mcp). 데스크톱 앱은 기본 빌드 대상이 아닙니다.
+# Core: daemon (yangpad), CLI (yangpa) and MCP server (yangpa-mcp). The desktop app is not a default build target.
 cargo build --release --locked
 ls target/release/{yangpad,yangpa,yangpa-mcp}
 cargo test --workspace
 
-# 데스크톱 앱(개발 모드). 앱은 실행 파일 옆(target/debug)의 yangpad를 찾아 띄웁니다.
+# Desktop app (development mode). The app looks for yangpad next to its executable (target/debug) and starts it.
 cargo build -p yangpa-daemon
 cd apps/desktop
 npm ci
@@ -440,80 +440,82 @@ npm run tauri dev
 ```
 
 <details>
-<summary><strong>앱 시험과 배포 묶음 만들기</strong></summary>
+<summary><strong>Testing the app and building distribution bundles</strong></summary>
 
 ```bash
-# 데스크톱 앱 시험: 단위 시험과, 위에서 빌드한 yangpad를 실제로 띄우는 E2E(없으면 E2E는 건너뜀).
+# Desktop app tests: unit tests, and an E2E that really starts the yangpad built above (the E2E is skipped if it is missing).
 YANGPA_E2E_REQUIRED=1 npm test -- --run
 
-# 실제 창 시험(리눅스): tauri-driver·WebKitWebDriver·화면이 있어야 하고, 없으면 이유를 알리고 건너뜀.
+# Real window tests (Linux): need tauri-driver, WebKitWebDriver and a display; if missing, it says why and skips.
 npm run test:window:build
 xvfb-run -a npm run test:window
 ```
 
-배포 묶음을 직접 만들려면 `yangpad`를 빌드해 `apps/desktop/src-tauri/binaries/yangpad-<타깃 트리플>`(Windows는 `.exe`)로 복사한 뒤
-`npm run tauri build`를 실행합니다. 릴리스 파이프라인([.github/workflows/release.yml](.github/workflows/release.yml))이 이 순서를
-그대로 따릅니다. Windows에서는 Git bash에서 `scripts/build-windows-release.sh` 하나로 설치 파일(NSIS·MSI)과 포터블
-zip(`target/portable/<커밋>/`)을 만들 수 있고, 단계마다 걸린 시간을 보여 줍니다(`BUNDLES=nsis`면 MSI를 건너뜀). 배포 빌드는
-바이너리에 사용자 이름이 담긴 경로가 남지 않게 `C:\yangpa-build`(`DIST_DIR`로 바꿈)에서 하므로 설치 파일도 그 아래
-`target\x86_64-pc-windows-msvc\release\bundle\`에 생기고, 스크립트가 마지막에 전체 경로를 보여 줍니다.
+To build a distribution bundle yourself, build `yangpad` and copy it to `apps/desktop/src-tauri/binaries/yangpad-<target triple>` (`.exe` on Windows), then
+run `npm run tauri build`. The release pipeline ([.github/workflows/release.yml](.github/workflows/release.yml)) follows exactly this order. On Windows, from Git bash,
+the single `scripts/build-windows-release.sh` builds the installers (NSIS and MSI) and the portable
+zip (`target/portable/<commit>/`), and shows the time each step took (`BUNDLES=nsis` skips MSI). Distribution builds run in `C:\yangpa-build` (changeable with `DIST_DIR`)
+so that no path containing the user name is left in the binaries, so the installers are also created under `target\x86_64-pc-windows-msvc\release\bundle\`,
+and the script shows the full path at the end.
 
-README의 스크린샷은 `apps/desktop`에서 `npm run build && npm run screenshot`으로 다시 만듭니다.
+The README screenshots are regenerated in `apps/desktop` with `npm run build && npm run screenshot`.
 
 </details>
 
-기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md).
+For how to contribute, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <details>
-<summary><strong>저장소 구조</strong></summary>
+<summary><strong>Repository structure</strong></summary>
 
-| 경로 | 내용 |
+| Path | Contents |
 | --- | --- |
-| `crates/yangpa-core` | 공용 타입: 식별자, 서명, 이벤트 DAG, 공간·채널·권한 모델, 링크, 프로토콜 메시지 |
-| `crates/yangpa-crypto` | AEAD·봉인 상자·잠긴 메모리, 이벤트·블롭 암호화, 신원 키, 키 그룹(키 트리·키 일정) |
-| `crates/yangpa-store` | SQLCipher 저장소, 블롭 저장소, 휘발성 RAM 저장소(타입으로 분리) |
-| `crates/yangpa-sync` | DAG, 구간 지문 비교, 상태 해소(권한), 시더·피어 정책, 파일 스웜 스케줄러 |
-| `crates/yangpa-net` | libp2p(QUIC·TCP·Kademlia·GossipSub·Relay·DCUtR·AutoNAT·mDNS), Arti 기반 Tor 스웜 |
-| `crates/yangpa-sfu` | 통화 SFU 엔진(str0m, 입출력 없음): 프레임을 풀지 않고 넘김, simulcast 층 고르기 |
-| `crates/yangpa-rpc` | 로컬 JSON-RPC 2.0 프레이밍·타입·클라이언트·서버 |
-| `crates/yangpa-daemon` | 코어 데몬 `yangpad` |
-| `crates/yangpa-cli` | CLI `yangpa` |
-| `crates/yangpa-mcp` | AI 연동 MCP 서버 `yangpa-mcp` |
-| `crates/yangpa-bench` | 성능 기준 작업 묶음과 명령 수 회귀 검사 `yangpa-bench` |
-| `scripts` | 실제 Tor 망 누출 검사(패킷 캡처)·성능 회귀 검사 스크립트 |
-| `apps/desktop` | 데스크톱·Android 앱(Tauri 2 + React + TypeScript) |
-| `deploy/` | 헤드리스 시더 예시(docker-compose, systemd) |
-| `docs/` | 기획서와 설계 문서 |
+| `crates/yangpa-core` | Shared types: identifiers, signatures, event DAG, space, channel and permission model, links, protocol messages |
+| `crates/yangpa-crypto` | AEAD, sealed boxes, locked memory, event and blob encryption, identity keys, key groups (key tree, key schedule) |
+| `crates/yangpa-store` | SQLCipher store, blob store, ephemeral RAM store (separated by type) |
+| `crates/yangpa-sync` | DAG, range fingerprint comparison, state resolution (permissions), seeder and peer policy, file swarm scheduler |
+| `crates/yangpa-net` | libp2p (QUIC, TCP, Kademlia, GossipSub, Relay, DCUtR, AutoNAT, mDNS), Arti-based Tor swarm |
+| `crates/yangpa-sfu` | Call SFU engine (str0m, no I/O): forwards frames without decrypting them, picks simulcast layers |
+| `crates/yangpa-rpc` | Local JSON-RPC 2.0 framing, types, client and server |
+| `crates/yangpa-daemon` | The core daemon `yangpad` |
+| `crates/yangpa-cli` | The CLI `yangpa` |
+| `crates/yangpa-mcp` | The MCP server `yangpa-mcp` for AI integration |
+| `crates/yangpa-bench` | Performance benchmark workloads and the command-count regression check `yangpa-bench` |
+| `scripts` | Real Tor network leak check (packet capture) and performance regression check scripts |
+| `apps/desktop` | Desktop and Android app (Tauri 2 + React + TypeScript) |
+| `deploy/` | Headless seeder examples (docker-compose, systemd) |
+| `docs/` | The original plan and design documents |
 
 </details>
 
-## 문서
+## Documentation
 
-| 문서 | 내용 |
+The documents below are available only in Korean.
+
+| Document | Contents |
 | --- | --- |
-| [docs/user-guide.md](docs/user-guide.md) | 사용자 안내서: 연락처·친구, 크루, 역할, 초대, 휘발성 채널, 시딩, Tor 연결·P2P 전용 채널·신뢰 스위치, AI 안전 규칙 |
-| [SECURITY.md](SECURITY.md) | 위협 모델, 지켜 주는 것과 못 하는 것, 취약점 알리기 |
-| [docs/protocol.md](docs/protocol.md) | 암호와 동기화 프로토콜 |
-| [docs/architecture.md](docs/architecture.md) | 크레이트 경계와 공개 API |
-| [docs/api.md](docs/api.md) | 로컬 JSON-RPC API |
-| [docs/headless.md](docs/headless.md) | 헤드리스 시더 설치·원격 관리·운영 |
-| [docs/android.md](docs/android.md) | Android 앱 구조와 빌드 |
-| [docs/decisions.md](docs/decisions.md) | 기획서와 달라진 점, 미결정 사항에 넣은 기본값 |
-| [docs/performance.md](docs/performance.md) | 성능 목표·측정 결과·명령 수 기준선과 회귀 검사 |
-| [docs/daemon.md](docs/daemon.md) | 데몬 내부: 모듈 소유, 훅, 알려진 빈칸 |
-| [docs/plan.md](docs/plan.md) | 기획서 원문 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 작업 공간 구조, 검사, 문서 규칙, 릴리스 절차 |
+| [docs/user-guide.md](docs/user-guide.md) | User guide: contacts and friends, crews, roles, invites, ephemeral channels, seeding, Tor connection, P2P-only channels, trust switch, AI safety rules |
+| [SECURITY.md](SECURITY.md) | Threat model, what it protects and what it can't, reporting vulnerabilities |
+| [docs/protocol.md](docs/protocol.md) | Cryptography and sync protocol |
+| [docs/architecture.md](docs/architecture.md) | Crate boundaries and public API |
+| [docs/api.md](docs/api.md) | Local JSON-RPC API |
+| [docs/headless.md](docs/headless.md) | Headless seeder installation, remote management and operation |
+| [docs/android.md](docs/android.md) | Android app structure and build |
+| [docs/decisions.md](docs/decisions.md) | What changed from the plan, and defaults chosen for open questions |
+| [docs/performance.md](docs/performance.md) | Performance goals, measurement results, command-count baseline and regression check |
+| [docs/daemon.md](docs/daemon.md) | Daemon internals: module ownership, hooks, known gaps |
+| [docs/plan.md](docs/plan.md) | The original plan |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Workspace structure, checks, documentation rules, release procedure |
 
-## 라이선스
+## License
 
-GNU Affero General Public License v3 또는 그 이후 판([LICENSE](LICENSE), SPDX `AGPL-3.0-or-later`)로 배포합니다. 고친 판을 네트워크로
-다른 사람이 쓰게 하면(예: 직접 띄운 SFU 서버) 그 사람에게도 소스를 줘야 합니다. `third_party`와 `vendor/ffmpeg`는 각자의
-라이선스(그 폴더의 파일)를 따릅니다.
+Distributed under the GNU Affero General Public License v3 or later ([LICENSE](LICENSE), SPDX `AGPL-3.0-or-later`). If you let others use a modified version over a network
+(for example, an SFU server you run yourself), you must give them the source too. `third_party` and `vendor/ffmpeg` follow their own
+licenses (the files in those folders).
 
-- **후원 기능**(후원 확인, 라이브러리 탭, 콘텐츠 뷰어, 후원자 표시)의 코드인 `crates/yangpa-daemon/src/supporter/`와
-  `apps/desktop/src/supporter/`는 AGPL이 아니라 [YANGPA 후원 기능 라이선스](LICENSE-SUPPORTER.md)를 따릅니다. 소스는 공개하고 직접
-  빌드해 혼자 쓰는 것은 되지만, 후원 확인을 없애거나 우회한 판을 배포할 수는 없습니다.
-- **AGPL 7조 추가 조건**([NOTICE.md](NOTICE.md)): 고친 판은 앱의 정보 화면에 원본 저작권 표시와 소스 주소, 그리고 "YANGPA를 바탕으로
-  고친 판"이라는 문구를 남겨야 합니다. 후원 모듈과 묶어 배포하는 것은 허락합니다.
-- **상표**([TRADEMARK.md](TRADEMARK.md)): 고친 판은 YANGPA 이름과 불꽃 아이콘을 쓸 수 없습니다.
-- 기여는 [기여자 동의](CONTRIBUTING.md#라이선스와-기여자-동의)를 따릅니다.
+- **Supporter features** (sponsorship checking, the Library tab, the content viewer, supporter badges): the code in `crates/yangpa-daemon/src/supporter/` and
+  `apps/desktop/src/supporter/` is under the [YANGPA Supporter License](LICENSE-SUPPORTER.md), not the AGPL. The source is public, and building it yourself for your own use is fine,
+  but you can't distribute a version that removes or bypasses the sponsorship check.
+- **AGPL section 7 additional terms** ([NOTICE.md](NOTICE.md)): a modified version must keep the original copyright notice and source address on the app's About screen, plus the wording "a version modified from YANGPA".
+  Distributing it bundled with the supporter module is permitted.
+- **Trademark** ([TRADEMARK.md](TRADEMARK.md)): a modified version may not use the YANGPA name or the flame icon.
+- Contributions follow the [contributor agreement](CONTRIBUTING.md#라이선스와-기여자-동의).
