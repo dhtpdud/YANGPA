@@ -275,9 +275,17 @@ jobs:
           if [ "$RUNNER_OS" = Windows ] && [ "$PRERELEASE" = true ]; then bundles="nsis"; fi
           args=(build --ci --target "$TARGET" --bundles "$bundles")
           # 후원 모듈은 AGPL이 아니라 두 라이선스와 7조 추가 조건(NOTICE.md)을 설치 폴더의 licenses에 함께 넣습니다.
-          mkdir -p src-tauri/licenses
-          cp ../../LICENSE ../../NOTICE.md ../../LICENSE-SUPPORTER.md ../../TRADEMARK.md src-tauri/licenses/
-          args+=(--config '{"bundle":{"resources":["licenses/"]}}')
+          # Windows는 PC 빌드(scripts/build-windows-release.sh)와 같은 스크립트로 실행 파일 옆 models(신경망 코덱)·
+          # ffmpeg(화면공유 인코더)·pt(브리지 lyrebird)도 넣습니다.
+          if [ "$RUNNER_OS" = Windows ]; then
+            resources="$(bash ../../scripts/stage-windows-extras.sh "$(cygpath -u "$RUNNER_TEMP")/extras-cache")"
+          else
+            mkdir -p src-tauri/licenses
+            cp ../../LICENSE ../../NOTICE.md ../../LICENSE-SUPPORTER.md ../../TRADEMARK.md src-tauri/licenses/
+            resources='["licenses/"]'
+          fi
+          echo "BUNDLE_RESOURCES=$resources" >> "$GITHUB_ENV"
+          args+=(--config "{\"bundle\":{\"resources\":$resources}}")
           if [ "$RUNNER_OS" = macOS ]; then args+=(--config "$MACOS_ADHOC_CONFIG"); fi
           npm run tauri -- "${args[@]}" -- --locked
           echo "BUNDLES_BUILT=$bundles" >> "$GITHUB_ENV"
@@ -291,7 +299,7 @@ jobs:
           msi="$(find ../../target/"$TARGET"/release/bundle/msi -maxdepth 1 -name '*.msi' -print -quit)"
           test -n "$msi"
           cp "$msi" "$RUNNER_TEMP/upgrade-from.msi"
-          npm run tauri -- bundle --ci --target "$TARGET" --bundles msi --config '{"bundle":{"resources":["licenses/"]}}'
+          npm run tauri -- bundle --ci --target "$TARGET" --bundles msi --config "{\"bundle\":{\"resources\":$BUNDLE_RESOURCES}}"
 
       - name: 설치 시험 (Windows)
         if: runner.os == 'Windows'
