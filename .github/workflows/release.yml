@@ -224,10 +224,10 @@ jobs:
           if [ "$TARGET" = universal-apple-darwin ]; then
             mkdir -p "target/$TARGET/release"
             for b in yangpad yangpa yangpa-mcp; do
-              # Xcode 26의 lipo는 -output을 입력 파일 뒤에 둬야 받습니다.
               lipo -create "target/aarch64-apple-darwin/release/$b" "target/x86_64-apple-darwin/release/$b" \
                 -output "target/$TARGET/release/$b"
-              lipo -verify_arch "target/$TARGET/release/$b" arm64 x86_64
+              # -verify_arch는 입력 파일 뒤에 둡니다(앞에 두면 Xcode 26 lipo가 파일 이름을 아키텍처로 읽음).
+              lipo "target/$TARGET/release/$b" -verify_arch arm64 x86_64
             done
           fi
       - name: 실행 확인

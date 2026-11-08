@@ -30,8 +30,12 @@
   <Fragment>
     <ComponentGroup Id="YangpaStopDaemon" />
 
-    <SetProperty Id="WixQuietExec64CmdLine" Before="YangpaStopDaemonBeforeValidate" Sequence="execute"
-                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -NonInteractive -Command &quot;$t = '[INSTALLDIR]yangpad.exe'; Get-Process -Name yangpad -ErrorAction SilentlyContinue | Where-Object [\{] $_.Path -eq $t [\}] | ForEach-Object [\{] Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue; Wait-Process -Id $_.Id -Timeout 10 -ErrorAction SilentlyContinue; if ($_.HasExited) [\{] 'YangpaStopDaemon stopped pid=' + $_.Id [\}] [\}]; exit 0&quot;" />
+    <!-- QuietExec는 명령줄 속성(WixQuietExec64CmdLine)을 읽은 뒤 지우므로, 부를 때마다 바로 앞에서 다시 넣습니다.
+         SetProperty는 같은 속성을 두 번 둘 수 없어 속성 설정 동작(Property+Value)을 둘 씁니다. 두 값은 같아야 합니다. -->
+    <CustomAction Id="YangpaStopCmdBeforeValidate" Property="WixQuietExec64CmdLine" Execute="immediate"
+                  Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -NonInteractive -Command &quot;$t = '[INSTALLDIR]yangpad.exe'; Get-Process -Name yangpad -ErrorAction SilentlyContinue | Where-Object [\{] $_.Path -eq $t [\}] | ForEach-Object [\{] Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue; Wait-Process -Id $_.Id -Timeout 10 -ErrorAction SilentlyContinue; if ($_.HasExited) [\{] 'YangpaStopDaemon stopped pid=' + $_.Id [\}] [\}]; exit 0&quot;" />
+    <CustomAction Id="YangpaStopCmdAfterValidate" Property="WixQuietExec64CmdLine" Execute="immediate"
+                  Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -NonInteractive -Command &quot;$t = '[INSTALLDIR]yangpad.exe'; Get-Process -Name yangpad -ErrorAction SilentlyContinue | Where-Object [\{] $_.Path -eq $t [\}] | ForEach-Object [\{] Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue; Wait-Process -Id $_.Id -Timeout 10 -ErrorAction SilentlyContinue; if ($_.HasExited) [\{] 'YangpaStopDaemon stopped pid=' + $_.Id [\}] [\}]; exit 0&quot;" />
 
     <CustomAction Id="YangpaStopDaemonBeforeValidate" BinaryKey="WixCA" DllEntry="WixQuietExec64"
                   Execute="immediate" Return="ignore" />
@@ -39,8 +43,10 @@
                   Execute="immediate" Return="ignore" />
 
     <InstallExecuteSequence>
+      <Custom Action="YangpaStopCmdBeforeValidate" Before="YangpaStopDaemonBeforeValidate" />
       <Custom Action="YangpaStopDaemonBeforeValidate" Before="InstallValidate" />
-      <Custom Action="YangpaStopDaemonAfterValidate" After="InstallValidate" />
+      <Custom Action="YangpaStopCmdAfterValidate" After="InstallValidate" />
+      <Custom Action="YangpaStopDaemonAfterValidate" After="YangpaStopCmdAfterValidate" />
     </InstallExecuteSequence>
   </Fragment>
 </Wix>

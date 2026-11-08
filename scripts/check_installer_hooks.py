@@ -104,9 +104,10 @@ def check_wix(base, wix, errors, smoke_ps1=SMOKE_PS1):
                     continue
                 for e in formatted_errors(v):
                     errors.append(f"{rel}: {el.tag.replace(WIX_NS, '')} {el.get('Id')} {attr}: {e}")
-        for el in root.iter(WIX_NS + "SetProperty"):
-            if not (el.get("Id") or "").startswith("WixQuietExec"):
-                continue
+        # QuietExec 명령줄은 SetProperty나 속성 설정 동작(<CustomAction Property=… Value=…>)으로 넣습니다.
+        cmdlines = [el for el in root.iter(WIX_NS + "SetProperty") if (el.get("Id") or "").startswith("WixQuietExec")]
+        cmdlines += [el for el in root.iter(WIX_NS + "CustomAction") if (el.get("Property") or "").startswith("WixQuietExec")]
+        for el in cmdlines:
             v = el.get("Value") or ""
             if STOP_MARKER not in v:
                 errors.append(f"{rel}: {el.get('Id')}가 끈 PID를 '{STOP_MARKER}'로 찍지 않습니다(설치 시험이 확인할 수 없음)")
