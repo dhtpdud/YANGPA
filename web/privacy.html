@@ -1,0 +1,179 @@
+<!doctype html>
+<!--
+  YANGPA 개인정보처리방침. Google Play 스토어 등록정보와 계정 삭제 안내(#delete)가 이 주소를 가리킵니다.
+  pages.yml이 web/ 폴더째 올리므로 https://dhtpdud.github.io/YANGPA/privacy.html 로 열립니다.
+  앱이 외부로 보내는 것이 바뀌면(STUN 기본값 config.rs, 후원 확인 supporter/, 업데이트 update.rs, 미리보기 preview.rs) 같이 고칩니다.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>YANGPA 개인정보처리방침 · Privacy Policy</title>
+<style>
+  :root { --bg: #faf8f6; --card: #ffffff; --text: #1d1b1a; --muted: #6b6560; --line: #e7e1dc; --accent: #b8401a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161413; --card: #201d1b; --text: #f1ece8; --muted: #a59d97; --line: #34302d; --accent: #e8541e; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.65;
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  article { background: var(--card); border: 1px solid var(--line); border-top: 3px solid var(--accent);
+    border-radius: 12px; padding: 8px 24px 24px; margin-bottom: 32px; }
+  h1 { font-size: 1.6rem; margin: 16px 0 4px; }
+  h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+  p, li { margin: 6px 0; }
+  .muted { color: var(--muted); font-size: .92rem; }
+  a { color: var(--accent); }
+  nav { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<main>
+<nav><a href="#ko">한국어</a> · <a href="#en">English</a></nav>
+
+<article id="ko" lang="ko">
+<h1>YANGPA 개인정보처리방침</h1>
+<p class="muted">시행일: 2026년 11월 10일 · 적용 대상: YANGPA 앱(Android·Windows·macOS·Linux)</p>
+
+<p><strong>요약:</strong> YANGPA 개발자는 서버를 운영하지 않으며, 사용자의 개인정보·대화·파일을 수집하거나 저장하거나
+판매하지 않습니다. 모든 데이터는 사용자의 기기와, 사용자가 대화하기로 한 상대의 기기에만 있습니다.</p>
+
+<h2>1. 기기에 저장하는 데이터</h2>
+<ul>
+  <li>계정 키, 대화, 받은 파일, 연락처, 크루·채널 정보, 설정을 기기 안의 암호화된 데이터베이스에 저장합니다.
+    데이터베이스 키는 운영체제 키 저장소(Android Keystore 등)에 둡니다.</li>
+  <li>휘발성 채널의 내용은 메모리에만 있고 디스크·로그·캐시에 쓰지 않습니다.</li>
+  <li>Android에서는 Google 백업을 꺼 두어 데이터가 클라우드 백업으로 나가지 않습니다.</li>
+</ul>
+
+<h2>2. 다른 사용자와 주고받는 데이터</h2>
+<ul>
+  <li>메시지, 파일, 프로필(이름·사진·상태), 기기 이름은 종단간 암호화되어 대화 상대와 크루 구성원의 기기로 Tor를 통해
+    직접 전달됩니다. 모든 대화는 양자내성암호로 보호됩니다.</li>
+  <li>상대 기기에 전달된 내용은 그 사람의 기기에 저장되며, 개발자는 이를 보거나 지울 수 없습니다.</li>
+  <li>“P2P 전용” 채널에 들어가거나 특정 상대·크루와의 IP 노출을 허용하면, 그 상대가 사용자의 IP 주소를 볼 수 있습니다.
+    앱은 이 경우 미리 경고합니다.</li>
+</ul>
+
+<h2>3. 앱이 연결하는 외부 서비스</h2>
+<p>개발자의 서버는 없지만, 아래 기능을 쓸 때 앱이 제3자 서비스에 연결합니다. 각 서비스는 자체 개인정보처리방침을 따릅니다.</p>
+<ul>
+  <li><strong>Tor 네트워크:</strong> 모든 통신은 Tor를 거칩니다. Tor 중계 노드는 대화 내용을 볼 수 없습니다.
+    Snowflake·obfs4·WebTunnel 브리지를 켜면 해당 브리지 운영자가 사용자의 IP 주소를 볼 수 있습니다.</li>
+  <li><strong>STUN 서버</strong>(기본값: Google, Cloudflare): P2P 직접 연결과 그 위의 통화에서만 공유기 밖 주소를 알아내려고
+    묻습니다. 이때 STUN 서버는 사용자의 공인 IP 주소를 봅니다. Tor 연결에는 쓰지 않으며, 설정에서 목록을 바꿀 수 있습니다.</li>
+  <li><strong>GitHub:</strong> 앱 업데이트 확인과 GitHub Sponsors 후원자 확인에 씁니다. Tor로 연결하므로 GitHub는 사용자의
+    IP 주소를 보지 못합니다. 후원자 확인을 위해 로그인하면 GitHub 계정의 후원 정보만 조회하며, 토큰은 기기 안
+    암호화된 데이터베이스에만 저장합니다.</li>
+  <li><strong>Patreon:</strong> 사용자가 Patreon 후원자 확인을 직접 켠 경우에만 연결하며, Patreon이 Tor를 막아 직접 연결합니다.
+    후원 상태만 조회합니다.</li>
+  <li><strong>링크 미리보기:</strong> 메시지에 링크를 넣으면 보내는 기기가 Tor를 통해 그 웹 페이지의 제목·설명·이미지를 가져옵니다.
+    받는 기기는 외부 사이트에 접속하지 않습니다.</li>
+</ul>
+
+<h2>4. 기기 권한</h2>
+<ul>
+  <li>인터넷·네트워크 상태: Tor를 통한 메시지 송수신.</li>
+  <li>알림: 새 메시지 알림.</li>
+  <li>마이크: 통화에 씁니다. 사용자가 통화를 시작하거나 받을 때만 씁니다.</li>
+  <li>카메라: 기기 연결용 QR 코드 읽기 등 사용자가 카메라를 켜는 기능에서만 씁니다.</li>
+  <li>포그라운드 서비스: 앱을 닫아도 메시지를 받기 위해 씁니다. 설정에서 끌 수 있습니다.</li>
+</ul>
+
+<h2>5. 수집하지 않는 것</h2>
+<p>전화번호·이메일 가입, 광고 ID, 위치, 연락처 목록 읽기, 사용 통계·분석, 충돌 보고, 광고가 없습니다.
+앱에는 분석·광고 SDK가 들어 있지 않습니다.</p>
+
+<h2 id="delete">6. 계정과 데이터 삭제</h2>
+<ul>
+  <li>앱의 <strong>설정 › 프로필 › 계정 삭제</strong>에서 이 기기의 계정 키와 모든 데이터를 지울 수 있습니다. 앱을 지워도 기기의
+    데이터가 함께 지워집니다.</li>
+  <li>개발자가 보관하는 데이터가 없으므로 따로 삭제를 요청할 곳은 없습니다. 다른 사용자의 기기에 이미 전달된 메시지는 그
+    사용자의 기기에 남을 수 있습니다.</li>
+</ul>
+
+<h2>7. 아동</h2>
+<p>YANGPA는 만 13세 미만 아동을 대상으로 하지 않습니다.</p>
+
+<h2>8. 변경과 문의</h2>
+<p>이 방침이 바뀌면 이 페이지에 새 시행일과 함께 게시합니다. 문의는
+<a href="https://github.com/dhtpdud/YANGPA/issues">GitHub 이슈</a>로 남겨 주세요. 앱의 소스 코드는
+<a href="https://github.com/dhtpdud/YANGPA">github.com/dhtpdud/YANGPA</a>에서 누구나 확인할 수 있습니다.</p>
+</article>
+
+<article id="en" lang="en">
+<h1>YANGPA Privacy Policy</h1>
+<p class="muted">Effective: November 10, 2026 · Applies to: the YANGPA app (Android, Windows, macOS, Linux)</p>
+
+<p><strong>Summary:</strong> The YANGPA developer runs no servers and does not collect, store, or sell your personal
+information, messages, or files. Your data lives only on your devices and on the devices of the people you choose to talk to.</p>
+
+<h2>1. Data stored on your device</h2>
+<ul>
+  <li>Account keys, messages, received files, contacts, crew and channel data, and settings are kept in an encrypted
+    database on your device. The database key is held in the operating system key store (such as Android Keystore).</li>
+  <li>Volatile channel content stays in memory only and is never written to disk, logs, or caches.</li>
+  <li>On Android, Google backup is turned off, so your data does not go to cloud backups.</li>
+</ul>
+
+<h2>2. Data you exchange with other users</h2>
+<ul>
+  <li>Messages, files, your profile (name, picture, status), and device names are end-to-end encrypted and delivered
+    over Tor directly to the devices of your contacts and crew members. Every conversation is protected by post-quantum encryption.</li>
+  <li>Content delivered to another person is stored on their device; the developer cannot see or delete it.</li>
+  <li>If you join a “P2P only” channel or allow IP exposure with a specific person or crew, they can see your IP address.
+    The app warns you before this happens.</li>
+</ul>
+
+<h2>3. Third-party services the app connects to</h2>
+<p>There is no developer server, but the app connects to the third-party services below when you use these features.
+Each service follows its own privacy policy.</p>
+<ul>
+  <li><strong>Tor network:</strong> all traffic goes through Tor. Tor relays cannot read your messages. If you turn on
+    Snowflake, obfs4, or WebTunnel bridges, the bridge operator can see your IP address.</li>
+  <li><strong>STUN servers</strong> (default: Google, Cloudflare): asked only for direct P2P connections and calls over them,
+    to learn your address outside your router. The STUN server sees your public IP address. They are never used for Tor
+    connections, and you can change the list in settings.</li>
+  <li><strong>GitHub:</strong> used to check for app updates and to verify GitHub Sponsors supporters. The app connects over Tor,
+    so GitHub does not see your IP address. If you sign in for supporter verification, only your sponsorship status is read,
+    and the token is kept only in the encrypted database on your device.</li>
+  <li><strong>Patreon:</strong> contacted only if you turn on Patreon supporter verification. Patreon blocks Tor, so this uses a
+    direct connection. Only your membership status is read.</li>
+  <li><strong>Link previews:</strong> when you put a link in a message, the sending device fetches the page title, description,
+    and image over Tor. Receiving devices do not contact the website.</li>
+</ul>
+
+<h2>4. Device permissions</h2>
+<ul>
+  <li>Internet and network state: sending and receiving messages over Tor.</li>
+  <li>Notifications: new message alerts.</li>
+  <li>Microphone: used for calls, only when you start or join a call.</li>
+  <li>Camera: used only in features where you turn on the camera, such as scanning the QR code to link a device.</li>
+  <li>Foreground service: keeps receiving messages after the app is closed. You can turn this off in settings.</li>
+</ul>
+
+<h2>5. What we do not collect</h2>
+<p>No phone number or email sign-up, advertising ID, location, contact list access, usage analytics, crash reports, or ads.
+The app contains no analytics or advertising SDKs.</p>
+
+<h2 id="delete-en">6. Deleting your account and data</h2>
+<ul>
+  <li>In the app, go to <strong>Settings › Profile › Delete account</strong> to erase the account keys and all data on that device.
+    Uninstalling the app also removes its data from the device.</li>
+  <li>The developer holds no data, so there is nothing else to request. Messages already delivered to other users may remain
+    on their devices.</li>
+</ul>
+
+<h2>7. Children</h2>
+<p>YANGPA is not directed at children under 13.</p>
+
+<h2>8. Changes and contact</h2>
+<p>If this policy changes, the new version will be posted on this page with a new effective date. For questions, please open a
+<a href="https://github.com/dhtpdud/YANGPA/issues">GitHub issue</a>. The app's source code is available to everyone at
+<a href="https://github.com/dhtpdud/YANGPA">github.com/dhtpdud/YANGPA</a>.</p>
+</article>
+</main>
+</body>
+</html>
