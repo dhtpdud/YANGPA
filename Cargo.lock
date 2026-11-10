@@ -11346,7 +11346,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-bench"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "anyhow",
  "blake3",
@@ -11369,7 +11369,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-cli"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11387,7 +11387,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-core"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "base64 0.22.1",
  "blake3",
@@ -11408,7 +11408,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-crypto"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "blake3",
  "chacha20poly1305",
@@ -11433,7 +11433,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-daemon"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "android-native-keyring-store",
  "anyhow",
@@ -11482,7 +11482,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-desktop"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "ab_glyph",
  "async-trait",
@@ -11524,7 +11524,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-mcp"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11544,7 +11544,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-net"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "arti-client",
  "blake3",
@@ -11572,7 +11572,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-rpc"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -11598,7 +11598,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-sfu"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "str0m",
  "thiserror 2.0.21",
@@ -11608,7 +11608,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-store"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "blake3",
  "memchr",
@@ -11628,7 +11628,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-sync"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "blake3",
  "imbl",
@@ -11643,7 +11643,7 @@ dependencies = [
 
 [[package]]
 name = "yangpa-zl"
-version = "1.1.1"
+version = "1.1.2"
 dependencies = [
  "openzl-sys",
  "thiserror 2.0.21",
