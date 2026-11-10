@@ -11,7 +11,8 @@ tauri.conf.json이 가리키는 설치 훅이 실제로 있고 서로 맞는지 
   `[IO.Path]` 같은 것이 빈 속성으로 바뀌는 실수 방지). QuietExec 명령은 끈 PID를 `YangpaStopDaemon stopped pid=`로 찍고
   `exit 0`으로 끝나야 하며, 같은 표시를 Windows 설치 시험(`scripts/installer-smoke.ps1`)이 찾습니다(데몬을 끈 것이 이
   동작인지 확인).
-- NSIS 훅(`bundle.windows.nsis.installerHooks`): 파일이 있고 UTF-8 BOM으로 시작(한국어 문자열).
+- NSIS 훅(`bundle.windows.nsis.installerHooks`): 파일이 있고 UTF-8 BOM으로 시작(한국어 문자열). 폴더를 통째로 지우면
+  (`RMDir /r`) '앱 데이터 삭제' 체크와 업데이트 아님 조건을 함께 봄.
 - deb 유지 스크립트(`bundle.linux.deb.*Script`): 파일이 있고 `#!/bin/sh`로 시작하며 `sh -n`을 통과(권한은 묶을 때
   Tauri가 0755로 씀).
 
@@ -151,8 +152,21 @@ def check_nsis(base, nsis, errors):
         errors.append(f"NSIS 훅이 없습니다: {rel}")
         return
     with open(path, "rb") as f:
-        if f.read(3) != b"\xef\xbb\xbf":
-            errors.append(f"{rel}: UTF-8 BOM으로 시작해야 합니다(없으면 makensis가 시스템 코드 페이지로 읽음)")
+        raw = f.read()
+    if not raw.startswith(b"\xef\xbb\xbf"):
+        errors.append(f"{rel}: UTF-8 BOM으로 시작해야 합니다(없으면 makensis가 시스템 코드 페이지로 읽음)")
+    errors.extend(f"{rel}: {e}" for e in nsis_delete_errors(raw.decode("utf-8", "replace")))
+
+
+def nsis_delete_errors(text):
+    """폴더를 통째로 지우는 훅은 '앱 데이터 삭제' 체크와 업데이트 아님(/UPDATE도 제거를 거침)을 함께 봐야 합니다."""
+    if "rmdir /r" not in text.lower():
+        return []
+    return [
+        f"RMDir /r이 있는데 '{c}' 조건이 없습니다(업데이트·체크 안 한 제거에서 데이터가 지워짐)"
+        for c in ("$DeleteAppDataCheckboxState = 1", "$UpdateMode <> 1")
+        if c not in text
+    ]
 
 
 def check_deb(base, deb, errors):
@@ -197,6 +211,10 @@ def selftest():
     assert any("IO.Path" in e for e in formatted_errors("[IO.Path]::Combine(1)"))
     assert any("'{'" in e for e in formatted_errors("ForEach-Object { 1 }"))
     assert any("']'" in e for e in formatted_errors("a ] b"))
+    assert nsis_delete_errors('DeleteRegValue HKCU "x" "y"') == []
+    guarded = '${If} $DeleteAppDataCheckboxState = 1\n${AndIf} $UpdateMode <> 1\nRMDir /r "$INSTDIR\\Data"'
+    assert nsis_delete_errors(guarded) == []
+    assert len(nsis_delete_errors('RMDir /r "$INSTDIR\\Data"')) == 2
     with tempfile.TemporaryDirectory() as d:
         wix = {"fragmentPaths": ["f.wxs"], "componentGroupRefs": ["G"]}
         smoke = os.path.join(d, "smoke.ps1")

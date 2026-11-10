@@ -34,4 +34,15 @@
 ; 앱이 쓴 '윈도 시작 시 켜기' 항목(platform.rs set_auto_start)은 제거 프로그램이 모르므로 직접 지웁니다.
 !macro NSIS_HOOK_POSTUNINSTALL
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "YANGPA"
+  ; '앱 데이터 삭제'를 고르면 Tauri는 %APPDATA%·%LOCALAPPDATA%의 app.yangpa.desktop만 지우는데, 양파 데이터는 설치 폴더의
+  ; Data(기본)나 %APPDATA%\yangpa(예전 판, 데이터 위치 설정)에 있습니다. 업데이트(/UPDATE)도 이 제거를 거치므로 두 조건을 꼭 봅니다.
+  ; 설치 폴더 통째(바탕화면 같은 곳일 수 있음)와 사용자가 고른 데이터 폴더(다른 파일이 섞였을 수 있음)는 지우지 않습니다.
+  ${If} $DeleteAppDataCheckboxState = 1
+  ${AndIf} $UpdateMode <> 1
+    SetShellVarContext current
+    RMDir /r "$INSTDIR\Data"
+    Delete "$INSTDIR\data-dir.json"
+    RMDir "$INSTDIR"
+    RMDir /r "$APPDATA\yangpa"
+  ${EndIf}
 !macroend
