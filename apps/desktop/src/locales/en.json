@@ -2228,7 +2228,6 @@
   "쓰던 기기에 닿지 못했습니다. 켜져 있는지 확인하고 다시 시도하세요": "Couldn't reach the existing device. Check that it's turned on and try again",
   "새 버전이 나왔습니다: {version}": "A new version is available: {version}",
   "업데이트": "Update",
-  "현재 버전 {version}": "Current version {version}",
   "자동으로 업데이트 확인": "Check for updates automatically",
   "GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.": "Checks GitHub releases over Tor. Downloaded files are installed only after the publisher's signature is verified.",
   "업데이트 확인": "Check for updates",

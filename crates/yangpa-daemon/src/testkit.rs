@@ -1564,7 +1564,7 @@ pub fn old_otp(node: &Node) -> usize {
     node.store.settings_with_prefix("otp.").unwrap().len()
 }
 
-/// 아직 링크 주인에게 전하지 못한 친구 요청 수.
+/// 아직 링크 주인의 수락을 받지 못해 다시 보낼 친구 요청 수.
 pub fn pending_redeems(node: &Node) -> usize {
     node.store
         .settings_with_prefix("friend.pending_redeem.")
@@ -1676,6 +1676,12 @@ pub async fn publish_key_group_share(
 /// 친구 수락을 보내지 않고 붙잡거나(`true`), 풀어 남은 수락을 곧바로 보냅니다.
 pub fn hold_friend_accepts(node: &Arc<Node>, hold: bool) {
     crate::friends::hold_accepts(node, hold);
+}
+
+/// 붙잡은 친구 수락을 보내지 않은 채 풉니다(요청이 닿은 연결로 수락을 보내지 못한 경우를 흉내).
+pub fn unhold_friend_accepts_quietly(node: &Node) {
+    node.accept_hold
+        .store(false, std::sync::atomic::Ordering::Release);
 }
 
 /// 그 1:1 공간의 남은 친구 수락으로 보낼 요청과 받을 피어(같은 수락을 겹쳐 보내는 시험).

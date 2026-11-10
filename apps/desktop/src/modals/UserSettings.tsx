@@ -1250,10 +1250,17 @@ const SOURCE_URL = 'https://github.com/dhtpdud/YANGPA';
 function AboutTab() {
   const client = useStore((s) => s.client);
   const open = (path = '') => void client?.transport.openExternal(SOURCE_URL + path);
+  const [current, setCurrent] = useState<string | null>(null);
+  useEffect(() => {
+    void client
+      ?.call('system.version', {})
+      .then((v) => setCurrent(v.version))
+      .catch(() => undefined);
+  }, [client]);
   return (
     <div className="stack">
       <h3>{t('정보')}</h3>
-      <p>YANGPA © 2026 Oh Seyoung</p>
+      <p>YANGPA{current ? ` ${current}` : ''} © 2026 Oh Seyoung</p>
       <p className="muted small">{t('YANGPA는 자유 소프트웨어입니다. GNU Affero 일반 공중 사용 허가서(AGPL) 3판 또는 그 이후 판에 따라 고치고 다시 배포할 수 있습니다.')}</p>
       <p className="muted small">{t('이 프로그램은 어떤 보증도 없이 제공됩니다. 자세한 내용은 라이선스 전문을 보세요.')}</p>
       <p className="muted small">{t('후원 기능(후원 확인·라이브러리 탭·콘텐츠 뷰어·후원자 표시)의 코드는 AGPL이 아니라 YANGPA 후원 기능 라이선스를 따릅니다.')}</p>
@@ -1282,14 +1289,7 @@ function UpdateSection() {
   const checkUpdate = useStore((s) => s.checkUpdate);
   const downloadUpdate = useStore((s) => s.downloadUpdate);
   const installUpdate = useStore((s) => s.installUpdate);
-  const [current, setCurrent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    void client
-      ?.call('system.version', {})
-      .then((v) => setCurrent(v.version))
-      .catch(() => undefined);
-  }, [client]);
   const run = (f: () => Promise<void>) => async () => {
     setBusy(true);
     await f();
@@ -1300,7 +1300,6 @@ function UpdateSection() {
   return (
     <>
       <h3>{t('업데이트')}</h3>
-      {current && <p>{t('현재 버전 {version}', { version: current })}</p>}
       <div className="card row between">
         <div>
           <strong>{t('자동으로 업데이트 확인')}</strong>

@@ -2183,7 +2183,6 @@
   "쓰던 기기에 닿지 못했습니다. 켜져 있는지 확인하고 다시 시도하세요": "Impossibile raggiungere il dispositivo che usi già. Controlla che sia acceso e riprova",
   "새 버전이 나왔습니다: {version}": "È disponibile una nuova versione: {version}",
   "업데이트": "Aggiorna",
-  "현재 버전 {version}": "Versione attuale {version}",
   "자동으로 업데이트 확인": "Controlla automaticamente gli aggiornamenti",
   "GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.": "Controlla le release di GitHub tramite Tor. I file scaricati vengono installati solo dopo aver verificato la firma dell'editore.",
   "업데이트 확인": "Controlla aggiornamenti",

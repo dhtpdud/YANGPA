@@ -4,8 +4,9 @@
 //!    주 스웜이면 릴레이 경유 주소)가 실립니다.
 //! 2. B가 링크를 쓰면 A 노드에 `RedeemFriendLink{token, auth, profile}`(인증 전에도 받음). 링크의
 //!    PeerId로 닿지 않으면(예전 빌드가 만든 링크라 A의 PeerId가 바뀜) PeerId 없이 onion으로 걸어 답한 노드에게
-//!    보냅니다. 닿지 않으면 B는 요청을 대기열에 두고 A와 연결될 때·백오프마다 다시 보냅니다(A는 같은 사람·같은 토큰을
-//!    같은 요청으로 봄).
+//!    보냅니다. B는 A의 수락(3)을 받을 때까지 요청을 대기열에 두고 A와 연결될 때·백오프마다 다시 보냅니다(A는 같은
+//!    사람·같은 토큰을 같은 요청으로 보고, 남은 수락이 있으면 그 연결로 다시 보냄). A는 B의 주소를 모르므로 요청이
+//!    닿은 연결로 수락을 보내지 못하면 B가 다시 걸어 와야 합니다.
 //! 3. A는 토큰·서명을 확인하고 사람의 수락 없이 1:1 공간을 만들어(첫 상태 키 봉인 → `SpaceCreate` → 첫 채널 → 첫
 //!    크루 키 갱신: 직접 인코딩으로 B 기기까지 봉인) 공간 스트림 이벤트와 임시 연락처 조건(`ContactTerms`, 링크의 만료)을 `FriendAccepted`로
 //!    B에게 보냅니다. 보내지 못하면 다음 연결 때 다시 보냅니다. 둘 다 서로를 임시 연락처로 둡니다.
@@ -133,7 +134,7 @@ impl Sending {
 impl Drop for Sending {
     fn drop(&mut self) {
         let again = self.node.friend_sending.lock().remove(&self.id) == Some(true);
-        // 닿았거나 거절됐으면 대기열 기록이 없어 다시 보내기는 곧 끝납니다.
+        // 거절됐거나 수락을 받았으면 대기열 기록이 없어 다시 보내기는 곧 끝납니다.
         if again {
             let id = self.id;
             self.node.spawn_detached(move |node| async move {
@@ -520,8 +521,12 @@ async fn deliver_redeem(
     };
     match node.net.request(peer, req).await {
         Ok(YpResponse::FriendPending) | Ok(YpResponse::Ok) => {
-            // 보낸 요청 기록은 수락(`FriendAccepted`)을 확인할 때 씁니다.
-            let _ = node.store.delete_setting(&key);
+            // 대기열 기록은 수락(`FriendAccepted`)을 받을 때 지웁니다(`clear_requests_with`). 링크 주인은 내 주소를
+            // 모르므로, 수락이 이 연결로 오지 못하면 다음 시도에 다시 보내 주인이 남은 수락을 보내게 합니다.
+            // 이 시도로 닿았으니, 이 연결이 맺어질 때 건너뛴 다시 보내기로 곧바로 겹쳐 보내지 않습니다.
+            if let Some(again) = node.friend_sending.lock().get_mut(&p.request_id) {
+                *again = false;
+            }
             debug!("친구 요청 전달");
             Delivery::Delivered
         }
@@ -1314,11 +1319,19 @@ pub(crate) async fn handle_accepted(node: &Arc<Node>, peer: PeerId, a: Accepted)
         Err(_) => return YpResponse::error(WireErrorCode::Internal, "저장소 오류"),
     };
     let user = out.user;
+    // 받지 않는다고(`BadRequest`) 답하면 링크 주인은 수락을 되돌리므로 다시 보내기도 멈춥니다(아니면 다시 보낼 때마다
+    // 주인이 공간을 새로 만들고 되돌리기를 되풀이함). 보낸 요청은 남깁니다.
+    let refuse = |why: &str| {
+        let _ = node
+            .store
+            .delete_setting(&pending_redeem_key(&out.request_id));
+        YpResponse::error(WireErrorCode::BadRequest, why)
+    };
     // 저장·런타임 같은 흔적을 남기기 전에, 링크 주인이 나와 둘만의 공간을 만든 것인지 먼저 확인합니다
     // (인증 전에 오므로 아무나 공간·보류 이벤트를 쌓지 못하게).
     let (genesis_id, author_device) = match precheck_accept(&me, &user, &space, &events) {
         Ok(x) => x,
-        Err(why) => return YpResponse::error(WireErrorCode::BadRequest, why),
+        Err(why) => return refuse(why),
     };
     // 있던 공간인지 보는 것부터 적용 결과를 확인하기까지 그 공간 잠금을 쥡니다: 같은 수락이 겹쳐 오면 먼저 끝난 쪽이
     // 그 공간을 겹친 공간으로 지울 수 있는데, 그사이 늦은 쪽이 지워진 공간을 다시 만들거나 상태가 없다고 거절하면 보낸
@@ -1331,6 +1344,7 @@ pub(crate) async fn handle_accepted(node: &Arc<Node>, peer: PeerId, a: Accepted)
     }
     let report = match ingest_dm_locked(node, &l, peer, &user, space, events, genesis_id) {
         Ok(r) => r,
+        Err((WireErrorCode::BadRequest, why)) => return refuse(why),
         Err((code, why)) => return YpResponse::error(code, why),
     };
     drop(l);

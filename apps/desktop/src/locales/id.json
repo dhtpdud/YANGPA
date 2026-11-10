@@ -2063,7 +2063,6 @@
   "쓰던 기기에 닿지 못했습니다. 켜져 있는지 확인하고 다시 시도하세요": "Tidak dapat menjangkau perangkat yang biasa Anda pakai. Pastikan perangkat itu menyala lalu coba lagi",
   "새 버전이 나왔습니다: {version}": "Versi baru tersedia: {version}",
   "업데이트": "Perbarui",
-  "현재 버전 {version}": "Versi saat ini {version}",
   "자동으로 업데이트 확인": "Periksa pembaruan secara otomatis",
   "GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.": "Memeriksa rilis GitHub melalui Tor. File yang diunduh hanya dipasang setelah tanda tangan penerbit diverifikasi.",
   "업데이트 확인": "Periksa pembaruan",

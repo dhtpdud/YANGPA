@@ -2204,7 +2204,6 @@
   "쓰던 기기에 닿지 못했습니다. 켜져 있는지 확인하고 다시 시도하세요": "Impossible de joindre votre appareil habituel. Vérifiez qu'il est allumé et réessayez",
   "새 버전이 나왔습니다: {version}": "Une nouvelle version est disponible : {version}",
   "업데이트": "Mettre à jour",
-  "현재 버전 {version}": "Version actuelle {version}",
   "자동으로 업데이트 확인": "Rechercher automatiquement les mises à jour",
   "GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.": "Vérifie les versions publiées sur GitHub via Tor. Les fichiers téléchargés ne sont installés qu'après vérification de la signature de l'éditeur.",
   "업데이트 확인": "Rechercher des mises à jour",

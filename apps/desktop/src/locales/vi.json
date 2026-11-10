@@ -2063,7 +2063,6 @@
   "쓰던 기기에 닿지 못했습니다. 켜져 있는지 확인하고 다시 시도하세요": "Không liên lạc được với thiết bị cũ. Hãy kiểm tra thiết bị đã bật chưa rồi thử lại",
   "새 버전이 나왔습니다: {version}": "Đã có phiên bản mới: {version}",
   "업데이트": "Cập nhật",
-  "현재 버전 {version}": "Phiên bản hiện tại {version}",
   "자동으로 업데이트 확인": "Tự động kiểm tra bản cập nhật",
   "GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.": "Kiểm tra các bản phát hành trên GitHub qua Tor. Tệp đã tải chỉ được cài đặt sau khi xác minh chữ ký của nhà phát hành.",
   "업데이트 확인": "Kiểm tra bản cập nhật",

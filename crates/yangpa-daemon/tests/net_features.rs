@@ -1868,7 +1868,120 @@ async fn contact_link_resent_when_owner_connects_mid_attempt() {
         "다음 백오프까지 기다림: {:?}",
         released.elapsed()
     );
-    assert_eq!(testkit::pending_redeems(&a.node), 0);
+    eventually("수락을 받아 a의 대기열이 빔", || async {
+        (testkit::pending_redeems(&a.node) == 0).then_some(())
+    })
+    .await;
+}
+
+/// 링크 주인이 요청이 닿은 연결로 수락을 보내지 못해도(주인은 링크를 쓴 쪽의 주소를 모름), 링크를 쓴 쪽이 수락을
+/// 받을 때까지 요청을 다시 보내고 주인은 다시 받은 요청에 남은 수락을 보내 둘이 임시 연락처가 됩니다. 예전에는
+/// `FriendPending`을 받으면 대기열을 지워 링크를 쓴 쪽은 상대를 영영 보지 못하고 주인 쪽에서는 오프라인으로 남았습니다
+/// (2026-11-10 Seyoung 신고).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn contact_link_resent_until_accept_arrives() {
+    let cl = Cluster::new();
+    let a = cl.node_with("a", fast_redial).await;
+    let b = cl.node_with("b", fast_redial).await;
+    connect(&a, &b).await;
+    let link = b
+        .ok::<m::FriendLinkCreate>(FriendLinkCreateParams {
+            expires_in_secs: Some(3600),
+            single_use: Some(true),
+        })
+        .await;
+    testkit::hold_friend_accepts(&b.node, true);
+    a.ok::<m::FriendAdd>(UrlParams { url: link.url }).await;
+    assert_eq!(
+        testkit::pending_redeems(&a.node),
+        1,
+        "FriendPending을 받아도 수락 전까지 남김"
+    );
+    let (a_user, b_user) = (a.user(), b.user());
+    let space = eventually(
+        "b가 a를 임시 연락처로 두고 수락을 남김",
+        || async {
+            if testkit::pending_accepts(&b.node) != 1 {
+                return None;
+            }
+            b.ok::<m::FriendList>(Empty)
+                .await
+                .into_iter()
+                .find(|f| f.user == a_user && f.kind == ContactKind::Temporary)
+                .map(|f| f.space)
+        },
+    )
+    .await;
+
+    // 연결은 그대로라 b의 연결 때 다시 보내기는 돌지 않습니다. a가 다시 보낸 요청이 b의 남은 수락을 불러옵니다.
+    testkit::unhold_friend_accepts_quietly(&b.node);
+    eventually("a도 같은 1:1 공간을 받음", || async {
+        a.ok::<m::FriendList>(Empty)
+            .await
+            .into_iter()
+            .any(|f| f.user == b_user && f.space == space && f.kind == ContactKind::Temporary)
+            .then_some(())
+    })
+    .await;
+    eventually("양쪽 대기열이 빔", || async {
+        (testkit::pending_redeems(&a.node) == 0 && testkit::pending_accepts(&b.node) == 0)
+            .then_some(())
+    })
+    .await;
+    assert_eq!(
+        b.ok::<m::SpaceList>(Empty).await.len(),
+        1,
+        "다시 보낸 요청이 공간을 더 만들지 않음"
+    );
+}
+
+/// 링크를 쓴 쪽이 받은 수락을 받지 않는다고(`BadRequest`) 답하면 다시 보내기를 멈춥니다. 주인은 그 답에 수락을
+/// 되돌리므로, 계속 다시 보내면 만료 없는 링크에서 주인이 공간을 만들고 되돌리기를 되풀이합니다.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn refused_contact_accept_stops_resending() {
+    let cl = Cluster::new();
+    let a = cl.node("a").await;
+    let b = cl.node("b").await;
+    connect(&a, &b).await;
+    let link = b
+        .ok::<m::FriendLinkCreate>(FriendLinkCreateParams {
+            expires_in_secs: None,
+            single_use: Some(false),
+        })
+        .await;
+    testkit::hold_friend_accepts(&b.node, true);
+    a.ok::<m::FriendAdd>(UrlParams { url: link.url }).await;
+    assert_eq!(testkit::pending_redeems(&a.node), 1);
+    let a_user = a.user();
+    let space = eventually("b가 수락을 남김", || async {
+        if testkit::pending_accepts(&b.node) != 1 {
+            return None;
+        }
+        b.ok::<m::FriendList>(Empty)
+            .await
+            .into_iter()
+            .find(|f| f.user == a_user)
+            .map(|f| f.space)
+    })
+    .await;
+    let (peer, mut req) = testkit::pending_accept_request(&b.node, space).expect("남은 수락");
+    let YpRequest::FriendAccepted { events, .. } = &mut req else {
+        panic!("친구 수락이 아님: {req:?}");
+    };
+    events.clear();
+    let r = testkit::net_request(&b.node, peer, req).await.unwrap();
+    assert!(
+        matches!(
+            r,
+            YpResponse::Error {
+                code: WireErrorCode::BadRequest,
+                ..
+            }
+        ),
+        "{r:?}"
+    );
+    assert_eq!(testkit::pending_redeems(&a.node), 0, "다시 보내기를 멈춤");
+    assert_eq!(testkit::outgoing_requests(&a.node), 1, "보낸 요청은 남김");
 }
 
 /// 서로 상대의 연락처 링크를 동시에 써도 1:1 공간은 하나로 맞춰지고, 남은 요청·다시 보내기가 없습니다.

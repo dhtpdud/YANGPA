@@ -261,6 +261,8 @@ fn create_main_window(app: &tauri::App, hidden: bool) -> tauri::Result<WebviewWi
             ..Default::default()
         });
     config.visible &= !hidden;
+    // 어느 판을 띄웠는지 창 제목에서 바로 보이게(예: "YANGPA 1.1.1").
+    config.title = format!("{} {}", config.title, app.package_info().version);
     // 윈도 설치판·포터블이면 웹뷰 저장소도 데이터 폴더 안에(incognito라도 WebView2가 폴더를 만듦).
     if let Some(dir) = datadir::webview_dir() {
         config.data_directory = Some(dir);

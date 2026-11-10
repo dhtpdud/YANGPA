@@ -2063,7 +2063,6 @@
   "쓰던 기기에 닿지 못했습니다. 켜져 있는지 확인하고 다시 시도하세요": "Önceki cihaza ulaşılamadı. Açık olup olmadığını kontrol edip yeniden deneyin",
   "새 버전이 나왔습니다: {version}": "Yeni bir sürüm var: {version}",
   "업데이트": "Güncelle",
-  "현재 버전 {version}": "Geçerli sürüm {version}",
   "자동으로 업데이트 확인": "Güncellemeleri otomatik denetle",
   "GitHub 릴리스를 Tor로 확인합니다. 받은 파일은 배포자 서명을 확인한 뒤에만 설치합니다.": "GitHub sürümlerini Tor üzerinden denetler. İndirilen dosyalar yalnızca yayıncının imzası doğrulandıktan sonra yüklenir.",
   "업데이트 확인": "Güncellemeleri denetle",
