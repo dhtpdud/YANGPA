@@ -12,7 +12,7 @@ import { t, tn } from '../i18n';
 import { formatEmoji } from '../lib/emoji';
 import { searchUnicodeEmoji } from '../lib/emojiData';
 import { formatClock } from '../lib/media';
-import { cx, displayName, hasPerm } from '../lib/misc';
+import { cx, displayName, excerpt, hasPerm } from '../lib/misc';
 import { clipboardFiles } from '../lib/paste';
 import { isTouch } from '../lib/platform';
 import { hasChannelPerm } from '../lib/perms';
@@ -272,13 +272,17 @@ export function Composer({
       {replyTo && (
         <div className="reply-bar">
           <CornerUpLeft size={14} />
-          <span>
-            {replyAnon ? (
-              tn('{name} 글에 답장', { name: <strong>{anonName(replyTo)}</strong> })
-            ) : (
-              tn('{name} 님에게 답장', { name: <strong>{displayName(replyAuthor)}</strong> })
-            )}
-          </span>
+          <div className="reply-bar-body">
+            <span>
+              {replyAnon ? (
+                tn('{name} 글에 답장', { name: <strong>{anonName(replyTo)}</strong> })
+              ) : (
+                tn('{name} 님에게 답장', { name: <strong>{displayName(replyAuthor)}</strong> })
+              )}
+            </span>
+            {/* 메시지 목록의 답장 머리글과 같은 발췌 */}
+            <span className="reply-text muted">{replyTo.deleted ? t('삭제된 메시지') : excerpt(replyTo.text) || t('첨부 파일')}</span>
+          </div>
           <button type="button" className="icon-btn small" title={t('답장 취소')} onClick={() => setReply(key, undefined)}>
             <X size={14} />
           </button>

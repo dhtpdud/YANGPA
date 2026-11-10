@@ -2483,8 +2483,11 @@ button.att-peer:hover {
   font-size: 13px;
   color: var(--text-muted);
 }
-.reply-bar span {
+.reply-bar-body {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .reply-bar strong {
   color: var(--text-strong);

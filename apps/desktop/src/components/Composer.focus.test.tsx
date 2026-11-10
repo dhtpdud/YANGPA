@@ -112,7 +112,7 @@ describe('답장 단추와 입력창 커서', () => {
     blur();
     await click(el.querySelector<HTMLButtonElement>('button[title="답장"]')!);
     expect(document.activeElement).toBe(textarea);
-    expect(el.querySelector('.reply-bar')).not.toBeNull();
+    expect(el.querySelector('.reply-bar .reply-text')?.textContent).toBe('답장할 글');
 
     blur();
     await click(el.querySelector<HTMLButtonElement>('button[title="답장"]')!);
