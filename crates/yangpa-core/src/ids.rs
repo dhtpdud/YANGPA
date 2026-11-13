@@ -123,62 +123,76 @@ macro_rules! fixed_id {
 
 fixed_id!(
     /// 사용자 식별자 = 신원 공개키(Ed25519).
-    UserId, 32
+    UserId,
+    32
 );
 fixed_id!(
     /// 기기 식별자 = 기기 서명 공개키(Ed25519).
-    DeviceId, 32
+    DeviceId,
+    32
 );
 fixed_id!(
     /// 공간(스페이스·크루) 식별자. 무작위 16바이트.
-    SpaceId, 16
+    SpaceId,
+    16
 );
 fixed_id!(
     /// 채널 식별자. 무작위 16바이트.
-    ChannelId, 16
+    ChannelId,
+    16
 );
 fixed_id!(
     /// 이벤트 식별자 = BLAKE3(정규 헤더 인코딩 || 서명).
-    EventId, 32
+    EventId,
+    32
 );
 fixed_id!(
     /// 블롭(첨부·이모지 원본) 식별자 = 매니페스트의 BLAKE3 해시.
-    BlobId, 32
+    BlobId,
+    32
 );
 fixed_id!(
     /// 상태 체크포인트 식별자 = 서명된 체크포인트 본문의 해시(`checkpoint::SignedCheckpoint::id`). 이벤트 ID와 달리
     /// 암호문이 아니라 평문 본문에서 나오므로, 상태 키 없이도 체크포인트 사슬을 이을 수 있습니다.
-    CheckpointId, 32
+    CheckpointId,
+    32
 );
 fixed_id!(
     /// 역할 식별자. `RoleId::EVERYONE`은 모든 멤버에게 적용되는 기본 역할.
-    RoleId, 16
+    RoleId,
+    16
 );
 fixed_id!(
     /// 채널 뿌리 키 식별자(`KeyRef::Record`): 키에서 나옵니다([`crate::body::channel_root_id`]).
-    ChannelRootId, 16
+    ChannelRootId,
+    16
 );
 fixed_id!(
     /// 키 그룹 뿌리(R) 식별자(`SharedKey::Root`): 키에서 나옵니다([`crate::body::group_root_id`]).
-    RootKeyId, 16
+    RootKeyId,
+    16
 );
 fixed_id!(
     /// 상태 키 세대 식별자.
-    StateKeyId, 16
+    StateKeyId,
+    16
 );
 fixed_id!(
     /// 친구 링크·초대 링크의 1회용 토큰.
-    LinkToken, 16
+    LinkToken,
+    16
 );
 fixed_id!(
     /// 통화(통화 채널 세션) 식별자.
-    CallId, 16
+    CallId,
+    16
 );
 fixed_id!(
     /// 키 그룹 식별자. 키 그룹은 같은 키를 나눠야 하는 기기 모음입니다: 크루 그룹([`KeyGroupId::crew`], 그 갱신은
     /// 공간 스트림)과 열람 규칙이 같은 채널들의 비공개 그룹([`KeyGroupId::private`], 그 키·키 합의 이벤트는 부분 전달
     /// 스트림 [`crate::event::StreamId::KeyGroup`]). 키 갱신 형식(`keyupdate`)과 스트림 이름이 같은 타입을 씁니다.
-    KeyGroupId, 16
+    KeyGroupId,
+    16
 );
 
 impl RoleId {

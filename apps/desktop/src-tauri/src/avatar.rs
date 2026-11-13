@@ -246,8 +246,8 @@ fn draw_text(img: &mut RgbaImage, font: &FontVec, text: &str, px: f32) {
             }
             let p = img.get_pixel_mut(px_x as u32, px_y as u32);
             let a = cov.clamp(0.0, 1.0);
-            for i in 0..3 {
-                p.0[i] = (f32::from(p.0[i]) * (1.0 - a) + 255.0 * a).round() as u8;
+            for c in p.0.iter_mut().take(3) {
+                *c = (f32::from(*c) * (1.0 - a) + 255.0 * a).round() as u8;
             }
         });
     }

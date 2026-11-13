@@ -922,8 +922,8 @@ mod tests {
         assert_eq!(format!("{:?}", a.events), format!("{:?}", b.events));
         let mut w = World::new(&a);
         // 관리자는 모든 비공개 그룹을 봅니다.
-        for g in 1..=a.groups {
-            assert!(w.groups[g].contains(&a.initial[1].devices[0]));
+        for g in &w.groups[1..=a.groups] {
+            assert!(g.contains(&a.initial[1].devices[0]));
         }
         let mut former: BTreeSet<Dev> = BTreeSet::new();
         let (mut holder_revoked, mut holder_demoted, mut backup_dropped) = (false, false, false);

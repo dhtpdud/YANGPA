@@ -166,7 +166,13 @@ mod tests {
             .unwrap()
             .serialize(DACL_SECURITY_INFORMATION, |s| s.to_string_lossy())
             .unwrap();
-        assert!(dacl.contains(&sid) && dacl.contains(";;;SY)"), "{dacl}");
+        // 기본 관리자 계정(RID 500, GitHub 러너의 runneradmin)이면 Windows가 SID를 약칭 `LA`로 풀어 씁니다.
+        let user = if sid.ends_with("-500") {
+            ";;;LA)"
+        } else {
+            &sid
+        };
+        assert!(dacl.contains(user) && dacl.contains(";;;SY)"), "{dacl}");
         assert!(
             !dacl.contains(";;;WD)") && !dacl.contains(";;;AN)"),
             "{dacl}"

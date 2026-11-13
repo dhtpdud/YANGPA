@@ -260,27 +260,35 @@ impl<B: NetworkBehaviour> NetworkBehaviour for OnionQuiet<B> {
     }
 }
 
-/// 노드의 전체 동작. 연결 제한·차단 목록을 앞에 둬서 다른 동작보다 먼저 거절합니다.
-#[derive(NetworkBehaviour)]
-pub(crate) struct YpBehaviour {
-    pub limits: connection_limits::Behaviour,
-    pub memory: memory_connection_limits::Behaviour,
-    pub blocked: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,
-    pub addrbook: AddrBook,
-    pub rpc: request_response::Behaviour<YpCodec>,
-    /// 통화 미디어 프레임(`media.rs`). RPC와 따로라 서로의 동시 요청 수를 쓰지 않습니다.
-    pub media: request_response::Behaviour<crate::media::MediaCodec>,
-    pub gossip: gossipsub::Behaviour<gossipsub::IdentityTransform, gossip::SubscriptionFilter>,
-    pub kad: kad::Behaviour<MemoryStore>,
-    pub ping: ping::Behaviour,
-    pub identify: Toggle<OnionQuiet<identify::Behaviour>>,
-    pub relay_client: Toggle<relay::client::Behaviour>,
-    pub relay_server: Toggle<relay::Behaviour>,
-    pub dcutr: Toggle<dcutr::Behaviour>,
-    pub autonat: Toggle<autonat::Behaviour>,
-    pub mdns: Toggle<mdns::tokio::Behaviour>,
-    pub upnp: Toggle<libp2p::upnp::tokio::Behaviour>,
+// rustc 1.100부터 libp2p 파생 코드(derive가 만든 impl)의 빈(Infallible) 이벤트 갈래를 도달 불가로 봅니다.
+// 파생 impl에는 구조체의 lint 속성이 닿지 않아 모듈로 감쌉니다.
+#[allow(unreachable_code)]
+mod derived {
+    use super::*;
+
+    /// 노드의 전체 동작. 연결 제한·차단 목록을 앞에 둬서 다른 동작보다 먼저 거절합니다.
+    #[derive(NetworkBehaviour)]
+    pub(crate) struct YpBehaviour {
+        pub limits: connection_limits::Behaviour,
+        pub memory: memory_connection_limits::Behaviour,
+        pub blocked: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,
+        pub addrbook: AddrBook,
+        pub rpc: request_response::Behaviour<YpCodec>,
+        /// 통화 미디어 프레임(`media.rs`). RPC와 따로라 서로의 동시 요청 수를 쓰지 않습니다.
+        pub media: request_response::Behaviour<crate::media::MediaCodec>,
+        pub gossip: gossipsub::Behaviour<gossipsub::IdentityTransform, gossip::SubscriptionFilter>,
+        pub kad: kad::Behaviour<MemoryStore>,
+        pub ping: ping::Behaviour,
+        pub identify: Toggle<OnionQuiet<identify::Behaviour>>,
+        pub relay_client: Toggle<relay::client::Behaviour>,
+        pub relay_server: Toggle<relay::Behaviour>,
+        pub dcutr: Toggle<dcutr::Behaviour>,
+        pub autonat: Toggle<autonat::Behaviour>,
+        pub mdns: Toggle<mdns::tokio::Behaviour>,
+        pub upnp: Toggle<libp2p::upnp::tokio::Behaviour>,
+    }
 }
+pub(crate) use derived::{YpBehaviour, YpBehaviourEvent};
 
 /// 피어당 최대 연결 수(직접 + 릴레이 경유 + 홀펀칭 중 여유). P2P 스웜에서 릴레이 경유로 이어진 상대와 홀펀칭하는
 /// 동안 둘이 함께 있습니다(onion 연결은 Tor 스웜에만 있어 이것들과 섞이지 않음).

@@ -165,6 +165,7 @@ jobs:
       - name: 설치 훅 연결 확인(MSI·NSIS·deb)
         run: |
           # Windows의 python3는 스토어 바로가기일 수 있어 python을 먼저 찾습니다.
+          # -X utf8: 영어 Windows 콘솔(cp1252)은 한글 출력에서 UnicodeEncodeError로 죽습니다(-I라 환경 변수는 안 먹음).
           py="$(command -v python || command -v python3)"
-          "$py" -I scripts/check_installer_hooks.py selftest
-          "$py" -I scripts/check_installer_hooks.py
+          "$py" -I -X utf8 scripts/check_installer_hooks.py selftest
+          "$py" -I -X utf8 scripts/check_installer_hooks.py

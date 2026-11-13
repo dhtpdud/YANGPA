@@ -517,9 +517,8 @@ thread_local! {
 /// 스냅숏 재생을 써도 되는지(시험에서 끌 수 있음).
 fn replay_enabled() -> bool {
     #[cfg(test)]
-    if NO_REPLAY.get() {
-        return false;
-    }
+    return !NO_REPLAY.get();
+    #[cfg(not(test))]
     true
 }
 
