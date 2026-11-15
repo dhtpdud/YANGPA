@@ -25,7 +25,7 @@ import {
   IdCard,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useMemo, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import type { ChannelId, ChannelView, SpaceId, SpaceView } from '../api/types';
 import { t, tc } from '../i18n';
 import { ANON_NAME, anonParticipantLabel, isAnonymousUser } from '../lib/anon';
@@ -33,7 +33,7 @@ import type { DropWhere } from '../lib/channel';
 import { formatDuration } from '../lib/format';
 import { cx, displayName, hasPerm } from '../lib/misc';
 import { isMuted, ruleKey } from '../lib/notify';
-import { sortChannels, useStore } from '../store/store';
+import { channelChildren, useStore } from '../store/store';
 import { isPeerConnected } from '../voice/policy';
 import { AnonIcon, Avatar, ChannelIcon, P2pIcon, Popover, Spinner } from './common';
 import { MenuButton, MenuSep, NotifyItems, copyId, openPersonMenu } from './menus';
@@ -327,8 +327,13 @@ type Drag = { id: ChannelId; drop: { target: ChannelId; where: DropWhere } | nul
 /** 이만큼(px) 움직이기 전에는 끌기가 아니라 평소 클릭입니다. */
 const DRAG_SLOP = 5;
 
-/** 포인터 아래 놓을 자리. 카테고리는 카테고리 묶음 앞·뒤에만, 채널은 채널 줄 앞·뒤나 카테고리 머리글(안으로)에 놓습니다. */
-function dropAt(x: number, y: number, category: boolean): Drag['drop'] {
+/**
+ * 포인터 아래 놓을 자리. 채널 줄에는 앞·뒤로 놓습니다(카테고리는 카테고리 안의 채널 줄에만). 카테고리 머리글은 위쪽 4분의 1이
+ * 앞, 나머지는 안으로 들어갑니다(머리글만 보이는 묶음은 아래쪽 4분의 1이 뒤). 채널은 최상위 카테고리의 앞·뒤에 놓을 수 없어
+ * 그 머리글에서는 늘 안으로 들어갑니다. 카테고리는 묶음의 빈 곳에서 묶음 앞·뒤, 목록 아래 빈 곳에서 마지막 카테고리 뒤입니다.
+ * 끄는 카테고리 자신과 그 아래는 놓을 자리가 아닙니다.
+ */
+function dropAt(x: number, y: number, dragged: ChannelId, category: boolean): Drag['drop'] {
   const el = document.elementFromPoint(x, y);
   const half = (e: HTMLElement): DropWhere => {
     const r = e.getBoundingClientRect();
@@ -336,10 +341,24 @@ function dropAt(x: number, y: number, category: boolean): Drag['drop'] {
   };
   const cat = el?.closest<HTMLElement>('[data-cat]');
   const catId = cat?.dataset.cat;
-  if (category) return cat && catId ? { target: catId, where: half(cat) } : null;
+  if (category) {
+    for (let p = cat; p; p = p.parentElement?.closest<HTMLElement>('[data-cat]')) if (p.dataset.cat === dragged) return null;
+    if (el instanceof HTMLElement && el.classList.contains('sb-scroll')) {
+      const last = [...el.children].reverse().find((c): c is HTMLElement => c instanceof HTMLElement && !!c.dataset.cat);
+      return last?.dataset.cat ? { target: last.dataset.cat, where: 'after' } : null;
+    }
+  }
   const row = el?.closest<HTMLElement>('[data-ch]');
-  if (row?.dataset.ch) return { target: row.dataset.ch, where: half(row) };
-  return catId && el?.closest('.cat-head') ? { target: catId, where: 'into' } : null;
+  if (row?.dataset.ch) return !category || cat ? { target: row.dataset.ch, where: half(row) } : null;
+  if (!cat || !catId) return null;
+  const head = el?.closest<HTMLElement>('.cat-head');
+  if (!head) return category ? { target: catId, where: half(cat) } : null;
+  // 최상위 카테고리 머리글에 채널을 놓으면 늘 안으로(최상위에서는 채널이 카테고리 앞·뒤에 설 수 없음).
+  if (!category && !cat.parentElement?.closest('[data-cat]')) return { target: catId, where: 'into' };
+  const r = head.getBoundingClientRect();
+  if (y < r.top + r.height / 4) return { target: catId, where: 'before' };
+  const onlyHead = cat.getBoundingClientRect().bottom <= r.bottom + 1;
+  return { target: catId, where: onlyHead && y > r.bottom - r.height / 4 ? 'after' : 'into' };
 }
 
 /**
@@ -362,7 +381,7 @@ function useChannelDrag(space: SpaceId, enabled: boolean) {
           // 창 밖에서 놓아도 끝나게 잡습니다. 누르자마자 잡으면 클릭이 단추 대신 줄로 가서 끌기가 시작된 뒤에 잡습니다.
           el.setPointerCapture?.(pointerId);
         }
-        const found = dropAt(ev.clientX, ev.clientY, c.settings.kind === 'category');
+        const found = dropAt(ev.clientX, ev.clientY, c.channel, c.settings.kind === 'category');
         const drop = found?.target === c.channel ? null : found;
         // 놓을 자리가 그대로면 사이드바를 다시 그리지 않습니다(채널이 많은 크루에서 포인터 움직임마다 그리지 않게).
         if (cur && cur.drop?.target === drop?.target && cur.drop?.where === drop?.where) return;
@@ -395,15 +414,41 @@ export function ChannelSidebar({ space }: { space: SpaceView }) {
   const openModal = useStore((s) => s.openModal);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menu, setMenu] = useState<DOMRect | null>(null);
-  const sorted = useMemo(() => sortChannels(space.channels), [space.channels]);
+  const kids = useMemo(() => channelChildren(space.channels), [space.channels]);
   const peer = space.kind === 'space' ? friends.find((f) => f.space === space.space) : undefined;
   const title = space.kind === 'space' ? peer?.profile.name ?? space.settings.name : space.settings.name;
   const canManage = hasPerm(space, 'manage_channels');
   const dnd = useChannelDrag(space.space, canManage);
   const rowDrag = (c: ChannelView) => (canManage ? { start: dnd.start(c), className: dnd.className(c.channel) } : undefined);
 
-  const top = sorted.filter((c) => c.settings.kind !== 'category' && !c.settings.parent);
-  const cats = sorted.filter((c) => c.settings.kind === 'category');
+  const row = (c: ChannelView) => <ChannelRow key={c.channel} space={space} c={c} active={selected.channel === c.channel} drag={rowDrag(c)} />;
+  // 접힌 카테고리는 하위 카테고리까지 통째로 접고, 그 안에서 읽지 않은 채널만 보여 줍니다(열어 둔 채널도 숨김, Seyoung 2026-11-15).
+  const subtree = (id: ChannelId): ChannelView[] => (kids.get(id) ?? []).flatMap((c) => (c.settings.kind === 'category' ? subtree(c.channel) : [c]));
+  const node = (c: ChannelView): ReactNode => (c.settings.kind === 'category' ? category(c) : row(c));
+  const category = (cat: ChannelView): ReactNode => {
+    const isCollapsed = !!collapsed[cat.channel];
+    return (
+      <div key={cat.channel} data-cat={cat.channel} className={cx('sb-cat', canManage && dnd.className(cat.channel))}>
+        <div className="cat-head" onPointerDown={canManage ? dnd.start(cat) : undefined}>
+          <button type="button" className="cat-btn" onClick={() => setCollapsed({ ...collapsed, [cat.channel]: !isCollapsed })}>
+            {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            <span>{cat.settings.name}</span>
+          </button>
+          {canManage && (
+            <>
+              <button type="button" className="cat-add" title={t('카테고리 설정')} onClick={() => openModal({ kind: 'channelSettings', space: space.space, channel: cat.channel })}>
+                <Settings size={13} />
+              </button>
+              <button type="button" className="cat-add" title={t('채널 만들기')} onClick={() => openModal({ kind: 'channelCreate', space: space.space, parent: cat.channel })}>
+                <Plus size={15} />
+              </button>
+            </>
+          )}
+        </div>
+        {isCollapsed ? subtree(cat.channel).filter((c) => c.unread > 0).map(row) : (kids.get(cat.channel) ?? []).map(node)}
+      </div>
+    );
+  };
 
   return (
     <aside className="sidebar">
@@ -418,40 +463,7 @@ export function ChannelSidebar({ space }: { space: SpaceView }) {
       <CommitNote space={space} />
       {space.dormant && <div className="sb-note">{t('휴면 공간: 열면 다시 따라잡습니다')}</div>}
       {space.disbanded && <div className="sb-note">{t('소유자가 해산한 크루입니다. 메뉴의 크루 나가기로 이 기기에서 지웁니다.')}</div>}
-      <div className={cx('sb-scroll', dnd.dragging && 'dragging')}>
-        {top.map((c) => (
-          <ChannelRow key={c.channel} space={space} c={c} active={selected.channel === c.channel} drag={rowDrag(c)} />
-        ))}
-        {cats.map((cat) => {
-          const kids = sorted.filter((c) => c.settings.parent === cat.channel);
-          const isCollapsed = !!collapsed[cat.channel];
-          return (
-            <div key={cat.channel} data-cat={cat.channel} className={cx('sb-cat', canManage && dnd.className(cat.channel))}>
-              <div className="cat-head" onPointerDown={canManage ? dnd.start(cat) : undefined}>
-                <button type="button" className="cat-btn" onClick={() => setCollapsed({ ...collapsed, [cat.channel]: !isCollapsed })}>
-                  {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                  <span>{cat.settings.name}</span>
-                </button>
-                {canManage && (
-                  <>
-                    <button type="button" className="cat-add" title={t('카테고리 설정')} onClick={() => openModal({ kind: 'channelSettings', space: space.space, channel: cat.channel })}>
-                      <Settings size={13} />
-                    </button>
-                    <button type="button" className="cat-add" title={t('채널 만들기')} onClick={() => openModal({ kind: 'channelCreate', space: space.space, parent: cat.channel })}>
-                      <Plus size={15} />
-                    </button>
-                  </>
-                )}
-              </div>
-              {kids
-                .filter((c) => !isCollapsed || selected.channel === c.channel || c.unread > 0)
-                .map((c) => (
-                  <ChannelRow key={c.channel} space={space} c={c} active={selected.channel === c.channel} drag={rowDrag(c)} />
-                ))}
-            </div>
-          );
-        })}
-      </div>
+      <div className={cx('sb-scroll', dnd.dragging && 'dragging')}>{(kids.get(null) ?? []).map(node)}</div>
       <UserPanel />
     </aside>
   );

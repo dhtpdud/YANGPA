@@ -88,6 +88,9 @@ describe('channel.update는 바뀐 필드만 보낸다', () => {
     const s = settings({ parent: 'cat1' });
     expect(channelUpdatePatch(s, formOf(s, { name: ' 새이름 ' }))).toEqual({ name: '새이름' });
     expect(channelUpdatePatch(s, formOf(s, { parent: null }))).toEqual({ parent: null });
+    // 카테고리도 다른 카테고리 안으로 옮길 수 있습니다.
+    const cat = settings({ kind: 'category' });
+    expect(channelUpdatePatch(cat, formOf(cat, { parent: 'cat1' }))).toEqual({ parent: 'cat1' });
   });
 
   it('권한 덮어쓰기는 순서·빈 항목과 상관없이 달라질 때만 목록 전체를 보내고(private_roles는 쓰지 않음), 카테고리도 같다', () => {
@@ -133,12 +136,12 @@ describe('channel.create 인자', () => {
     });
   });
 
-  it('권한은 빈 항목을 빼고 있을 때만 overwrites로 보내고, 카테고리는 상위·보안 등급을 갖지 않는다', () => {
+  it('권한은 빈 항목을 빼고 있을 때만 overwrites로 보내고, 카테고리는 보안 등급·주제 없이 상위 카테고리를 가질 수 있다', () => {
     const deny = { target: { type: 'role' as const, id: EVERYONE_ROLE }, allow: 0, deny: 1 };
     const empty = { target: { type: 'role' as const, id: 'r1' }, allow: 0, deny: 0 };
     expect(channelCreateParams('sp', 'text', 'normal', { ...base, overwrites: [empty] })).not.toHaveProperty('overwrites');
-    const p = channelCreateParams('sp', 'category', 'volatile', { ...base, parent: 'x', overwrites: [deny, empty] });
-    expect(p).toEqual({ space: 'sp', kind: 'category', name: '비밀', security: 'normal', overwrites: [deny] });
+    const p = channelCreateParams('sp', 'category', 'volatile', { ...base, topic: '주제', parent: 'x', overwrites: [deny, empty] });
+    expect(p).toEqual({ space: 'sp', kind: 'category', name: '비밀', security: 'normal', parent: 'x', overwrites: [deny] });
     expect(p).not.toHaveProperty('private_roles');
   });
 
@@ -307,14 +310,47 @@ describe('끌어 옮기기(planChannelMove)', () => {
     ]);
   });
 
-  it('카테고리는 카테고리끼리만 옮긴다', () => {
+  it('카테고리는 최상위에서는 카테고리 곁, 카테고리 안에서는 채널 사이에도 놓는다', () => {
     expect(planChannelMove(sorted, 'Y', 'X', 'before')).toEqual([
       { channel: 'Y', position: 0 },
       { channel: 'X', position: 1 },
     ]);
-    expect(planChannelMove(sorted, 'Y', 'X', 'into')).toEqual([]);
+    // 카테고리 안에서는 채널과 하위 카테고리를 함께 매깁니다.
+    expect(planChannelMove(sorted, 'Y', 'X', 'into')).toEqual([
+      { channel: 'Y', parent: 'X', position: 0 },
+      { channel: 'x1', position: 1 },
+      { channel: 'x2', position: 2 },
+    ]);
+    expect(planChannelMove(sorted, 'Y', 'x1', 'after')).toEqual([
+      { channel: 'Y', parent: 'X', position: 1 },
+      { channel: 'x2', position: 2 },
+    ]);
+    // 최상위에서는 채널이 늘 카테고리 위라 서로의 앞·뒤에 놓지 않습니다.
     expect(planChannelMove(sorted, 'Y', 'a', 'before')).toEqual([]);
     expect(planChannelMove(sorted, 'a', 'X', 'before')).toEqual([]);
     expect(planChannelMove(sorted, 'a', 'b', 'into')).toEqual([]);
+  });
+
+  it('중첩 카테고리: 같은 상위끼리 순서를 매기고, 자기 아래로는 옮기지 않는다', () => {
+    // X 안에 Z, Z 안에 W(sortChannels 순서: 카테고리 안은 위치 순, 위치가 같으면 채널 먼저).
+    const nested = [
+      cat('X', 0),
+      ch('x1', 0, { parent: 'X' }),
+      ch('Z', 0, { kind: 'category', parent: 'X' }),
+      ch('W', 0, { kind: 'category', parent: 'Z' }),
+      cat('Y', 1),
+    ];
+    expect(planChannelMove(nested, 'X', 'Z', 'into')).toEqual([]);
+    expect(planChannelMove(nested, 'X', 'W', 'into')).toEqual([]);
+    expect(planChannelMove(nested, 'X', 'W', 'before')).toEqual([]);
+    expect(planChannelMove(nested, 'Z', 'Y', 'after')).toEqual([{ channel: 'Z', parent: null, position: 2 }]);
+    expect(planChannelMove(nested, 'Y', 'Z', 'before')).toEqual([
+      { channel: 'Y', parent: 'X', position: 1 },
+      { channel: 'Z', position: 2 },
+    ]);
+    // 채널을 하위 카테고리 뒤에 놓을 수 있습니다.
+    expect(planChannelMove(nested, 'x1', 'Z', 'after')).toEqual([{ channel: 'x1', position: 1 }]);
+    // 하위 카테고리 안으로 채널을 넣을 수 있습니다.
+    expect(planChannelMove(nested, 'x1', 'W', 'into')).toEqual([{ channel: 'x1', parent: 'W', position: 0 }]);
   });
 });

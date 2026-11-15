@@ -955,6 +955,20 @@ impl SpaceState {
         self.edit_rules.get(channel).copied().unwrap_or_default()
     }
 
+    /// `channel`이 `category` 자신이거나 그 아래(몇 단계든)에 있는지. 카테고리를 자기 아래로 옮겨 고리가 생기지 않게
+    /// 봅니다. 상위 사슬은 채널 수보다 길 수 없으므로 그만큼만 올라갑니다.
+    pub fn is_under(&self, channel: &ChannelId, category: &ChannelId) -> bool {
+        let mut cur = Some(*channel);
+        for _ in 0..=self.channels.len() {
+            match cur {
+                Some(c) if c == *category => return true,
+                Some(c) => cur = self.channels.get(&c).and_then(|s| s.parent),
+                None => return false,
+            }
+        }
+        false
+    }
+
     /// 지금 올릴 수 있는 이모지 수 상한: 크루 한도와 해소기 상한([`MAX_EMOJIS`]) 가운데 작은 것.
     pub fn emoji_count_limit(&self) -> usize {
         self.emoji_limits

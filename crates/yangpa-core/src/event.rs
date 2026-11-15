@@ -110,6 +110,8 @@ pub enum EventKind {
     MemberBadges,
     /// 크루 해산(`CrewDisband`, 소유자만).
     CrewDisband,
+    /// 카테고리를 다른 카테고리 안에 넣거나 빼기(`CategoryParentSet`).
+    CategoryParentSet,
     // 키 합의 레인: 그룹 키 갱신. 본문은 상태 키로 암호화.
     /// 키 그룹 갱신 한 조각(`KeyUpdatePayload`). 크루 그룹은 공간 스트림, 비공개 그룹은 `KeyGroup` 스트림.
     KeyUpdate,
@@ -184,6 +186,7 @@ impl EventKind {
         (100, EventKind::MemberFlair),
         (101, EventKind::MemberBadges),
         (102, EventKind::CrewDisband),
+        (103, EventKind::CategoryParentSet),
     ];
 
     pub fn code(self) -> u16 {
@@ -844,6 +847,8 @@ mod tests {
         assert_eq!(EventKind::MemberBadges.lane(), Lane::State);
         assert_eq!(EventKind::CrewDisband.code(), 102);
         assert_eq!(EventKind::CrewDisband.lane(), Lane::State);
+        assert_eq!(EventKind::CategoryParentSet.code(), 103);
+        assert_eq!(EventKind::CategoryParentSet.lane(), Lane::State);
         // 익명 글은 메시지 레인이고 본문 종류는 원래 종류입니다.
         for (anon, base) in [
             (EventKind::AnonMessage, EventKind::Message),

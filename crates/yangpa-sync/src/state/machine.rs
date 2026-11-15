@@ -566,6 +566,9 @@ impl Machine {
             EventBody::MemberFlair(f) if f.is_valid() => Ok(Effect::none()),
             EventBody::MemberFlair(_) => Err(AuthError::Invalid("후원자 표시 형식")),
             EventBody::CrewDisband => self.crew_disband(&user),
+            EventBody::CategoryParentSet { channel, parent } => {
+                self.category_parent_set(&user, channel, parent.as_ref())
+            }
         };
         self.settle(eff)
     }
@@ -864,6 +867,10 @@ impl Machine {
         self.may_grant(user, overwrite_delta(&old.overwrites, &s.overwrites))?;
         let old_history = old.history;
         let mut s = s.clone();
+        // 카테고리의 상위는 `CategoryParentSet`으로만 바뀝니다(본문은 늘 비어 있어 옛 노드의 이름 바꾸기도 중첩을 지우지 않게).
+        if s.kind == ChannelKind::Category {
+            s.parent = old.parent;
+        }
         if self.legacy_channels.contains(id) {
             match self.legacy_history(user, id, old_history, s.history)? {
                 Consent::Apply => {}
@@ -929,6 +936,39 @@ impl Machine {
         self.legacy_channels.remove(id);
         self.history_consent.remove(id);
         self.deleted_channels.insert(*id);
+        Ok(Effect::changed())
+    }
+
+    /// 카테고리를 다른 카테고리 안에 넣거나 최상위로 빼기. 그 카테고리의 `MANAGE_CHANNELS`, 상위는 있는 카테고리이고
+    /// 자기 자신·자기 아래가 아니어야 하며(고리 없음), 지금 값과 같으면 거부합니다.
+    fn category_parent_set(
+        &mut self,
+        user: &UserId,
+        id: &ChannelId,
+        parent: Option<&ChannelId>,
+    ) -> R {
+        let ch = self.st.channels.get(id).ok_or(AuthError::UnknownChannel)?;
+        self.need_in(user, id, Permissions::MANAGE_CHANNELS)?;
+        if ch.kind != ChannelKind::Category {
+            return Err(AuthError::Invalid("카테고리가 아님"));
+        }
+        if ch.parent.as_ref() == parent {
+            return Err(AuthError::Invalid("이미 그 상위"));
+        }
+        if let Some(p) = parent {
+            let ok = self
+                .st
+                .channels
+                .get(p)
+                .is_some_and(|c| c.kind == ChannelKind::Category)
+                && !self.st.is_under(p, id);
+            if !ok {
+                return Err(AuthError::Invalid("상위 채널"));
+            }
+        }
+        let mut s = ch.clone();
+        s.parent = parent.copied();
+        self.st.channels.insert(*id, s);
         Ok(Effect::changed())
     }
 

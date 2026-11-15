@@ -155,10 +155,8 @@ export function channelCreateParams(
     name: form.name.trim(),
     security: hasChatLifetime(kind) ? security : 'normal',
   };
-  if (kind !== 'category') {
-    if (form.parent) p.parent = form.parent;
-    if (form.topic.trim()) p.topic = form.topic.trim();
-  }
+  if (form.parent) p.parent = form.parent;
+  if (kind !== 'category' && form.topic.trim()) p.topic = form.topic.trim();
   const overwrites = compactOverwrites(form.overwrites);
   if (overwrites.length > 0) p.overwrites = overwrites;
   if (kind === 'text' || kind === 'forum') {
@@ -187,10 +185,8 @@ export function channelUpdatePatch(before: ChannelSettings, form: ChannelForm, r
   const kind = before.kind;
   const name = form.name.trim();
   if (name !== before.name) p.name = name;
-  if (kind !== 'category') {
-    if (form.topic.trim() !== before.topic) p.topic = form.topic.trim();
-    if ((form.parent ?? null) !== (before.parent ?? null)) p.parent = form.parent ?? null;
-  }
+  if (kind !== 'category' && form.topic.trim() !== before.topic) p.topic = form.topic.trim();
+  if ((form.parent ?? null) !== (before.parent ?? null)) p.parent = form.parent ?? null;
   if (!sameOverwrites(form.overwrites, before.overwrites)) p.overwrites = compactOverwrites(form.overwrites);
   if (kind === 'text' || kind === 'forum') {
     if (form.history !== before.history) p.history = form.history;
@@ -233,6 +229,36 @@ export function leaveEffectText(s: Pick<ChannelSettings, 'ttl' | 'security'>): s
   return t('퇴장해도 이미 받은 기록은 이 기기에 남습니다.');
 }
 
+/** `c`와 그 위 카테고리들(안쪽부터). 상위 사슬은 채널 수보다 길 수 없으므로 그만큼만 올라갑니다. */
+export function ancestry(channels: readonly ChannelView[], c: ChannelView): ChannelView[] {
+  const out: ChannelView[] = [];
+  let x: ChannelView | undefined = c;
+  while (x && out.length <= channels.length) {
+    out.push(x);
+    const p: ChannelId | null = x.settings.parent;
+    x = p ? channels.find((y) => y.channel === p) : undefined;
+  }
+  return out;
+}
+
+/**
+ * 카테고리 아래의 모든 채널·카테고리, 안쪽부터. 이 순서로 지우면 하위 카테고리를 지울 때 그 안의 것이 최상위로 밀려나지
+ * 않습니다(데몬은 카테고리를 지우면 안의 것을 최상위로 꺼냄). 고리는 데몬이 막지만 채널 수만큼만 내려갑니다.
+ */
+export function descendants(channels: readonly ChannelView[], category: ChannelId): ChannelId[] {
+  const out: ChannelId[] = [];
+  const walk = (p: ChannelId, depth: number) => {
+    if (depth > channels.length) return;
+    for (const c of channels) {
+      if (c.settings.parent !== p) continue;
+      if (c.settings.kind === 'category') walk(c.channel, depth + 1);
+      out.push(c.channel);
+    }
+  };
+  walk(category, 0);
+  return out;
+}
+
 /** 끌어 놓을 자리: 대상 채널의 앞·뒤, 또는 카테고리 맨 위. */
 export type DropWhere = 'before' | 'after' | 'into';
 
@@ -240,22 +266,29 @@ export type ChannelMove = Pick<ChannelUpdateParams, 'channel' | 'position' | 'pa
 
 /**
  * 끌어 옮기기 → 보낼 channel.update 인자들. `sorted`는 sortChannels 결과 전체(접힌 카테고리 안까지)여야 합니다.
- * 옮겨 갈 묶음(같은 상위의 채널들, 또는 카테고리들)만 지금 보이는 순서대로 0부터 다시 매기고 바뀐 것만 보냅니다.
- * 데몬이 새 채널 위치를 채널 수로 두어 겹치는 위치가 많고, 안 바뀐 채널까지 고치면 상태 이벤트만 늘기 때문입니다.
- * 카테고리는 카테고리끼리만, 다른 채널은 최상위·카테고리 사이를 옮깁니다.
+ * 옮겨 갈 묶음(카테고리 안이면 같은 상위의 채널·하위 카테고리 모두, 최상위면 같은 종류끼리)만 지금 보이는 순서대로
+ * 0부터 다시 매기고 바뀐 것만 보냅니다. 데몬이 새 채널 위치를 채널 수로 두어 겹치는 위치가 많고, 안 바뀐 채널까지 고치면
+ * 상태 이벤트만 늘기 때문입니다. 카테고리 머리글에 놓으면 그 안(맨 위)으로 들어가고, 최상위의 앞·뒤에는 같은 종류만
+ * 놓습니다(최상위는 채널이 늘 카테고리 위). 카테고리를 자기 자신이나 자기 아래 카테고리 안으로는 옮기지 않습니다(데몬도 거절).
  */
 export function planChannelMove(sorted: ChannelView[], dragged: ChannelId, target: ChannelId, where: DropWhere): ChannelMove[] {
   const isCat = (c: ChannelView) => c.settings.kind === 'category';
+  const parentOf = (c: ChannelView | undefined) => c?.settings.parent ?? null;
   const d = sorted.find((c) => c.channel === dragged);
   const tg = sorted.find((c) => c.channel === target);
   if (!d || !tg || d === tg) return [];
   const cat = isCat(d);
   const into = where === 'into';
-  if (cat ? !isCat(tg) || into : isCat(tg) !== into) return [];
-  const parent = cat ? null : into ? tg.channel : tg.settings.parent;
-  const group = sorted.filter((c) => c !== d && (cat ? isCat(c) : !isCat(c) && c.settings.parent === parent));
+  if (into && !isCat(tg)) return [];
+  const parent = into ? tg.channel : parentOf(tg);
+  if (parent === null && !into && isCat(tg) !== cat) return [];
+  const byId = new Map(sorted.map((c) => [c.channel, c]));
+  for (let p = parent, n = 0; p && n <= sorted.length; p = parentOf(byId.get(p)), n++) {
+    if (p === d.channel) return [];
+  }
+  const group = sorted.filter((c) => c !== d && (parent !== null || isCat(c) === cat) && parentOf(c) === parent);
   group.splice(into ? 0 : group.indexOf(tg) + (where === 'after' ? 1 : 0), 0, d);
-  const parentChanged = !cat && d.settings.parent !== parent;
+  const parentChanged = parentOf(d) !== parent;
   return group.flatMap((c, i): ChannelMove[] => {
     if (c === d && parentChanged) return [{ channel: c.channel, parent, position: i }];
     return c.settings.position === i ? [] : [{ channel: c.channel, position: i }];

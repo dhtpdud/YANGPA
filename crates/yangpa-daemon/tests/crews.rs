@@ -3669,6 +3669,63 @@ async fn crew_stun_servers_need_role_and_opt_in() {
     );
 }
 
+/// 카테고리 중첩: 만들 때·고칠 때 상위 카테고리를 정하고(따로 `CategoryParentSet`), 자기 자신·자기 아래로는 옮길 수
+/// 없으며, 이름만 고쳐도 중첩은 그대로입니다.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn categories_nest_and_refuse_cycles() {
+    let cl = Cluster::new();
+    let a = cl.node("a").await;
+    let space = create_crew(&a, "중첩").await;
+    let make = |name: &str, kind, parent| ChannelCreateParams {
+        parent,
+        ..channel_params(space, name, kind)
+    };
+    let outer = a
+        .ok::<m::ChannelCreate>(make("바깥", ChannelKind::Category, None))
+        .await
+        .channel;
+    let inner = a
+        .ok::<m::ChannelCreate>(make("안", ChannelKind::Category, Some(outer)))
+        .await
+        .channel;
+    let text = a
+        .ok::<m::ChannelCreate>(make("잡담", ChannelKind::Text, Some(inner)))
+        .await
+        .channel;
+    let parent_of = |ch: ChannelId| {
+        let a = &a;
+        async move {
+            a.ok::<m::ChannelList>(SpaceParams { space })
+                .await
+                .into_iter()
+                .find(|v| v.channel == ch)
+                .unwrap()
+                .settings
+                .parent
+        }
+    };
+    assert_eq!(parent_of(inner).await, Some(outer));
+    assert_eq!(parent_of(text).await, Some(inner));
+    let move_to = |ch: ChannelId, parent: Option<ChannelId>| ChannelUpdateParams {
+        parent: Some(parent),
+        ..ChannelUpdateParams::new(space, ch)
+    };
+    for (ch, parent) in [(outer, inner), (outer, outer), (outer, text)] {
+        assert_eq!(
+            code(a.call::<m::ChannelUpdate>(move_to(ch, Some(parent))).await),
+            ERR_INVALID_INPUT
+        );
+    }
+    a.ok::<m::ChannelUpdate>(ChannelUpdateParams {
+        name: Some("안쪽".into()),
+        ..ChannelUpdateParams::new(space, inner)
+    })
+    .await;
+    assert_eq!(parent_of(inner).await, Some(outer));
+    a.ok::<m::ChannelUpdate>(move_to(inner, None)).await;
+    assert_eq!(parent_of(inner).await, None);
+}
+
 /// 채널 첨부 한도: 기본 무제한이고, 크루 관리자가 채널마다 정하며(1MiB 이상), 넘는 첨부는 파일을 읽기 전에 거절합니다.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn channel_attach_limit_is_per_channel_and_unlimited_by_default() {

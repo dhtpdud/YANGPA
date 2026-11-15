@@ -137,6 +137,9 @@ yangpa-mcp (AI 연동, MCP stdio) ─┘                                        
 - 채널 수정·삭제 금지: `SpaceState::edit_rules`(`model::EditRules{no_edit, no_delete}`), 상태 이벤트
   `ChannelEditRulesSet{channel, no_edit, no_delete}`(73, `EventBody` 42번 변형). `authorize_message`가 `Edit`·`Delete`·게시글
   제목·태그 변경을 거르고, 데몬 보기는 `ChannelView.no_edit`·`no_delete`(protocol.md "채널 수정·삭제 금지").
+- 카테고리 중첩: 상태 이벤트 `CategoryParentSet{channel, parent: Option<ChannelId>}`(103, `EventBody` 52번 변형)가 카테고리의
+  `ChannelSettings.parent`를 바꾸고, `SpaceState::is_under`가 고리를 막습니다. 카테고리의 `ChannelUpdate`는 지금 상위를 그대로
+  둡니다. 앱은 `channelChildren`·`sortChannels`(store.ts)로 나무를 펼칩니다(protocol.md "카테고리 중첩").
 - 휘발성 세션 키 회전: `VolatileRotation(VolatileRotationBody{generation, parent, fresh, added, removed, recipients_hash, commit})`
   (키 레인 21, `EventBody` 46번 변형, `validate`가 모양 검사)와 직접 요청 `YpRequest::VolatileKeyWrap`, `keysched::{vol_join,
   vol_key_commit, vol_recipients_hash, vol_wrap_ad, vol_notice_key}`, 권한 `authorize_volatile_rotation`. 상시 참여 상한:

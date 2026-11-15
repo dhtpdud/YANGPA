@@ -261,6 +261,44 @@ describe('채널 권한 탭', () => {
     expect(call).toHaveBeenCalledWith('channel.update', { space: SPACE, channel: 'C1', overwrites: [DENY_VIEW, ALLOW_R1] });
   });
 
+  it('카테고리는 자기 자신·자기 아래가 아닌 카테고리 안으로 옮기고, 상위 카테고리는 경로 이름으로 보인다', async () => {
+    const call = permSetup([chan('K', 'category', null, []), chan('K2', 'category', 'K', []), chan('K3', 'category', 'K2', []), chan('L', 'category', null, [])]);
+    const options = (el: HTMLElement) => [...el.querySelector<HTMLSelectElement>('select.select')!.options].map((o) => o.textContent);
+    const mid = await render(<ChannelSettingsModal space={SPACE} channel="K2" onClose={() => undefined} />);
+    expect(options(mid.el)).toEqual(['(없음)', 'K', 'L']);
+    await mid.unmount();
+    const { el } = await render(<ChannelSettingsModal space={SPACE} channel="L" onClose={() => undefined} />);
+    expect(el.textContent).toContain('상위 카테고리');
+    expect(options(el)).toEqual(['(없음)', 'K', 'K › K2', 'K › K2 › K3']);
+    await choose(el.querySelector<HTMLSelectElement>('select.select')!, 'K2');
+    await click(submit(el));
+    expect(call).toHaveBeenCalledWith('channel.update', { space: SPACE, channel: 'L', parent: 'K2' });
+  });
+
+  it('카테고리는 카테고리 삭제 단추와 하위 요소 포함 체크가 있고, 체크하면 안쪽부터 모두 지운다', async () => {
+    const call = permSetup([chan('K', 'category', null, []), chan('K2', 'category', 'K', []), chan('c1', 'text', 'K', []), chan('c2', 'text', 'K2', []), chan('L', 'category', null, [])]);
+    const { el } = await render(<ChannelSettingsModal space={SPACE} channel="K" onClose={() => undefined} />);
+    expect(el.textContent).not.toContain('채널 삭제');
+    const box = el.querySelector<HTMLInputElement>('.footer-left input[type="checkbox"]')!;
+    expect(box.closest('label')!.textContent).toContain('하위 요소 전부 포함');
+    // 체크하지 않으면 카테고리만 지웁니다(안의 것은 데몬이 최상위로 꺼냄).
+    await click(button(el, '카테고리 삭제'));
+    let m = useStore.getState().modal;
+    if (m?.kind !== 'confirm') throw new Error('확인 창이 없음');
+    expect(m.body).toContain('최상위로 옮깁니다');
+    await click(box);
+    await click(button(el, '카테고리 삭제'));
+    m = useStore.getState().modal;
+    if (m?.kind !== 'confirm') throw new Error('확인 창이 없음');
+    expect(m.body).toContain('3개를 모두 지웁니다');
+    const confirm = m.onConfirm;
+    await act(async () => {
+      await confirm();
+    });
+    const deleted = call.mock.calls.filter(([method]) => method === 'channel.delete').map(([, p]) => (p as { channel: string }).channel);
+    expect(deleted).toEqual(['c2', 'K2', 'c1', 'K']);
+  });
+
   it('카테고리 안에 만들면 카테고리 권한에서 시작하고, 권한을 손대기 전까지는 카테고리를 바꿀 때 다시 맞춘다', async () => {
     const call = permSetup([chan('K', 'category', null, [DENY_VIEW]), chan('K2', 'category', null, [ALLOW_R1])]);
     const { el } = await render(<ChannelSettingsModal space={SPACE} parent="K" onClose={() => undefined} />);

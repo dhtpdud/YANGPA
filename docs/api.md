@@ -325,7 +325,9 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
   `has_new`는 채널 토픽(`net.channel_topics`)을 쓰는 큰 크루에서 따라가지 않는 이 채널에 이 기기가 아직 받지 않은 새 글이 있음
   (멤버가 알려 준 채널 끝 기준, 수는 모름, 거짓이면 빠짐). 새로 켜지면 `space.updated`, 채널을 열면 꺼지고 그 채널을 받아 옵니다)
 - `channel.create({space, name, kind, parent?, topic?, security?, join_mode?, ttl_secs?, ttl_on_leave?, history?, link_previews?, private_roles?, position?, forum_tags?, p2p?, overwrites?, anonymous?, attach_limit?, no_edit?, no_delete?}) → {channel}`
-  — `manage_channels`. `overwrites`(`{target: {type: "role" | "member", id}, allow, deny}[]`, 권한 비트 수)는 덮어쓰기 목록 전체로,
+  — `manage_channels`. `parent`는 있는 카테고리여야 하고(아니면 `1005`), 카테고리도 다른 카테고리 안에 둘 수 있습니다(단계
+  제한 없음). 카테고리의 `parent`는 채널 생성 뒤 `CategoryParentSet`으로 따로 냅니다(protocol.md "카테고리 중첩").
+  `overwrites`(`{target: {type: "role" | "member", id}, allow, deny}[]`, 권한 비트 수)는 덮어쓰기 목록 전체로,
   `private_roles`와 함께 쓸 수 없습니다(`1005`). 모르는 비트, 같은 비트의 허용·거부, 겹친 대상, 없는 역할·멤버, 100개 넘게는 `1005`,
   허용·거부가 모두 0인 항목은 뺌, 내게 없는 권한 비트를 바꾸면 `1003`(소유자·관리자는 전부). 카테고리의 덮어쓰기는 안의 채널로
   이어지지 않습니다(앱이 카테고리를 따르는 채널에 같은 목록을 씀). `private_roles`가 있으면 비공개 채널(@everyone의 `view_channel` 거부 + 그 역할들에 허용, 빈 목록은 공개):
@@ -339,7 +341,8 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
   `ChannelAnonymousSet`을 잇달아 냅니다(실패하면 만든 채널을 지움). `attach_limit`(`null`이면 무제한, 0이면 첨부 금지)은 아래
   `channel.update`와 같은 규칙이고, 빠지면 무제한이되 크루의 휘발성 채널만 10MiB입니다. `no_edit`·`no_delete`(크루만, 카테고리 불가)는
   수정·삭제 금지. 셋 다 채널 생성 뒤 따로 냅니다(`ChannelAttachLimitSet`·`ChannelEditRulesSet`)
-- `channel.update({space, channel, ...같은 필드, attach_limit?, no_edit?, no_delete?, volatile_cap?}) → {}` — 종류·보안 등급은 못 바꿈(`1005`). P2P 전용 여부는 `channel.set_p2p`로 바꿈(`p2p` 필드는 받지 않음). `overwrites`는 목록을 통째로
+- `channel.update({space, channel, ...같은 필드, attach_limit?, no_edit?, no_delete?, volatile_cap?}) → {}` — 종류·보안 등급은 못 바꿈(`1005`). `parent: null`은 최상위로.
+  카테고리를 자기 자신이나 자기 아래 카테고리 안으로 옮기면 `1005`이고, 카테고리의 상위가 바뀌면 `CategoryParentSet`을 따로 냄. P2P 전용 여부는 `channel.set_p2p`로 바꿈(`p2p` 필드는 받지 않음). `overwrites`는 목록을 통째로
   바꿈(빈 목록은 모두 지움). 덮어쓰기를 바꾸는 `private_roles`·`overwrites` 변경과 과거 기록을 공개로 바꾸는 `history` 변경은 AI면 사람 확인(`1006`). 1대1에서 전환된 크루의 전환 전
   채널은 원래 두 사람만 과거 기록을 공개로 바꿀 수 있고(다른 멤버는 `1003`) 둘 다 공개해야 바뀜. 한 사람이 다시 비공개로
   돌리면 그 사람의 동의는 취소됨. `anonymous`는 익명 켜기·끄기(크루만, 카테고리 불가 `1005`): 꺼도 켜져 있는 동안 쓴 글은 익명으로

@@ -1125,6 +1125,81 @@ fn channel_attach_limit_rules() {
     assert!(state(&r).attach_limits.is_empty());
 }
 
+fn nest(channel: ChannelId, parent: Option<ChannelId>) -> EventBody {
+    EventBody::CategoryParentSet { channel, parent }
+}
+
+#[test]
+fn categories_nest_without_cycles() {
+    let mut cr = crew();
+    let (o, a) = (&cr.o, &cr.a);
+    for i in [1, 2, 3, 5] {
+        cr.c.push(o, kind_channel(ch(i), ChannelKind::Category));
+    }
+    cr.c.push(o, text_channel(ch(4), "일반"));
+    let category = |name: &str, parent| ChannelSettings {
+        kind: ChannelKind::Category,
+        parent,
+        ..ChannelSettings::text(name)
+    };
+
+    let no_perm = cr.c.push(a, nest(ch(2), Some(ch(1))));
+    let into_1 = cr.c.push(o, nest(ch(2), Some(ch(1))));
+    let into_2 = cr.c.push(o, nest(ch(3), Some(ch(2))));
+    let again = cr.c.push(o, nest(ch(2), Some(ch(1))));
+    let to_self = cr.c.push(o, nest(ch(1), Some(ch(1))));
+    let cycle = cr.c.push(o, nest(ch(1), Some(ch(3))));
+    let text_parent = cr.c.push(o, nest(ch(1), Some(ch(4))));
+    let not_category = cr.c.push(o, nest(ch(4), Some(ch(1))));
+    let unknown = cr.c.push(o, nest(ch(9), None));
+    // 채널 변경 본문에는 여전히 카테고리 상위를 싣지 못하고(옛 노드와 같은 판정), 빈 상위로 고쳐도 중첩은 그대로입니다.
+    let body_parent = cr.c.push(
+        o,
+        EventBody::ChannelUpdate {
+            channel: ch(1),
+            settings: category("x", Some(ch(5))),
+        },
+    );
+    let rename = cr.c.push(
+        o,
+        EventBody::ChannelUpdate {
+            channel: ch(3),
+            settings: category("새 이름", None),
+        },
+    );
+    let r = cr.c.resolve();
+    assert_rejected(
+        &r,
+        no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_CHANNELS),
+    );
+    for id in [into_1, into_2, rename] {
+        assert_applied(&r, id);
+    }
+    assert_rejected(&r, again, AuthError::Invalid("이미 그 상위"));
+    for id in [to_self, cycle, text_parent, body_parent] {
+        assert_rejected(&r, id, AuthError::Invalid("상위 채널"));
+    }
+    assert_rejected(&r, not_category, AuthError::Invalid("카테고리가 아님"));
+    assert_rejected(&r, unknown, AuthError::UnknownChannel);
+    let st = state(&r);
+    assert_eq!(st.channels.get(&ch(2)).unwrap().parent, Some(ch(1)));
+    let c3 = st.channels.get(&ch(3)).unwrap();
+    assert_eq!((c3.name.as_str(), c3.parent), ("새 이름", Some(ch(2))));
+    assert!(st.is_under(&ch(3), &ch(1)) && !st.is_under(&ch(1), &ch(3)));
+
+    // 가운데 카테고리를 지우면 그 안의 카테고리는 최상위로 나오고, 다시 넣었다 뺄 수 있습니다.
+    cr.c.push(o, EventBody::ChannelDelete { channel: ch(2) });
+    let r = cr.c.resolve();
+    assert_eq!(state(&r).channels.get(&ch(3)).unwrap().parent, None);
+    let back = cr.c.push(o, nest(ch(3), Some(ch(1))));
+    let out = cr.c.push(o, nest(ch(3), None));
+    let r = cr.c.resolve();
+    assert_applied(&r, back);
+    assert_applied(&r, out);
+    assert_eq!(state(&r).channels.get(&ch(3)).unwrap().parent, None);
+}
+
 fn edit_rules(channel: ChannelId, no_edit: bool, no_delete: bool) -> EventBody {
     EventBody::ChannelEditRulesSet {
         channel,

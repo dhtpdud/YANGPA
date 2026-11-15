@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RpcError, type ApiClient } from '../api/client';
-import { ErrorCode, type IdentityView, type MessageView, type NetStatus, type SpaceView } from '../api/types';
+import { ErrorCode, type ChannelView, type IdentityView, type MessageView, type NetStatus, type SpaceView } from '../api/types';
 import { applyBatch, emptyChannel } from './apply';
 import { ANON_CALL_ENDED, ANON_VOICE_OFF_WARNING } from '../lib/anon';
-import { p2pOffWarning, p2pOnWarning, sanitizePrefs, useStore } from './store';
+import { p2pOffWarning, p2pOnWarning, sanitizePrefs, sortChannels, useStore } from './store';
 
 const identity = {
   user: 'u1',
@@ -723,5 +723,17 @@ describe('앱 업데이트', () => {
   it('설정 파일의 자동 확인 값을 읽는다', () => {
     expect(sanitizePrefs({ updateCheck: false })).toEqual({ updateCheck: false });
     expect(sanitizePrefs({ updateCheck: 'no' })).toEqual({});
+  });
+});
+
+describe('사이드바 채널 순서(sortChannels)', () => {
+  const ch = (channel: string, position: number, kind = 'text', parent: string | null = null) =>
+    ({ channel, settings: { name: channel, position, kind, parent } }) as unknown as ChannelView;
+
+  it('최상위는 채널이 먼저, 카테고리 안은 채널과 하위 카테고리를 위치 순으로 섞는다', () => {
+    const list = [ch('Y', 0, 'category'), ch('a', 3), ch('X', 1, 'category', 'Y'), ch('y2', 2, 'text', 'Y'), ch('y1', 0, 'text', 'Y'), ch('x1', 0, 'text', 'X')];
+    expect(sortChannels(list).map((c) => c.channel)).toEqual(['a', 'Y', 'y1', 'X', 'x1', 'y2']);
+    // 위치가 같으면 채널이 먼저입니다.
+    expect(sortChannels([ch('X', 0, 'category', 'Y'), ch('y1', 0, 'text', 'Y'), ch('Y', 0, 'category')]).map((c) => c.channel)).toEqual(['Y', 'y1', 'X']);
   });
 });

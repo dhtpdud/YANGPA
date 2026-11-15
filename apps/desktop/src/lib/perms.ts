@@ -370,9 +370,20 @@ export function targetTemplate(list: readonly PermissionOverwrite[], target: Ove
   };
 }
 
-/** 카테고리 안에서 권한이 카테고리(`categoryOverwrites`, 바꾸기 전 값)와 같은 채널. 카테고리를 바꿀 때 함께 맞춥니다. */
+/**
+ * 카테고리 안에서 권한이 카테고리(`categoryOverwrites`, 바꾸기 전 값)와 같은 채널. 카테고리를 바꿀 때 함께 맞춥니다. 맞춰진
+ * 하위 카테고리 안까지 내려가고, 맞춰지지 않은 하위 카테고리 안은 그대로 둡니다.
+ */
 export function syncedChildren(view: SpaceView, category: ChannelId, categoryOverwrites: readonly PermissionOverwrite[]): ChannelView[] {
-  return view.channels.filter(
-    (c) => c.settings.parent === category && c.channel !== category && sameOverwrites(liveOverwrites(c.settings.overwrites, view.members), categoryOverwrites),
-  );
+  const out: ChannelView[] = [];
+  const walk = (parent: ChannelId) => {
+    for (const c of view.channels) {
+      if (c.settings.parent !== parent || c.channel === category || out.includes(c)) continue;
+      if (!sameOverwrites(liveOverwrites(c.settings.overwrites, view.members), categoryOverwrites)) continue;
+      out.push(c);
+      if (c.settings.kind === 'category') walk(c.channel);
+    }
+  };
+  walk(category);
+  return out;
 }

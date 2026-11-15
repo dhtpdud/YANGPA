@@ -286,22 +286,59 @@ fn member_name(members: &[MemberView], user: UserId) -> String {
         .unwrap_or_else(|| user.to_string())
 }
 
-/// 채널을 카테고리 아래로 묶어 위치 순으로 출력합니다.
+/// 카테고리 나무를 깊이 우선으로 펼칩니다(앱 사이드바와 같은 순서). 최상위는 카테고리 없는 채널이 먼저, 카테고리 안은
+/// 채널과 하위 카테고리를 위치 순으로 섞습니다.
+fn channel_tree<'a>(
+    sorted: &[&'a ChannelView],
+    parent_of: &dyn Fn(&ChannelView) -> Option<ChannelId>,
+    parent: Option<ChannelId>,
+    depth: usize,
+    out: &mut Vec<(&'a ChannelView, usize)>,
+) {
+    let mut kids: Vec<&ChannelView> = sorted
+        .iter()
+        .copied()
+        .filter(|c| parent_of(c) == parent)
+        .collect();
+    if parent.is_none() {
+        kids.sort_by_key(|c| c.settings.kind == ChannelKind::Category);
+    }
+    for c in kids {
+        out.push((c, depth));
+        if c.settings.kind == ChannelKind::Category {
+            channel_tree(sorted, parent_of, Some(c.channel), depth + 1, out);
+        }
+    }
+}
+
+/// 채널을 카테고리 아래로 묶어(한 단계마다 두 칸 들여) 위치 순으로 출력합니다.
 pub fn channels(list: &[ChannelView]) -> String {
     let mut sorted: Vec<&ChannelView> = list.iter().collect();
     sorted.sort_by(|a, b| {
-        (a.settings.position, &a.settings.name).cmp(&(b.settings.position, &b.settings.name))
+        let key = |c: &ChannelView| {
+            (
+                c.settings.position,
+                c.settings.kind == ChannelKind::Category,
+                c.settings.name.clone(),
+            )
+        };
+        key(a).cmp(&key(b))
     });
     let is_category = |id: ChannelId| {
         list.iter()
             .any(|c| c.channel == id && c.settings.kind == ChannelKind::Category)
     };
+    // 없는 카테고리를 가리키는 채널은 최상위로 봅니다.
+    let parent_of = |c: &ChannelView| c.settings.parent.filter(|p| is_category(*p));
+    let mut rows = Vec::new();
+    channel_tree(&sorted, &parent_of, None, 0, &mut rows);
     let mut t = Table::new(["채널", "종류", "설정", "읽지 않음", "ID"]);
-    let mut push = |c: &ChannelView, indent: bool| {
-        let prefix = match (c.settings.kind, indent) {
-            (ChannelKind::Category, _) => String::new(),
-            (_, true) => "  #".into(),
-            (_, false) => "#".into(),
+    for (c, depth) in rows {
+        let indent = "  ".repeat(depth);
+        let prefix = if c.settings.kind == ChannelKind::Category {
+            indent
+        } else {
+            format!("{indent}#")
         };
         let mut flags = channel_flags(&c.settings);
         if c.joined == Some(true) {
@@ -321,21 +358,6 @@ pub fn channels(list: &[ChannelView]) -> String {
             },
             c.channel.to_string(),
         ]);
-    };
-    for c in &sorted {
-        let top = c.settings.parent.is_none_or(|p| !is_category(p));
-        if !top {
-            continue;
-        }
-        push(c, false);
-        if c.settings.kind == ChannelKind::Category {
-            for child in sorted
-                .iter()
-                .filter(|x| x.settings.parent == Some(c.channel))
-            {
-                push(child, true);
-            }
-        }
     }
     if t.is_empty() {
         return "채널이 없습니다.\n".into();
@@ -1699,17 +1721,31 @@ mod tests {
             volatile_full: false,
             has_new: false,
         };
-        let s = channels(&[view(3, c3), view(2, c2), view(1, c1)]);
+        // 중첩 카테고리(4)는 공지 뒤에 한 단계 들여, 그 안의 채널(5)은 두 단계 들여 나옵니다. 카테고리 안은 채널과 하위
+        // 카테고리를 위치 순으로 섞으므로(같으면 채널 먼저) 위치가 더 큰 채널(6)은 하위 카테고리 뒤에 옵니다.
+        let mut c4 = ChannelSettings::text("하위");
+        c4.kind = ChannelKind::Category;
+        c4.parent = Some(cat);
+        let mut c5 = ChannelSettings::text("깊은");
+        c5.parent = Some(ChannelId([4; 16]));
+        let mut c6 = ChannelSettings::text("끝");
+        c6.parent = Some(cat);
+        c6.position = 1;
+        let s = channels(&[
+            view(6, c6),
+            view(5, c5),
+            view(4, c4),
+            view(3, c3),
+            view(2, c2),
+            view(1, c1),
+        ]);
         let lines: Vec<&str> = s.lines().collect();
-        assert!(
-            lines[1].starts_with("#비밀") || lines[1].starts_with("카테고리"),
-            "{s}"
-        );
-        let cat_line = lines
-            .iter()
-            .position(|l| l.starts_with("카테고리"))
-            .unwrap();
-        assert!(lines[cat_line + 1].starts_with("  #공지"), "{s}");
+        assert!(lines[1].starts_with("#비밀"), "{s}");
+        assert!(lines[2].starts_with("카테고리"), "{s}");
+        assert!(lines[3].starts_with("  #공지"), "{s}");
+        assert!(lines[4].starts_with("  하위"), "{s}");
+        assert!(lines[5].starts_with("    #깊은"), "{s}");
+        assert!(lines[6].starts_with("  #끝"), "{s}");
         assert!(s.contains("휘발성, 수명 30s"), "{s}");
     }
 }

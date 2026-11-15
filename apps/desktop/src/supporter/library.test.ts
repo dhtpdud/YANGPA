@@ -136,6 +136,12 @@ describe('폴더 나무', () => {
     expect(root.children[1].children).toEqual([]);
     expect(folderPath(files[0] as LibraryFile, false, lookup)).toEqual(['all', 'space:S1', 'cat:S1/K1', 'ch:S1/C1']);
   });
+
+  it('중첩 카테고리는 단계마다 폴더', () => {
+    const nested = [ch('K1', '게임', 0, null, 'category'), ch('K2', '공략', 0, 'K1', 'category'), ch('C3', '보스', 0, 'K2')];
+    const find = (_s: string, c: string) => nested.find((x) => x.channel === c);
+    expect(folderPath({ space: 'S1', channel: 'C3' }, false, find)).toEqual(['all', 'space:S1', 'cat:S1/K1', 'cat:S1/K2', 'ch:S1/C3']);
+  });
 });
 
 describe('설정', () => {

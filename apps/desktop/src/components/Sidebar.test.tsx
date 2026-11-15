@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ANONYMOUS_USER, type ChannelView, type SpaceView } from '../api/types';
 import { useStore } from '../store/store';
 import { cleanup, render } from '../test/dom';
-import { ChannelRow, CommitNote } from './Sidebar';
+import { ChannelRow, ChannelSidebar, CommitNote } from './Sidebar';
 
 const view = (pending: boolean, committer: string) => ({ space: 'S', kind: 'crew', pending_commit: pending, committer }) as unknown as SpaceView;
 
@@ -131,5 +131,29 @@ describe('채널 줄의 익명 표시', () => {
     expect(names(el)).toEqual(['익명 1', '익명 2', '익명 3']);
     expect(el.querySelectorAll('.vp-row')[1].querySelector('.muted')).not.toBeNull();
     expect(el.querySelectorAll('.vp-row')[0].querySelector('.muted')).toBeNull();
+  });
+});
+
+describe('접힌 카테고리', () => {
+  const ch = (channel: string, kind: string, parent: string | null, unread = 0) =>
+    ({ channel, unread, settings: { name: channel, kind, parent, position: 0, topic: '', security: 'normal', ttl: { mode: 'none' }, overwrites: [] } }) as unknown as ChannelView;
+  const space = {
+    space: 'S',
+    kind: 'crew',
+    members: [],
+    my_permissions: [],
+    settings: { name: '크루' },
+    channels: [ch('K', 'category', null), ch('K2', 'category', 'K'), ch('열린', 'text', 'K2'), ch('새글', 'text', 'K2', 2)],
+  } as unknown as SpaceView;
+  const rows = (el: HTMLElement) => [...el.querySelectorAll('[data-ch]')].map((e) => e.getAttribute('data-ch'));
+
+  it('하위 카테고리를 접으면 열어 둔 채널도 숨기고 읽지 않은 채널만 보인다', async () => {
+    useStore.setState({ selected: { space: 'S', channel: '열린' } as never });
+    const { el } = await render(<ChannelSidebar space={space} />);
+    expect(rows(el)).toEqual(['새글', '열린']);
+    const k2 = el.querySelector<HTMLElement>('[data-cat="K2"] .cat-btn')!;
+    k2.click();
+    await new Promise((r) => setTimeout(r));
+    expect(rows(el)).toEqual(['새글']);
   });
 });

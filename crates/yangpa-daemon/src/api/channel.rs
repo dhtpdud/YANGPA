@@ -189,27 +189,30 @@ fn check_forum_tags(kind: ChannelKind, tags: &[ForumTag]) -> Result<(), RpcError
     Ok(())
 }
 
-/// 상위 채널은 있는 카테고리여야 하고, 카테고리는 상위를 가질 수 없습니다.
+/// 상위 채널은 있는 카테고리여야 하고, 카테고리는 자기 자신·자기 아래 카테고리 안으로 들어갈 수 없습니다(해소기 규칙과 같음).
 fn check_parent(
     state: &SpaceState,
     id: Option<&ChannelId>,
-    kind: ChannelKind,
     parent: &Option<ChannelId>,
 ) -> Result<(), RpcError> {
     let Some(p) = parent else { return Ok(()) };
-    let ok = Some(p) != id
-        && kind != ChannelKind::Category
-        && state
-            .channels
-            .get(p)
-            .is_some_and(|c| c.kind == ChannelKind::Category);
+    let ok = state
+        .channels
+        .get(p)
+        .is_some_and(|c| c.kind == ChannelKind::Category)
+        && id.is_none_or(|id| !state.is_under(p, id));
     if ok {
         Ok(())
     } else {
         Err(RpcError::invalid_input(
-            "상위 채널은 있는 카테고리여야 합니다(카테고리는 상위를 가질 수 없음)",
+            "상위 채널은 있는 카테고리여야 합니다(카테고리를 자기 안으로 옮길 수 없음)",
         ))
     }
+}
+
+/// 카테고리의 상위는 채널 생성·변경 본문에 싣지 않고 따로 냅니다(`CategoryParentSet`, 옛 노드가 본문을 거부하지 않게).
+fn category_parent_body(channel: ChannelId, parent: Option<ChannelId>) -> EventBody {
+    EventBody::CategoryParentSet { channel, parent }
 }
 
 /// 이 채널을 관리할 수 있는지(채널 덮어쓰기까지 적용).
@@ -304,7 +307,8 @@ pub(crate) async fn create(
     if matches!(p.kind, ChannelKind::Other(_)) {
         return Err(RpcError::invalid_input("만들 수 없는 채널 종류입니다"));
     }
-    check_parent(&state, None, p.kind, &p.parent)?;
+    check_parent(&state, None, &p.parent)?;
+    let category = p.kind == ChannelKind::Category;
     let security = p.security.unwrap_or(SecurityLevel::Normal);
     if security == SecurityLevel::Volatile && p.kind == ChannelKind::Forum {
         // 게시글 제목·고정·잠금 변경은 상태 레인(디스크)으로 가므로 휘발성으로 둘 수 없습니다.
@@ -326,7 +330,7 @@ pub(crate) async fn create(
         name,
         kind: p.kind,
         topic,
-        parent: p.parent,
+        parent: if category { None } else { p.parent },
         position: p
             .position
             .unwrap_or(i32::try_from(state.channels.len()).unwrap_or(i32::MAX)),
@@ -356,6 +360,9 @@ pub(crate) async fn create(
             .then_some(VOLATILE_DEFAULT_ATTACH_LIMIT)
     });
     let mut extra = Vec::new();
+    if category && p.parent.is_some() {
+        extra.push(category_parent_body(channel, p.parent));
+    }
     if let Some(l) = attach_limit {
         check_attach_limit(&state, settings.kind, Some(l))?;
         extra.push(attach_limit_body(channel, Some(l)));
@@ -402,9 +409,14 @@ pub(crate) async fn update(
     if let Some(n) = &p.name {
         s.name = rpc(crews::check_name(n, "채널 이름"))?;
     }
+    let mut category_parent = None;
     if let Some(parent) = p.parent {
-        check_parent(&state, Some(&p.channel), s.kind, &parent)?;
-        s.parent = parent;
+        check_parent(&state, Some(&p.channel), &parent)?;
+        if s.kind == ChannelKind::Category {
+            category_parent = (parent != old.parent).then_some(parent);
+        } else {
+            s.parent = parent;
+        }
     }
     if let Some(t) = &p.topic {
         rpc(crews::check_text(t, MAX_TOPIC_CHARS, "채널 주제"))?;
@@ -465,38 +477,32 @@ pub(crate) async fn update(
     if let Some(c) = volatile_cap {
         check_volatile_cap(&state, &s, c)?;
     }
-    if s == *old {
-        if let Some(a) = anonymous {
-            publish(node, p.space, anonymous_body(p.channel, a)).await?;
+    if s != *old {
+        let opens_history =
+            s.history == HistoryVisibility::Public && old.history != HistoryVisibility::Public;
+        if s.overwrites != old.overwrites || opens_history {
+            // 볼 수 있는 사람이 바뀌거나(기록 키를 받을 사람이 바뀜) 지난 기록을 새 멤버에게 열면 자동화 토큰은 사람
+            // 확인을 받습니다. 1:1에서 전환된 크루의 전환 전 채널은 원래 두 사람이 모두 공개해야 열립니다(해소기).
+            let params = serde_json::to_value(&p).map_err(|e| RpcError::internal(e.to_string()))?;
+            admin::confirm_when_others(node, ctx, "channel.update", &params).await?;
         }
-        if let Some(l) = attach_limit {
-            publish(node, p.space, attach_limit_body(p.channel, l)).await?;
+        if s.kind == ChannelKind::Category {
+            // 본문의 카테고리 상위는 늘 비웁니다(해소기가 지금 상위를 그대로 둠).
+            s.parent = None;
         }
-        if let Some(r) = rules {
-            publish(node, p.space, edit_rules_body(p.channel, r)).await?;
-        }
-        if let Some(c) = volatile_cap {
-            publish(node, p.space, volatile_cap_body(p.channel, c)).await?;
-        }
-        return Ok(empty());
+        publish(
+            node,
+            p.space,
+            EventBody::ChannelUpdate {
+                channel: p.channel,
+                settings: s,
+            },
+        )
+        .await?;
     }
-    let opens_history =
-        s.history == HistoryVisibility::Public && old.history != HistoryVisibility::Public;
-    if s.overwrites != old.overwrites || opens_history {
-        // 볼 수 있는 사람이 바뀌거나(기록 키를 받을 사람이 바뀜) 지난 기록을 새 멤버에게 열면 자동화 토큰은 사람
-        // 확인을 받습니다. 1:1에서 전환된 크루의 전환 전 채널은 원래 두 사람이 모두 공개해야 열립니다(해소기).
-        let params = serde_json::to_value(&p).map_err(|e| RpcError::internal(e.to_string()))?;
-        admin::confirm_when_others(node, ctx, "channel.update", &params).await?;
+    if let Some(parent) = category_parent {
+        publish(node, p.space, category_parent_body(p.channel, parent)).await?;
     }
-    publish(
-        node,
-        p.space,
-        EventBody::ChannelUpdate {
-            channel: p.channel,
-            settings: s,
-        },
-    )
-    .await?;
     if let Some(a) = anonymous {
         publish(node, p.space, anonymous_body(p.channel, a)).await?;
     }

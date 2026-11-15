@@ -273,6 +273,18 @@ describe('채널 권한 덮어쓰기', () => {
     expect(liveOverwrites(v.channels[1].settings.overwrites, v.members)).toEqual(cat);
     expect(syncedChildren(v, 'cat', cat).map((c) => c.channel)).toEqual(['same']);
   });
+
+  it('맞춰진 하위 카테고리 안까지 따라오고, 맞춰지지 않은 하위 카테고리 안은 그대로 둔다', () => {
+    const cat = [{ target: role(EVERYONE_ROLE), allow: 0, deny: 1 }];
+    const sub = (id: string, parent: string, o: PermissionOverwrite[]): ChannelView => {
+      const c = chan(id, parent, o);
+      return { ...c, settings: { ...c.settings, kind: 'category' } };
+    };
+    const v = space({
+      channels: [chan('cat', null, cat), sub('sub', 'cat', cat), chan('deep', 'sub', cat), sub('loose', 'cat', []), chan('inside', 'loose', cat)],
+    });
+    expect(syncedChildren(v, 'cat', cat).map((c) => c.channel)).toEqual(['sub', 'deep']);
+  });
 });
 
 describe('채널에서의 내 권한(데몬 channel_permissions와 같은 규칙)', () => {

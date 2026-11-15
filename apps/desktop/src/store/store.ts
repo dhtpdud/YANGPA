@@ -563,20 +563,43 @@ export function defaultChannel(view: SpaceView, remembered?: ChannelId): Channel
   );
 }
 
-/** 카테고리 순서 → 카테고리 안 위치 순서로 정렬(카테고리 없는 채널이 먼저). */
+/**
+ * 상위 카테고리(최상위는 `null`)마다 그 안의 채널·카테고리, 위치 순. 최상위만 채널이 먼저, 그다음 카테고리입니다.
+ * 없는 카테고리를 가리키는 채널은 최상위로 봅니다.
+ */
+export function channelChildren(channels: ChannelView[]): Map<ChannelId | null, ChannelView[]> {
+  const cats = new Set(channels.filter((c) => c.settings.kind === 'category').map((c) => c.channel));
+  const kids = new Map<ChannelId | null, ChannelView[]>();
+  for (const c of channels) {
+    const p = c.settings.parent && cats.has(c.settings.parent) ? c.settings.parent : null;
+    const list = kids.get(p);
+    if (list) list.push(c);
+    else kids.set(p, [c]);
+  }
+  const rank = (c: ChannelView) => Number(c.settings.kind === 'category');
+  // 최상위는 예전처럼 종류별로 나눕니다(예전 크루는 채널·카테고리 위치를 따로 매겨 섞으면 순서가 흐트러짐).
+  for (const [p, list] of kids) {
+    const top = p === null;
+    list.sort(
+      (a, b) =>
+        (top ? rank(a) - rank(b) : 0) || a.settings.position - b.settings.position || rank(a) - rank(b) || a.settings.name.localeCompare(b.settings.name),
+    );
+  }
+  return kids;
+}
+
+/** 카테고리 나무를 깊이 우선으로 펼친 순서(사이드바 순서). 데몬이 고리를 막으므로 모든 채널이 최상위에서 닿습니다. */
 export function sortChannels(channels: ChannelView[]): ChannelView[] {
-  const cats = channels.filter((c) => c.settings.kind === 'category').sort((a, b) => a.settings.position - b.settings.position);
-  const catPos = new Map(cats.map((c, i) => [c.channel, i]));
-  const rank = (c: ChannelView) => {
-    if (c.settings.kind === 'category') return [catPos.get(c.channel) ?? 0, -1];
-    const p = c.settings.parent ? catPos.get(c.settings.parent) : undefined;
-    return [p === undefined ? -1 : p, c.settings.position];
+  const kids = channelChildren(channels);
+  const out: ChannelView[] = [];
+  const walk = (parent: ChannelId | null) => {
+    for (const c of kids.get(parent) ?? []) {
+      out.push(c);
+      if (c.settings.kind === 'category') walk(c.channel);
+    }
   };
-  return channels.slice().sort((a, b) => {
-    const [a1, a2] = rank(a);
-    const [b1, b2] = rank(b);
-    return a1 - b1 || a2 - b2 || a.settings.name.localeCompare(b.settings.name);
-  });
+  walk(null);
+  return out;
 }
 
 export const useStore = create<Store>()((set, get) => {

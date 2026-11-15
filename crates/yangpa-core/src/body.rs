@@ -571,6 +571,13 @@ pub enum EventBody {
     /// 크루 해산(코드 102). 크루 소유자만. 적용되면 그 뒤 상태 이벤트는 모두 거부되고 아무도 권한이 없으며, 멤버 기기는
     /// 기록을 남겨 둔 채(늦게 온 멤버에게 해산을 전함) 각자 나가기로 지웁니다.
     CrewDisband,
+    /// 카테고리를 다른 카테고리 안에 넣거나(`Some`) 최상위로 빼기(코드 103). 그 카테고리의 `MANAGE_CHANNELS`, 상위는
+    /// 있는 카테고리이고 자기 자신·자기 아래 카테고리가 아니어야 하며 지금 값과 달라야 함. 카테고리의 `ChannelSettings.parent`는
+    /// 이것으로만 바뀌고(채널 생성·변경 본문의 카테고리 상위는 늘 비어 옛 노드도 같게 판정), 옛 노드는 최상위로 봅니다.
+    CategoryParentSet {
+        channel: ChannelId,
+        parent: Option<ChannelId>,
+    },
 }
 
 /// 휘발성 세션 키 회전 공지. 회전한 기기가 서명하고 지금 참가자에게 직접 보냅니다. 키는 참가자마다 따로 미는 감싸기
@@ -677,6 +684,7 @@ impl EventBody {
             EventBody::MemberFlair(_) => EventKind::MemberFlair,
             EventBody::MemberBadges { .. } => EventKind::MemberBadges,
             EventBody::CrewDisband => EventKind::CrewDisband,
+            EventBody::CategoryParentSet { .. } => EventKind::CategoryParentSet,
         }
     }
 
@@ -1269,6 +1277,15 @@ mod tests {
             )
             .unwrap(),
             EventBody::CrewDisband
+        );
+        let nest = EventBody::CategoryParentSet {
+            channel: ChannelId([1; 16]),
+            parent: Some(ChannelId([2; 16])),
+        };
+        assert_eq!(index(&nest), 52);
+        assert_eq!(
+            EventBody::decode(&nest.encode().unwrap(), EventKind::CategoryParentSet).unwrap(),
+            nest
         );
         // 2판의 MLS 종류(80·81)는 다시 쓰지 않으므로 이 판에서는 모르는 종류입니다.
         assert_eq!(EventKind::from_code(80), EventKind::Other(80));

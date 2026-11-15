@@ -17,10 +17,12 @@ import {
   TTL_MIN_SECS,
   VOLATILE_ATTACH_DEFAULT,
   VOLATILE_CAP_DEFAULT,
+  ancestry,
   attachLimitMib,
   canBeP2p,
   canHaveAttachLimit,
   channelCreateParams,
+  descendants,
   channelUpdatePatch,
   clampTtl,
   hasChatLifetime,
@@ -33,7 +35,7 @@ import { formatDuration } from '../lib/format';
 import { tagsError } from '../lib/forumTags';
 import { PERMISSION_LABELS, canGrant, cx } from '../lib/misc';
 import { compactOverwrites, hasChannelPerm, liveOverwrites, overwriteDelta, sameOverwrites, syncedChildren } from '../lib/perms';
-import { useStore } from '../store/store';
+import { sortChannels, useStore } from '../store/store';
 import { ChannelPermsEditor } from './ChannelPerms';
 import { ForumTagsEditor } from './ForumTags';
 import { Field, Modal } from './Modal';
@@ -114,6 +116,8 @@ export function ChannelSettingsModal({
   const [tab, setTab] = useState<'general' | 'perms'>('general');
   const [p2p, setP2p] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
+  const [deleteAll, setDeleteAll] = useState(false);
+  const isCategory = s0?.kind === 'category';
   const [forumTags, setForumTags] = useState<ForumTag[]>(() => s0?.forum_tags ?? []);
   // 입력란의 MiB 글자(비우면 무제한, 0은 첨부 금지).
   const [limitText, setLimitText] = useState<string>(existing?.attach_limit != null ? attachLimitMib(existing.attach_limit) : '');
@@ -146,7 +150,7 @@ export function ChannelSettingsModal({
   const form: ChannelForm = {
     name,
     topic,
-    parent: kind === 'category' ? null : parentId,
+    parent: parentId,
     joinMode,
     ttl: chatTtl,
     history,
@@ -161,10 +165,15 @@ export function ChannelSettingsModal({
     volatileCap: canEditCap && capParsed.ok ? capParsed.cap : undefined,
   };
   const categories = view.channels.filter((c) => c.settings.kind === 'category');
+  // 상위로 고를 수 있는 카테고리(나무 순서, 바깥부터 이은 경로 이름). 카테고리는 자기 자신·자기 아래로 옮길 수 없습니다.
+  const parentChoices = sortChannels(view.channels)
+    .filter((c) => c.settings.kind === 'category')
+    .map((c) => ({ c, chain: ancestry(view.channels, c) }))
+    .filter(({ chain }) => !existing || !chain.some((x) => x.channel === existing.channel));
   const sendsOverwrites = overwrites0 ? !sameOverwrites(overwrites, overwrites0) : compactOverwrites(overwrites).length > 0;
   // 데몬처럼 바뀌는 권한 비트가 모두 내게 있어야 저장됩니다(소유자·관리자는 전부).
   const blocked = sendsOverwrites ? overwriteDelta(s0?.overwrites ?? [], overwrites).filter((p) => !canGrant(view, p)) : [];
-  const parentCat = kind === 'category' ? undefined : categories.find((c) => c.channel === parentId);
+  const parentCat = categories.find((c) => c.channel === parentId);
   const parentOverwrites = categoryOverwrites(parentCat?.channel);
   const followsParent = !!parentOverwrites && sameOverwrites(overwrites, parentOverwrites);
   // 카테고리를 고치면 지금 카테고리 권한과 같은(맞춰진) 채널도 함께 바꿉니다.
@@ -239,7 +248,7 @@ export function ChannelSettingsModal({
       size="lg"
       footer={
         <>
-          {existing && (
+          {existing && !isCategory && (
             <button
               type="button"
               className="btn danger-outline left"
@@ -260,6 +269,41 @@ export function ChannelSettingsModal({
             >
               <Trash2 size={14} /> {t('채널 삭제')}
             </button>
+          )}
+          {existing && isCategory && (
+            <div className="footer-left">
+              <button
+                type="button"
+                className="btn danger-outline"
+                onClick={() => {
+                  const inside = deleteAll ? descendants(view.channels, existing.channel) : [];
+                  openModal({
+                    kind: 'confirm',
+                    title: t('카테고리 삭제'),
+                    body: deleteAll
+                      ? t('{name} 카테고리와 그 안의 채널·카테고리 {count}개를 모두 지웁니다. 멤버 화면에서 사라지지만, 이미 받아 간 기록은 각자 기기에 남을 수 있습니다.', {
+                          name: s0?.name ?? '',
+                          count: inside.length,
+                        })
+                      : t('{name} 카테고리를 지웁니다. 안의 채널과 카테고리는 지우지 않고 최상위로 옮깁니다.', { name: s0?.name ?? '' }),
+                    danger: true,
+                    confirmLabel: t('삭제'),
+                    onConfirm: async () => {
+                      // 안쪽부터 하나씩 지우고, 실패하면 거기서 멈춥니다(남은 것은 그대로, 오류는 call이 알림).
+                      for (const channel of [...inside, existing.channel]) {
+                        if ((await call(client!.call('channel.delete', { space, channel }))) === undefined) return;
+                      }
+                      closeModal();
+                    },
+                  });
+                }}
+              >
+                <Trash2 size={14} /> {t('카테고리 삭제')}
+              </button>
+              <label className="check">
+                <input type="checkbox" checked={deleteAll} onChange={(e) => setDeleteAll(e.target.checked)} /> {t('하위 요소 전부 포함')}
+              </label>
+            </div>
           )}
           <button type="button" className="btn ghost" onClick={onClose}>
             {existing ? t('닫기') : t('취소')}
@@ -315,13 +359,16 @@ export function ChannelSettingsModal({
                 onChange={(e) => setName(kind === 'category' ? e.target.value : e.target.value.replace(/\s+/g, '-').toLowerCase())}
               />
             </Field>
-            {kind !== 'category' && categories.length > 0 && (
-              <Field label={t('카테고리')}>
+            {parentChoices.length > 0 && (
+              <Field label={kind === 'category' ? t('상위 카테고리') : t('카테고리')}>
                 <select className="select" value={parentId ?? ''} onChange={(e) => pickParent(e.target.value || null)}>
                   <option value="">{t('(없음)')}</option>
-                  {categories.map((c) => (
+                  {parentChoices.map(({ c, chain }) => (
                     <option key={c.channel} value={c.channel}>
-                      {c.settings.name}
+                      {chain
+                        .map((x) => x.settings.name)
+                        .reverse()
+                        .join(' › ')}
                     </option>
                   ))}
                 </select>

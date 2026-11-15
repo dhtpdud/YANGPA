@@ -2235,7 +2235,10 @@ export class MockBackend {
       }
       case 'channel.delete': {
         const sp = this.space(p.space);
-        sp.view.channels = sp.view.channels.filter((c) => c.channel !== p.channel && c.settings.parent !== p.channel);
+        // 데몬처럼 카테고리를 지우면 안의 것은 최상위로 꺼냅니다.
+        sp.view.channels = sp.view.channels
+          .filter((c) => c.channel !== p.channel)
+          .map((c) => (c.settings.parent === p.channel ? { ...c, settings: { ...c.settings, parent: null } } : c));
         sp.messages.delete(p.channel);
         this.spaceUpdated(sp);
         return ok;

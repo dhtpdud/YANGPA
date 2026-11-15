@@ -374,13 +374,18 @@ export interface FolderNode {
 
 type ChannelLookup = (space: SpaceId, channel: ChannelId) => ChannelView | undefined;
 
-/** 파일이 드는 폴더들(바깥부터). 1대1 대화는 채널이 하나라 채널 칸을 두지 않습니다. */
+/** 파일이 드는 폴더들(바깥부터). 중첩 카테고리는 단계마다 폴더입니다. 1대1 대화는 채널이 하나라 채널 칸을 두지 않습니다. */
 export function folderPath(f: Pick<LibraryFile, 'space' | 'channel'>, dm: boolean, lookup: ChannelLookup): string[] {
   const out = [ALL_FOLDER, `space:${f.space}`];
   if (dm) return out;
-  const parent = lookup(f.space, f.channel)?.settings.parent;
-  if (parent && lookup(f.space, parent)) out.push(`cat:${f.space}/${parent}`);
-  out.push(`ch:${f.space}/${f.channel}`);
+  const cats: string[] = [];
+  // 데몬이 고리를 막지만, 같은 폴더가 다시 나오면 멈춥니다.
+  for (let p = lookup(f.space, f.channel)?.settings.parent; p && lookup(f.space, p); p = lookup(f.space, p)?.settings.parent) {
+    const id = `cat:${f.space}/${p}`;
+    if (cats.includes(id)) break;
+    cats.unshift(id);
+  }
+  out.push(...cats, `ch:${f.space}/${f.channel}`);
   return out;
 }
 
