@@ -1345,7 +1345,7 @@ async fn oversized_device_list_is_rejected() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn cut_space_rejects_push_and_stale_pending_leave_is_cleared() {
     let cl = Cluster::new();
-    let a = cl.node("a").await;
+    let mut a = cl.node("a").await;
     let b = cl.node("b").await;
     let mut c = cl.node("c").await;
     let ab = befriend(&a, &b).await;
@@ -1374,12 +1374,15 @@ async fn cut_space_rejects_push_and_stale_pending_leave_is_cleared() {
     assert!(matches!(r, YpResponse::Error { .. }), "{r:?}");
     assert!(testkit::get_event(&a.node, &id).expect("저장소").is_none());
 
-    // c가 꺼진 사이 양쪽이 서로 끊습니다.
+    // 서로 모르는 사이 양쪽이 끊습니다. c가 끊을 때는 a를 꺼 둡니다: 켜 두면 다시 뜬 c가 a의 끊기를 먼저 받아
+    // c의 삭제가 '친구가 아닙니다'로 실패할 수 있음.
     c.shutdown().await;
     a.ok::<m::FriendRemove>(UserParams { user: c_user }).await;
     assert!(testkit::has_pending_leave(&a.node, &c_user));
+    a.shutdown().await;
     c.start_again().await;
     c.ok::<m::FriendRemove>(UserParams { user: a_user }).await;
+    a.start_again().await;
     connect(&a, &c).await;
     eventually("전할 친구 삭제가 지워짐", || async {
         (!testkit::has_pending_leave(&a.node, &c_user)).then_some(())
