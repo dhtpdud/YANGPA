@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Pesan terenkripsi ujung ke ujung di atas Tor, tanpa server dan tanpa nomor telepon</strong></p>
+<p align="center"><strong>Messenger P2P berbasis Tor dengan enkripsi ujung ke ujung pascakuantum</strong></p>
 
 <p align="center">
   Kunci yang dibuat di perangkat Anda adalah akun Anda. IP disembunyikan lewat Tor, dan ruang bergaya Discord<br>

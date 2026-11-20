@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>서버도 전화번호도 없는, Tor 위의 종단간 암호화 메신저</strong></p>
+<p align="center"><strong>Tor 기반 양자 내성 종단간 암호화 P2P 메신저</strong></p>
 
 <p align="center">
   기기에서 만든 키가 곧 계정입니다. IP는 Tor로 숨기고, 채널·통화·화면공유가 있는<br>

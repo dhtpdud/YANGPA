@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Mensageiro com criptografia de ponta a ponta sobre o Tor, sem servidor e sem número de telefone</strong></p>
+<p align="center"><strong>Mensageiro P2P baseado no Tor com criptografia de ponta a ponta pós-quântica</strong></p>
 
 <p align="center">
   A chave gerada no seu dispositivo é a sua conta. O IP fica escondido atrás do Tor, e amigos e crews<br>

@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Une messagerie chiffrée de bout en bout sur Tor, sans serveur ni numéro de téléphone</strong></p>
+<p align="center"><strong>Messagerie P2P basée sur Tor, chiffrée de bout en bout et post-quantique</strong></p>
 
 <p align="center">
   La clé créée sur votre appareil est votre compte. Votre IP est masquée par Tor, et vos amis et équipes font tourner<br>

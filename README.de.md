@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Ein Ende-zu-Ende-verschlüsselter Messenger über Tor, ohne Server und ohne Telefonnummer</strong></p>
+<p align="center"><strong>Tor-basierter P2P-Messenger mit Post-Quanten-Ende-zu-Ende-Verschlüsselung</strong></p>
 
 <p align="center">
   Der auf deinem Gerät erzeugte Schlüssel ist dein Konto. Tor verbirgt die IP, und Freunde und Crews betreiben<br>

@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Ứng dụng nhắn tin mã hóa đầu cuối chạy trên Tor, không máy chủ, không số điện thoại</strong></p>
+<p align="center"><strong>Ứng dụng nhắn tin P2P dựa trên Tor, mã hóa đầu cuối kháng lượng tử</strong></p>
 
 <p align="center">
   Khóa tạo trên thiết bị của bạn chính là tài khoản. IP được giấu sau Tor, và bạn bè hay nhóm tự vận hành<br>

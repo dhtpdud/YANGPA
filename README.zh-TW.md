@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>沒有伺服器、沒有電話號碼，建立在 Tor 之上的端對端加密通訊軟體</strong></p>
+<p align="center"><strong>基於 Tor 的抗量子端對端加密 P2P 通訊軟體</strong></p>
 
 <p align="center">
   在裝置上產生的金鑰就是帳號。以 Tor 隱藏 IP，不需要營運商，<br>

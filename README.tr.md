@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Sunucusuz, telefon numarasız, Tor üzerinde uçtan uca şifreli mesajlaşma uygulaması</strong></p>
+<p align="center"><strong>Tor tabanlı, kuantum sonrası uçtan uca şifreli P2P mesajlaşma uygulaması</strong></p>
 
 <p align="center">
   Hesabınız, cihazınızda üretilen anahtardır. IP adresinizi Tor ile saklar; kanalları, aramaları ve ekran paylaşımı olan<br>

@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>サーバーも電話番号も要らない、Tor 上のエンドツーエンド暗号化メッセンジャー</strong></p>
+<p align="center"><strong>Tor ベースの耐量子エンドツーエンド暗号化 P2P メッセンジャー</strong></p>
 
 <p align="center">
   端末で作った鍵がそのままアカウントになります。IP は Tor で隠し、チャンネル・通話・画面共有を備えた<br>

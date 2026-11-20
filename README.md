@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>An end-to-end encrypted messenger over Tor, with no servers and no phone numbers</strong></p>
+<p align="center"><strong>Tor-based post-quantum E2EE P2P Messenger</strong></p>
 
 <p align="center">
   A key generated on your device is your account. Tor hides your IP, and friends and crews run<br>

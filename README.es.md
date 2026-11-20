@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Mensajería cifrada de extremo a extremo sobre Tor, sin servidores ni número de teléfono</strong></p>
+<p align="center"><strong>Mensajería P2P basada en Tor con cifrado de extremo a extremo poscuántico</strong></p>
 
 <p align="center">
   La clave generada en tu dispositivo es tu cuenta. Tor oculta tu IP, y tú y tus amigos o crews<br>

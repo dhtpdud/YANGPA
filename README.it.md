@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>Un messenger con crittografia end-to-end su Tor, senza server e senza numero di telefono</strong></p>
+<p align="center"><strong>Messenger P2P basato su Tor con crittografia end-to-end post-quantistica</strong></p>
 
 <p align="center">
   La chiave generata sul tuo dispositivo è il tuo account. L'IP resta nascosto dietro Tor, e amici e crew gestiscono da soli<br>

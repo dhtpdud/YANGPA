@@ -23,7 +23,7 @@
   <a href="README.hi.md">हिन्दी</a>
 </p>
 
-<p align="center"><strong>没有服务器，也不需要手机号：运行在 Tor 之上的端到端加密通讯工具</strong></p>
+<p align="center"><strong>基于 Tor 的抗量子端到端加密 P2P 通讯工具</strong></p>
 
 <p align="center">
   在设备上生成的密钥就是你的账号。IP 由 Tor 隐藏，带有频道、通话和屏幕共享的<br>
