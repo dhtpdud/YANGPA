@@ -166,6 +166,8 @@ pub(crate) async fn handle(node: &Arc<Node>, peer: PeerId, req: Incoming) -> YpR
         YpRequest::GetMemberCards { space, users } => {
             crate::cards::handle_get(node, peer, space, users)
         }
+        YpRequest::GetAiKey { .. } => crate::ai::handle_get_key(),
+        YpRequest::AiTranslate(ask) => crate::ai::handle_translate(node, &peer, *ask).await,
         YpRequest::GetGroupMembers {
             space,
             group,

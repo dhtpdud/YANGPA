@@ -644,6 +644,7 @@ mod tests {
                 emoji_limits: Default::default(),
                 emoji_by: Default::default(),
                 disbanded: false,
+                ai: Default::default(),
             },
             member,
             outsider: UserId([3; 32]),

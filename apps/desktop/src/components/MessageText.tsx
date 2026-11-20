@@ -7,14 +7,16 @@ import { t } from '../i18n';
 import { ANON_NAME, isAnonymousUser } from '../lib/anon';
 import { isEmojiOnly } from '../lib/emoji';
 import { parseMarkdown, type Block, type Inline } from '../lib/markdown';
-import { cx, displayName } from '../lib/misc';
+import { cx, displayName, roleColor } from '../lib/misc';
 import { isSafeHttpUrl } from '../lib/text';
-import { useStore } from '../store/store';
+import { findChannel, useStore } from '../store/store';
 import { CustomEmoji } from './common';
 
 interface RenderCtx {
   members: Map<string, MemberView>;
   me: string | null;
+  /** 역할·채널 태그를 찾을 공간. */
+  space?: string;
   jumbo: boolean;
   openProfile: (user: string) => void;
   openLink: (href: string) => void;
@@ -44,6 +46,31 @@ function Spoiler({ children }: { children: ReactNode }) {
         {children}
       </span>
     </span>
+  );
+}
+
+// 태그는 저마다 공간 보기를 구독합니다(태그가 없는 메시지는 보기가 바뀌어도 다시 그리지 않게).
+
+/** 역할 태그: 역할 색으로 칠합니다. 없거나 내가 볼 수 없는 역할이면 '알 수 없는 역할'. */
+function RoleTag({ space, id }: { space?: string; id: string }) {
+  const role = useStore((s) => (space ? s.views[space]?.roles.find((r) => r.id === id) : undefined));
+  const color = roleColor(role?.color ?? 0);
+  return (
+    <span className="mention" style={color ? { color, background: `${color}1f` } : undefined}>
+      @{role ? role.name : t('알 수 없는 역할')}
+    </span>
+  );
+}
+
+/** 채널 태그: 누르면 그 채널로 갑니다. 없거나 내가 볼 수 없는 채널이면 '알 수 없는 채널'. */
+function ChannelTag({ space, id }: { space?: string; id: string }) {
+  const ch = useStore((s) => (space ? findChannel(s.views, space, id) : undefined));
+  const open = useStore((s) => s.openChannelLink);
+  if (!space || !ch || ch.settings.kind === 'category') return <span className="mention">#{ch ? ch.settings.name : t('알 수 없는 채널')}</span>;
+  return (
+    <button type="button" className="mention" onClick={() => open(space, id)}>
+      #{ch.settings.name}
+    </button>
   );
 }
 
@@ -83,6 +110,10 @@ function renderInline(nodes: Inline[], ctx: RenderCtx): ReactNode[] {
           </button>
         );
       }
+      case 'role':
+        return <RoleTag key={i} space={ctx.space} id={n.id} />;
+      case 'channel':
+        return <ChannelTag key={i} space={ctx.space} id={n.id} />;
       case 'everyone':
         return (
           <span key={i} className="mention" title={n.v === 'everyone' ? t('채널을 볼 수 있는 모두') : t('지금 접속한 모두')}>
@@ -185,11 +216,13 @@ export const MessageText = memo(function MessageText({
   text,
   members,
   me,
+  space,
   className,
 }: {
   text: string;
   members: Map<string, MemberView>;
   me: string | null;
+  space?: string;
   className?: string;
 }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
@@ -200,6 +233,7 @@ export const MessageText = memo(function MessageText({
   const ctx: RenderCtx = {
     members,
     me,
+    space,
     jumbo,
     openProfile: (user) => openModal({ kind: 'friendProfile', user }),
     // 친구·초대 링크는 브라우저(웹 초대 페이지)를 거치지 않고 앱 창으로 바로 엽니다.

@@ -209,8 +209,19 @@ describe('Composer 모두 멘션', () => {
     });
     return ta;
   }
+  const ROLE = 'R'.repeat(22);
+  const NOTICE = 'N'.repeat(22);
+  const roles = [
+    { id: '1111111111111111', name: '@everyone', color: 0, rank: 0, permissions: 0, automation: false },
+    { id: ROLE, name: '운영진', color: 0, rank: 1, permissions: 0, automation: false },
+  ];
+  const channels = [
+    { channel: NOTICE, settings: { name: '공지', kind: 'text', security: 'normal', overwrites: [] } },
+    { channel: 'V'.repeat(22), settings: { name: '공지 휘발', kind: 'text', security: 'volatile', overwrites: [] } },
+    { channel: 'K'.repeat(22), settings: { name: '공지 묶음', kind: 'category', security: 'normal', overwrites: [] } },
+  ];
   const withPerms = (perms: string[]) =>
-    useStore.setState({ views: { [SPACE]: { space: SPACE, kind: 'crew', my_permissions: perms, members: [], emojis: [] } as unknown as SpaceView } });
+    useStore.setState({ views: { [SPACE]: { space: SPACE, kind: 'crew', my_permissions: perms, members: [], emojis: [], roles, channels } as unknown as SpaceView } });
 
   it('많이 멘션하기 권한이 있으면 @everyone·@here를 후보로 보이고 고르면 그대로 넣는다', async () => {
     setup([]);
@@ -229,5 +240,38 @@ describe('Composer 모두 멘션', () => {
     const { el } = await render(<Composer space={SPACE} channel={CHANNEL} />);
     await typeIn(el, '@');
     expect(el.querySelector('.suggest')).toBeNull();
+    // 역할도 같은 권한이 있어야 후보에 보입니다.
+    await typeIn(el, '@운');
+    expect(el.querySelector('.suggest')).toBeNull();
+  });
+
+  it('역할을 고르면 @이름으로 보이고 <@&ID>로 보낸다(@everyone 역할은 후보에 없음)', async () => {
+    const call = setup([]);
+    withPerms(['send_messages', 'mention_many']);
+    const { el } = await render(<Composer space={SPACE} channel={CHANNEL} />);
+    await typeIn(el, '@');
+    expect([...el.querySelectorAll('.suggest-item')].map((b) => b.textContent)).not.toContain('@@everyone');
+    const ta = await typeIn(el, '@운');
+    expect(el.querySelector('.suggest-title')?.textContent).toBe('멤버·역할');
+    await click(el.querySelector<HTMLElement>('.suggest-item')!);
+    expect(ta.value).toBe('@운영진 ');
+    await pressEnter(el);
+    await vi.waitFor(() => expect(sent(call)).toHaveLength(1));
+    expect((sent(call)[0] as { text: string }).text).toBe(`<@&${ROLE}>`);
+  });
+
+  it('#와 한 글자 이상이면 채널 후보(카테고리·휘발성 채널 빼고), 고르면 <#ID>로 보낸다', async () => {
+    const call = setup([]);
+    withPerms(['send_messages']);
+    const { el } = await render(<Composer space={SPACE} channel={CHANNEL} />);
+    await typeIn(el, '#');
+    expect(el.querySelector('.suggest')).toBeNull();
+    const ta = await typeIn(el, '여기 #공');
+    expect([...el.querySelectorAll('.suggest-item')].map((b) => b.textContent)).toEqual(['공지']);
+    await click(el.querySelector<HTMLElement>('.suggest-item')!);
+    expect(ta.value).toBe('여기 #공지 ');
+    await pressEnter(el);
+    await vi.waitFor(() => expect(sent(call)).toHaveLength(1));
+    expect((sent(call)[0] as { text: string }).text).toBe(`여기 <#${NOTICE}>`);
   });
 });

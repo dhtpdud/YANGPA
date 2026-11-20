@@ -357,6 +357,53 @@ export interface ChannelView {
   has_new?: boolean;
 }
 
+/** AI API 요청 형식. */
+export type AiApi = 'openai' | 'anthropic' | 'gemini';
+
+/** 내 AI API 프로필(`ai.profiles`). 키는 오지 않고 저장했는지만 옵니다. */
+export interface AiProfileView {
+  id: string;
+  name: string;
+  api: AiApi;
+  base_url: string;
+  model: string;
+  has_key: boolean;
+}
+
+/** 크루가 역할에 내주는 AI API 프로필(키 없음, `space.get`의 `ai_profiles`). */
+export interface CrewAiProfile {
+  id: string;
+  name: string;
+  api: AiApi;
+  base_url: string;
+  model: string;
+  /** 이 프로필을 받는 역할(@everyone 포함 가능). */
+  roles: RoleId[];
+  /** 키를 처음 가진 기기. */
+  holder: DeviceId;
+  key_version: number;
+}
+
+export interface AiTranslateParams {
+  profile: string;
+  /** 참이면 `profile`은 `space` 크루가 내준 프로필. */
+  crew?: boolean;
+  space?: SpaceId;
+  channel?: ChannelId;
+  /** 원문 언어(자연어). 없으면 글마다 알아냄. */
+  source?: string;
+  /** 번역할 언어(자연어). */
+  target: string;
+  texts: string[];
+}
+
+export interface AiTranslation {
+  /** 번역문(이미 대상 언어였으면 원문 그대로). */
+  text: string;
+  /** 원문 언어 이름(대상 언어로 씀). 모르면 빈 칸. */
+  source: string;
+}
+
 export interface EmojiView {
   id: EmojiId;
   name: string;
@@ -412,6 +459,10 @@ export interface SpaceView {
   use_crew_servers?: boolean;
   /** 소유자가 해산한 크루(`crew.disband`). 아무도 쓸 수 없고 `crew.leave`로 이 기기에서 지웁니다. 거짓이면 생략. */
   disbanded?: boolean;
+  /** 크루가 역할에 내주는 AI API 프로필(키 없음). 없으면 생략. */
+  ai_profiles?: CrewAiProfile[];
+  /** 멤버 자동 번역의 크루 언어(`crew.set_ai_auto`, 앱 화면 언어 코드). */
+  ai_auto_lang?: string;
 }
 
 /** 크루 STUN 서버 목록(`space.get`의 `crew_servers`, `crew.set_servers`). 8줄까지. */
@@ -1242,6 +1293,16 @@ export interface Methods {
   'update.check': [Empty, UpdateInfo];
   'update.download': [{ version: string; asset: string }, Empty];
   'presence.get': [Empty, PresenceView];
+  'ai.profiles': [Empty, AiProfileView[]];
+  /** 내 AI 프로필 만들기(`id` 없음)·고치기. `key`가 없으면 저장된 키를 그대로 둠. */
+  'ai.save_profile': [{ id?: string; name: string; api: AiApi; base_url: string; model: string; key?: string }, AiProfileView];
+  'ai.delete_profile': [{ id: string }, Empty];
+  /** 공급자의 모델 이름 목록. `key`가 없거나 비었으면 `id` 프로필에 저장한 키를 씀. */
+  'ai.models': [{ id?: string; api: AiApi; base_url: string; key?: string }, string[]];
+  /** 글 여러 개 번역(Tor로 도는 기기는 Arti로). */
+  'ai.translate': [AiTranslateParams, { items: AiTranslation[] }];
+  /** 이 기기 DB의 번역 캐시를 비웁니다. */
+  'ai.clear_cache': [Empty, Empty];
   'presence.set': [PresenceSetParams, PresenceView];
   'flair.list': [Empty, FlairView[]];
   /** 후광 색(`null`이면 끔). 월 50달러 이상 후원자만. */
@@ -1294,6 +1355,9 @@ export interface Methods {
   'crew.set_servers': [{ space: SpaceId; stun: string[] }, Empty];
   /** 이 기기가 그 크루의 STUN 서버를 쓸지(이 기기에만 저장, 사람만). 크루 서버가 이 기기의 공인 IP를 봅니다. */
   'crew.use_servers': [{ space: SpaceId; enabled: boolean }, Empty];
+  /** 크루가 역할에 내주는 AI 프로필 목록 전체(`manage_space`, 사람만). 내 프로필 id면 지금 내용과 키를 실어 내줌. */
+  'crew.set_ai_profiles': [{ space: SpaceId; profiles: { id: string; roles: RoleId[] }[] }, Empty];
+  'crew.set_ai_auto': [{ space: SpaceId; lang?: string | null }, Empty];
   'member.list': [SpaceParams, MemberView[]];
   /** 큰 크루용 멤버 목록 쪽(온라인·최근 거르기, 이름 검색). */
   'member.search': [MemberSearchParams, MemberPage];
@@ -1318,6 +1382,7 @@ export interface Methods {
   'channel.delete': [SpaceChannelParams, Empty];
   'channel.join': [SpaceChannelParams, Empty];
   'channel.leave': [SpaceChannelParams, Empty];
+  /** 채널에서 AI 번역을 쓸 수 있는 역할(`manage_channels`). `null`이면 모두. */
   'channel.allow_api_read': [SpaceChannelParams & { allowed: boolean }, Empty];
   /** P2P 전용으로 바꾸거나(`enabled`) Tor로 되돌립니다(어느 쪽이든 언제든, 사람만). */
   'channel.set_p2p': [SpaceChannelParams & { enabled: boolean }, Empty];
@@ -1571,6 +1636,7 @@ export const PERMISSION_BITS: ReadonlyArray<readonly [string, number]> = [
   ['use_crew_stun', 11],
   // 12는 예전 use_crew_turn(TURN 삭제): 옛 역할에 켜져 있을 수 있어 다른 뜻으로 다시 쓰지 않습니다.
   ['mention_many', 13],
+  ['use_ai_translate', 14],
   ['manage_messages', 16],
   ['manage_channels', 17],
   ['manage_roles', 18],

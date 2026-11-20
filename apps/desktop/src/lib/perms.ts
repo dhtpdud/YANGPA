@@ -23,7 +23,7 @@ import { t } from '../i18n';
 /** 권한 화면의 묶음(역할 편집·채널 권한이 같은 순서로 씁니다). */
 export const PERM_GROUPS: Array<[string, string[]]> = [
   [t('일반'), ['view_channel', 'create_invite']],
-  [t('텍스트'), ['send_messages', 'read_history', 'add_reactions', 'attach_files', 'embed_links', 'use_external_emoji', 'create_posts', 'mention_many']],
+  [t('텍스트'), ['send_messages', 'read_history', 'add_reactions', 'attach_files', 'embed_links', 'use_external_emoji', 'create_posts', 'mention_many', 'use_ai_translate']],
   [t('통화'), ['connect_voice', 'speak', 'stream']],
   // 크루 단위 권한이라 채널 덮어쓰기에는 나오지 않습니다(channelPermGroups가 거름).
   [t('연결'), ['use_crew_stun']],
@@ -72,6 +72,7 @@ const MEMBER_PERMS = canonPerms([
   'stream',
   'create_posts',
   'create_invite',
+  'use_ai_translate',
 ]);
 
 /** 기본 제공 템플릿(지울 수 없음). */
@@ -184,7 +185,7 @@ export type TriState = 'deny' | 'inherit' | 'allow';
 export const EVERYONE_TARGET: OverwriteTarget = { type: 'role', id: EVERYONE_ROLE };
 
 const VIEW = 'view_channel';
-const TEXT_PERMS = ['send_messages', 'read_history', 'add_reactions', 'attach_files', 'embed_links', 'use_external_emoji', 'mention_many', 'manage_messages'];
+const TEXT_PERMS = ['send_messages', 'read_history', 'add_reactions', 'attach_files', 'embed_links', 'use_external_emoji', 'mention_many', 'use_ai_translate', 'manage_messages'];
 const VOICE_PERMS = ['connect_voice', 'speak', 'stream', 'manage_voice'];
 
 // 비트 31(관리자)은 32비트 정수 연산에서 부호가 뒤집히므로 나눗셈으로 셉니다.

@@ -179,6 +179,48 @@
     {
       "destructive": "no",
       "human_only": false,
+      "name": "ai.profiles",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "ai.save_profile",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "ai.delete_profile",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "ai.models",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "ai.translate",
+      "scope": "owner",
+      "space": "optional_global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "ai.clear_cache",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
       "name": "presence.get",
       "scope": "read",
       "space": "global"
@@ -404,6 +446,20 @@
       "destructive": "no",
       "human_only": true,
       "name": "crew.set_servers",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.set_ai_profiles",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.set_ai_auto",
       "scope": "admin",
       "space": "required"
     },
@@ -1298,6 +1354,10 @@
     {
       "bit": 13,
       "name": "mention_many"
+    },
+    {
+      "bit": 14,
+      "name": "use_ai_translate"
     },
     {
       "bit": 16,

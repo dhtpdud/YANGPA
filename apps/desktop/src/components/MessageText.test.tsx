@@ -31,6 +31,25 @@ describe('MessageText', () => {
     expect(el.textContent).toBe('<b>굵게</b> <img src=x onerror=alert(1)> <script>alert(1)</script>');
   });
 
+  it('역할 태그는 역할 이름, 채널 태그는 누르면 그 채널로 가고, 모르는 것은 알 수 없음으로', async () => {
+    setup();
+    const role = 'A2cD4eF6gH8jK9mN1pQ3rS';
+    const ch = '1pQ3rS5tU7vW9xY7Hq3sZz';
+    const openChannelLink = vi.fn();
+    const view = {
+      roles: [{ id: role, name: '운영진', color: 0xe8541e, rank: 1, permissions: 0, automation: false }],
+      channels: [{ channel: ch, settings: { name: '공지', kind: 'text' } }],
+    };
+    useStore.setState({ views: { s1: view } as never, openChannelLink });
+    const text = `<@&${role}> <#${ch}> <@&${'B'.repeat(22)}> <#${'C'.repeat(22)}>`;
+    const { el } = await render(<MessageText text={text} members={members} me={null} space="s1" />);
+    expect([...el.querySelectorAll('.mention')].map((x) => x.textContent)).toEqual(['@운영진', '#공지', '@알 수 없는 역할', '#알 수 없는 채널']);
+    const button = el.querySelector('button.mention');
+    expect(button?.textContent).toBe('#공지');
+    await click(button as HTMLElement);
+    expect(openChannelLink).toHaveBeenCalledWith('s1', ch);
+  });
+
   it('제목·굵게·목록·인용·코드 블록을 요소로 그린다', async () => {
     setup();
     const text = '# 제목\n**굵게** *기울임* __밑줄__ ~~취소~~ `코드`\n- 하나\n- 둘\n> 인용\n```js\nlet a = 1;\n```';

@@ -95,6 +95,7 @@ impl Store {
             return Err(StoreError::Corrupt("WAL 모드로 바꿀 수 없음"));
         }
         migrate(&writer)?;
+        crate::ai_cache::install(&writer)?;
         let search = SearchState::default();
         search.install(&writer)?;
         // 오래 열어 두는 연결은 처음에 한 번 통계를 맞춰 둡니다(SQLite 권장).

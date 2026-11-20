@@ -668,6 +668,39 @@ pub enum YpRequest {
         space: SpaceId,
         users: Vec<UserId>,
     },
+    /// 예전 크루 AI 프로필 키 묻기. 이제 키를 나눠 주지 않아 늘 `Forbidden`으로 답합니다(이 판을 보내는 빌드가 있어
+    /// 변형은 남겨 둠). 크루 프로필 번역은 [`YpRequest::AiTranslate`].
+    GetAiKey {
+        space: SpaceId,
+        id: String,
+    },
+    /// 크루 AI 프로필로 번역해 달라는 요청. 그 프로필을 내준 기기(`CrewAiProfile::holder`)만 답합니다: 요청한
+    /// 사용자가 지금 상태에서 그 프로필을 받는 역할이고 채널을 볼 수 있고 AI 번역 권한이 있으면 자기 키로 번역해
+    /// [`YpResponse::AiTranslated`]로 결과만 돌려줍니다. 키는 기기 밖으로 나가지 않습니다.
+    AiTranslate(Box<AiTranslateAsk>),
+}
+
+/// [`YpRequest::AiTranslate`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiTranslateAsk {
+    pub space: SpaceId,
+    /// 글이 있는 채널. 없으면 채널·역할 이름 같은 크루 이름입니다.
+    pub channel: Option<ChannelId>,
+    /// 크루 프로필 ID.
+    pub profile: String,
+    /// 원문 언어(자연어). 없으면 글마다 알아냅니다.
+    pub source: Option<String>,
+    /// 번역할 언어(자연어).
+    pub target: String,
+    pub texts: Vec<String>,
+}
+
+/// [`YpResponse::AiTranslated`]의 한 글. 모델이 돌려주지 않은 글은 `None`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiTranslatedItem {
+    pub text: String,
+    /// 원문 언어 이름(번역할 언어로 씀). 모르면 빈 칸.
+    pub source: String,
 }
 
 impl YpRequest {
@@ -996,6 +1029,8 @@ pub enum YpResponse {
     DeviceLinkGrant(#[serde(with = "serde_bytes")] Vec<u8>),
     /// `GetMemberCards`의 답(아는 것만).
     MemberCards(Vec<MemberCard>),
+    /// `AiTranslate`의 답: 보낸 글 순서대로.
+    AiTranslated(Vec<Option<AiTranslatedItem>>),
 }
 
 /// [`SocialRequest`]의 답. 비어 있는 칸은 줄 것이 없다는 뜻입니다.

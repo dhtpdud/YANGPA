@@ -270,6 +270,9 @@ YANGPA를 쓰는 사람을 위한 설명입니다. 무엇을 할 수 있는지�
 - **@everyone·@here**: 크루에서 **많이 멘션하기**(`mention_many`) 권한이 있으면 입력창에서 `@`를 칠 때 목록에 나옵니다.
   `@everyone`은 그 채널을 볼 수 있는 모두, `@here`는 그때 접속해 있던 사람(보낸 뒤 5분 안에 받은 기기)에게 멘션으로 칩니다.
   권한 없는 사람이 쳐 넣으면 `@everyone`으로 보이기는 하지만 아무에게도 멘션·알림이 가지 않습니다.
+- **@역할**: 같은 권한이 있으면 `@` 목록에 크루 역할도 나옵니다. 고르면 그 역할을 가진 사람 모두에게 멘션으로 칩니다.
+- **#채널**: 크루에서 `#`와 채널 이름 한 글자 이상을 치면 채널 목록이 나옵니다. 고른 채널은 `#채널 이름`으로 보이고 누르면
+  그 채널로 갑니다(알림은 없음). 휘발성 채널은 목록에 나오지 않습니다.
 - **크루·채널마다**: 크루(왼쪽 목록이나 사이드바 머리글)나 채널을 오른쪽 클릭하면 **알림 끄기**(15분~24시간, 직접 켤 때까지)와
   **알림 설정**(기본값 따르기·모든 메시지·@멘션만·알림 없음)이 있습니다. 채널 설정이 크루 설정보다, 크루 설정이 위 크루 알림보다
   앞섭니다. 알림을 끈 동안은 멘션만 알리고, 끈 크루·채널은 흐리게 보이며 안 읽음 표시가 없습니다(멘션 수는 보임). 이 기기에만
@@ -372,7 +375,7 @@ yangpa channel create --crew "게임 모임" --name 운영 --private-roles 운�
 ```
 
 권한 이름: `view_channel`, `send_messages`, `read_history`, `add_reactions`, `attach_files`, `embed_links`,
-`use_external_emoji`, `connect_voice`, `speak`, `stream`, `create_posts`, `use_crew_stun`, `mention_many`, `manage_messages`, `manage_channels`,
+`use_external_emoji`, `connect_voice`, `speak`, `stream`, `create_posts`, `use_crew_stun`, `mention_many`, `use_ai_translate`, `manage_messages`, `manage_channels`,
 `manage_roles`, `kick`, `ban`, `create_invite`, `manage_emoji`, `manage_voice`, `manage_space`, `administrator`.
 `manage_voice`가 있는 시더 노드는 참가하지 않은 큰 통화의 중계(SFU 호스트)를 맡을 수 있습니다. 중계 노드는 소리·화면
 내용은 못 보지만 참가자의 IP와 누가 언제 말하는지는 알므로 믿는 노드에만 주세요([headless.md](headless.md) "통화 SFU 호스트").

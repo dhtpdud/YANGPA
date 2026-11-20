@@ -115,11 +115,11 @@ yangpa-mcp (AI 연동, MCP stdio) ─┘                                        
   `ChannelTransportSet{channel, transport}`(67), Tor로 주고받는 참여 안내
   `YpRequest::P2pHello(P2pHello{peer_id, addrs, channels})`/`YpResponse::P2pHello`(주소 `MAX_P2P_ADDRS` 16개·채널
   `MAX_P2P_CHANNELS` 1024개까지)(protocol.md "P2P 전용 채널"). 새 노드 간 요청·응답은 열거형 뒤에 붙입니다(postcard 변형 번호):
-  지금 `YpRequest`의 마지막은 멤버 프로필·카드 묻기 `GetMemberCards{space, users}`(그 앞은 새 기기 연결 `DeviceLink`·`DeviceLinkPoll`, 뱃지 `Badges`, 표시 상태 `Presence`, 후원자 확인 `SupporterShare`, 키 그룹 중계 `GetChannelRoots`·`GetGroupKeys`·
+  지금 `YpRequest`의 마지막은 크루 AI 프로필 번역 부탁 `AiTranslate(AiTranslateAsk)`(그 앞은 예전 키 묻기 `GetAiKey`(늘 거절), 멤버 프로필·카드 묻기 `GetMemberCards{space, users}`, 새 기기 연결 `DeviceLink`·`DeviceLinkPoll`, 뱃지 `Badges`, 표시 상태 `Presence`, 후원자 확인 `SupporterShare`, 키 그룹 중계 `GetChannelRoots`·`GetGroupKeys`·
   `KeyTableHandover`·`GetStateKeys`·`GetKeyShard`, 체크포인트 `GetDeviceKeys`·`GetCheckpoint`, `GetGroupMembers`,
   `VolatileKeyWrap`, 채널 끝 묻기 `GetChannelTips`, 멤버 소개 `FindDevice{space, user, device}`, 멤버 노드 목록
   `GetMemberNodes{space}`, 놓친 가입 확인 `CheckJoin{spaces, auth}` 다음), `YpResponse`의
-  마지막은 `MemberCards(Vec<MemberCard>)`(`DeviceLinkOpened{nonce}`·`DeviceLinkGrant(봉인)`, `SealedKeys`·`DeviceKeys`·`Checkpoint`·`ChannelTips`·`DeviceNode{peer_id, addrs}`·
+  마지막은 `AiTranslated(Vec<Option<AiTranslatedItem>>)`(`MemberCards(Vec<MemberCard>)`, `DeviceLinkOpened{nonce}`·`DeviceLinkGrant(봉인)`, `SealedKeys`·`DeviceKeys`·`Checkpoint`·`ChannelTips`·`DeviceNode{peer_id, addrs}`·
   `MemberNodes(Vec<MemberNode>)` 다음, protocol.md "피어 찾기와 위치 기록"·"새 기기 연결").
 - 역할 표시 설정: `model::RoleDisplay{visible_to, see_admins}`, `SpaceState::role_display`·`visible_roles`·`sees_admins`·`is_admin`,
   상태 이벤트 `RoleDisplaySet{role, display}`(68). 데몬 보기(`space.get`·`member.list`·`role.list`)만
@@ -539,6 +539,9 @@ src/
   update.rs      — 앱 업데이트(`update.*`): `releases/latest` 넘겨주기로 최신 판 확인, 배포자 서명(`yangpa_core::release`)을 확인한
                    `SHA256SUMS.txt`에 있는 릴리스 파일만 데이터 폴더 `updates/`에 받기(`update.progress`). Tor로 도는 기기는 Arti로만
                    (`blobs::preview::http_location`·`http_open`), 설치는 앱 셸(`src-tauri/src/update.rs`)
+  ai.rs          — AI 번역(`ai.*`): 내 AI API 프로필(키는 DB 설정 `ai.profiles`), 크루 프로필 목록 만들기(`crew.set_ai_profiles`,
+                   키는 내준 기기의 `ai.crew_keys`에만), 내준 기기에게 번역 부탁하기·멤버 요청 대신 번역하기(`AiTranslate`), OpenAI 호환·Anthropic·Gemini
+                   요청(`blobs::preview::http_request`, Tor로 도는 기기는 Arti)과 JSON 응답 풀기
   supporter/flair.rs — 후원자 표시(카드 배너 월 14달러·후광 월 50달러 이상, GitHub 1회 후원은 30일): 확인한 단계와 후광 색을 상태 이벤트(`MemberFlair`)로 내
                    공간마다 내기, 해소기가 적용한 것을 사용자마다 모으기(`flair.user.<사용자>`, `crews::on_resolved`),
                    내 표시가 빠지거나 경계 아래로 묻힌 공간에 다시 내기(`flair.sent.<공간>`, 상태가 바뀔 때·`supporter::check_due`)
@@ -717,7 +720,9 @@ decisions.md "앱 업데이트").
   `yangpad.exe`를 먼저 끕니다.
 - 화면: 모더레이션(신고·신고 대기열·밴 목록·차단한 사용자, 차단한 사람의 메시지 접기), 새 기기 연결(온보딩의 연결 화면, 설정 › 기기의 QR·링크, 앱 어디서든 뜨는 허용 창: `modals/DeviceLink.tsx`), 휘발성 채널의 API 읽기 허용, 네트워크·Tor 탭의 STUN 서버 목록, 휘발성 채널 첨부
   (메모리에만 보관, 저장은 경고 확인 뒤), 저장 공간 한도·정리·고정, 동영상·음성 썸네일·길이, 크루 설정의 확정 기기와
-  보관 전용 노드, 통화의 SFU 모드.
+  보관 전용 노드, 통화의 SFU 모드, AI 번역(위 막대의 번역 팝업 `components/AiTranslate.tsx`, 설정 › AI 번역
+  `modals/AiSettings.tsx`, 역할 설정 `modals/CrewAi.tsx`(누가 쓸지는 권한 `use_ai_translate`), 번역 조건 `lib/aiTr.ts`, 보이는 글 묶어 보내기·메모리 캐시(앱을 다시 켜도 남는 캐시는 데몬 `ai.rs` + 저장소 `ai_cache.rs`의 암호화 DB 표)
+  `hooks/useTranslated.ts`, 번역된 글·짧은 글 `components/Translated.tsx`의 `MessageBody`·`TrText`·`useTrText`).
 - 시험: vitest 단위·컴포넌트(happy-dom)와 실제 `yangpad` 2~3개를 띄워 앱의 API 클라이언트로 부르는 종단 간 시험(`src/e2e`,
   `YANGPA_E2E_REQUIRED=1`이면 데몬이 없을 때 실패), 리눅스에서 실제 창을 띄우는 시험(`npm run test:window`, tauri-driver·
   WebKitWebDriver).

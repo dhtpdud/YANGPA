@@ -255,6 +255,31 @@ pub fn see_support(node: &Node, cents: u64) {
     crate::badges::on_support_seen(node, cents);
 }
 
+/// 이 기기 DB에 있는 크루 AI 키의 (공간, 프로필) 목록(값은 돌려주지 않음).
+pub fn ai_stored_crew_keys(node: &Arc<Node>) -> Vec<(SpaceId, String)> {
+    crate::ai::stored_keys_for_test(node)
+}
+
+/// 예전 판이 멤버 기기에 나눠 준 것처럼 크루 AI 키를 넣고, 시작 때의 정리(`ai::start`)를 다시 돌립니다.
+pub fn ai_put_received_key_and_restart(node: &Arc<Node>, space: SpaceId, id: &str, key: &str) {
+    crate::ai::put_key_for_test(node, space, id, key);
+    crate::ai::start(node);
+}
+
+/// 내 프로필 번역 요청(`texts[0]`)이 쓸 캐시 열쇠에 번역을 넣고 그 열쇠를 돌려줍니다.
+pub fn ai_cache_seed(
+    node: &Arc<Node>,
+    p: &yangpa_rpc::api::AiTranslateParams,
+    translated: &str,
+) -> [u8; 32] {
+    crate::ai::seed_cache_for_test(node, p, translated)
+}
+
+/// 그 번역 캐시 열쇠가 DB에 있는지.
+pub fn ai_cache_has(node: &Arc<Node>, key: [u8; 32]) -> bool {
+    crate::ai::cache_has_for_test(node, key)
+}
+
 /// 내 프로필·뱃지 카드가 빠진 공간에 지금 싣습니다(주기 작업을 기다리지 않게).
 pub async fn spread_cards(node: &Arc<Node>) {
     crate::cards::spread(node, node.space_ids()).await;

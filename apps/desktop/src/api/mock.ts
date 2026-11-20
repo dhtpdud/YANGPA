@@ -30,6 +30,7 @@ import {
   EVERYONE_ROLE,
   ErrorCode,
   FORUM_PREVIEW_CHARS,
+  type AiProfileView,
   type ArchiveView,
   type AttachmentInput,
   type AttachmentView,
@@ -208,6 +209,8 @@ export class MockBackend {
   rateLimits = new Map<string, RateLimitView>();
   /** 내가 나눠 주는 첨부 흉내(잡담 채널의 정모 사진): 이것을 받는 사람이 `transfer.rates`의 uploads에 나옵니다. */
   uploadTarget: { space: string; channel: string; blob: string } | null = null;
+  /** 내 AI 프로필(키는 이 객체 메모리에만, 돌려주지 않음). */
+  private aiProfiles: (AiProfileView & { key: string })[] = [];
   private auditSeq = 1;
   private lamport = 100_000;
   private joinedVolatile = new Set<string>();
@@ -592,7 +595,7 @@ export class MockBackend {
       const sp = this.makeSpace(spaceId, 'crew', sample('러스트 스터디'), u.jiho, members, [
         { id: EVERYONE_ROLE, name: '@everyone', color: 0, rank: 0, permissions: 1983, automation: false },
       ], [[general, channel(sample('일반'), 'text', { topic: sample('매주 수요일 21시') })]], []);
-      sp.view.my_permissions = ['view_channel', 'send_messages', 'read_history', 'add_reactions', 'attach_files', 'use_crew_stun'];
+      sp.view.my_permissions = ['view_channel', 'send_messages', 'read_history', 'add_reactions', 'attach_files', 'use_crew_stun', 'use_ai_translate'];
       sp.servers = { stun: ['stun.rust-study.example:3478'] };
       sp.messages.set(
         general,
@@ -1697,6 +1700,70 @@ export class MockBackend {
         clearTimeout(this.linkTimer);
         return ok;
 
+      case 'ai.profiles':
+        return this.aiProfiles.map(({ key: _key, ...v }) => v);
+      case 'ai.save_profile': {
+        const name = String(p.name ?? '').trim();
+        const model = String(p.model ?? '').trim();
+        const base = String(p.base_url ?? '').trim().replace(/\/+$/, '');
+        if (!name || !model) throw new RpcError(ErrorCode.InvalidInput, '이름·모델을 적어야 합니다');
+        if (!/^https:\/\/[^/@\s]+\.[^/@\s]+/.test(base) || /^https:\/\/(localhost|127\.|10\.|192\.168\.)/.test(base)) {
+          throw new RpcError(ErrorCode.InvalidInput, 'API 주소는 공인 호스트의 https 주소여야 합니다');
+        }
+        let cur = p.id ? this.aiProfiles.find((x) => x.id === p.id) : undefined;
+        if (p.id && !cur) throw new RpcError(ErrorCode.NotFound, '없는 AI 프로필');
+        if (!cur) {
+          cur = { id: this.rng.id(16), name, api: p.api, base_url: base, model, has_key: false, key: '' };
+          this.aiProfiles.push(cur);
+        }
+        Object.assign(cur, { name, api: p.api, base_url: base, model });
+        if (typeof p.key === 'string') cur.key = p.key.trim();
+        cur.has_key = !!cur.key;
+        const { key: _key, ...view } = cur;
+        return view;
+      }
+      case 'ai.delete_profile': {
+        const n = this.aiProfiles.length;
+        this.aiProfiles = this.aiProfiles.filter((x) => x.id !== p.id);
+        if (this.aiProfiles.length === n) throw new RpcError(ErrorCode.NotFound, '없는 AI 프로필');
+        return ok;
+      }
+      case 'ai.models': {
+        const base = String(p.base_url ?? '').trim();
+        if (!/^https:\/\//.test(base)) throw new RpcError(ErrorCode.InvalidInput, 'API 주소는 공인 호스트의 https 주소여야 합니다');
+        const models: Record<string, string[]> = {
+          openai: ['gpt-5', 'gpt-5-mini'],
+          anthropic: ['claude-haiku-5-5', 'claude-opus-5-5', 'claude-sonnet-5-5'],
+          gemini: ['gemini-3-flash', 'gemini-3-pro'],
+        };
+        return models[p.api] ?? [];
+      }
+      case 'ai.clear_cache':
+        return {};
+      case 'ai.translate': {
+        const texts: string[] = Array.isArray(p.texts) ? p.texts : [];
+        if (!texts.length || texts.length > 64) throw new RpcError(ErrorCode.InvalidInput, '번역할 글이 없거나 너무 많습니다');
+        if (p.crew) {
+          const sp = this.space(p.space);
+          const mine = sp.view.members.find((m) => m.user === this.me)?.roles ?? [];
+          const prof = sp.view.ai_profiles?.find((x) => x.id === p.profile);
+          if (!prof || !prof.roles.some((r) => r === EVERYONE_ROLE || mine.includes(r))) {
+            throw new RpcError(ErrorCode.Forbidden, '이 크루 AI 프로필을 쓸 수 있는 역할이 아닙니다');
+          }
+        } else if (!this.aiProfiles.some((x) => x.id === p.profile)) {
+          throw new RpcError(ErrorCode.NotFound, '없는 AI 프로필');
+        }
+        // 흉내: 한글이 있고 대상이 한국어면 그대로, 아니면 대상 언어 표시를 붙입니다.
+        const target = String(p.target ?? '');
+        return {
+          items: texts.map((t) => {
+            const ko = /[가-힣]/.test(t);
+            if (ko && target.includes('한국')) return { text: t, source: '한국어' };
+            return { text: `[${target}] ${t}`, source: ko ? '한국어' : 'English' };
+          }),
+        };
+      }
+
       case 'presence.get':
         return this.presence;
       case 'presence.set': {
@@ -2019,6 +2086,37 @@ export class MockBackend {
           if (!next.stun.includes(n)) next.stun.push(n);
         }
         sp.servers = next;
+        this.spaceUpdated(sp);
+        return ok;
+      }
+      case 'crew.set_ai_auto': {
+        const sp = this.space(p.space);
+        if (sp.view.kind !== 'crew') throw new RpcError(ErrorCode.InvalidInput, '크루가 아님');
+        this.requirePerm(sp, 'manage_space');
+        const lang = typeof p.lang === 'string' && p.lang.trim() ? p.lang.trim() : undefined;
+        if (lang && !/^[A-Za-z][A-Za-z0-9-]{1,15}$/.test(lang)) throw new RpcError(ErrorCode.InvalidInput, '크루 언어 코드가 올바르지 않습니다');
+        sp.view.ai_auto_lang = lang;
+        this.spaceUpdated(sp);
+        return {};
+      }
+      case 'crew.set_ai_profiles': {
+        const sp = this.space(p.space);
+        if (sp.view.kind !== 'crew') throw new RpcError(ErrorCode.InvalidInput, '크루가 아님');
+        this.requirePerm(sp, 'manage_space');
+        const items: { id: string; roles: string[] }[] = Array.isArray(p.profiles) ? p.profiles : [];
+        const cur = sp.view.ai_profiles ?? [];
+        sp.view.ai_profiles = items.map((it) => {
+          const own = this.aiProfiles.find((x) => x.id === it.id);
+          const roles = [...new Set(it.roles)].filter((r) => sp.view.roles.some((x) => x.id === r));
+          if (own) {
+            if (!own.key) throw new RpcError(ErrorCode.InvalidInput, 'API 키가 없는 프로필은 내줄 수 없습니다');
+            const { key: _key, has_key: _has, ...pub } = own;
+            return { ...pub, roles, holder: 'mock-device', key_version: 1 };
+          }
+          const old = cur.find((x) => x.id === it.id);
+          if (!old) throw new RpcError(ErrorCode.NotFound, '없는 AI 프로필');
+          return { ...old, roles };
+        }).filter((x) => x.roles.length > 0);
         this.spaceUpdated(sp);
         return ok;
       }
@@ -3277,6 +3375,7 @@ const PERM_BITS: Record<string, number> = {
   create_posts: 10,
   use_crew_stun: 11,
   mention_many: 13,
+  use_ai_translate: 14,
   manage_messages: 16,
   manage_channels: 17,
   manage_roles: 18,

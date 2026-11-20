@@ -5,7 +5,7 @@ use yangpa_core::UserId;
 use yangpa_core::body::{MessageBody, ReactionEmoji, Secret32};
 use yangpa_core::emoji::{format_emoji, parse_emoji_tokens};
 use yangpa_core::event::EventHeader;
-use yangpa_core::ids::{ChannelId, ChannelRootId, EventId, SpaceId};
+use yangpa_core::ids::{ChannelId, ChannelRootId, EventId, RoleId, SpaceId};
 use yangpa_core::model::{Permissions, SpaceKind, SpaceState};
 use yangpa_rpc::api::{
     ANONYMOUS_DEVICE, ANONYMOUS_USER, AttachmentView, EmbedView, MessageView, NotifySender,
@@ -175,7 +175,8 @@ pub(crate) fn notify_view(node: &Node, space: &SpaceId, rec: &MessageRecord) -> 
         };
         (rec.author, profile.avatar, name)
     };
-    let title = match node.space_state(space) {
+    let state = node.space_state(space);
+    let title = match state.as_deref() {
         Some(st) if st.kind == SpaceKind::Crew => {
             let channel = st.channels.get(&rec.channel).map(|c| c.name.as_str());
             notify_title(&author, &st.settings.name, channel)
@@ -183,10 +184,27 @@ pub(crate) fn notify_view(node: &Node, space: &SpaceId, rec: &MessageRecord) -> 
         _ => author.clone(),
     };
     let author_name = author;
+    let viewer = node.me().ok().map(|m| m.user());
+    // 역할·채널 이름은 화면(api::space)과 같이 가립니다: 내가 볼 수 없는 역할·채널은 이름을 알리지 않습니다.
+    let name_of = |tag: Tag| match tag {
+        Tag::User(u) => Some(identity::display_name(node, &u)),
+        Tag::Role(r) => {
+            let (st, me) = (state.as_deref()?, viewer.as_ref()?);
+            let role = st.roles.get(&r)?;
+            st.visible_roles(me)
+                .is_none_or(|v| v.contains(&r))
+                .then(|| role.name.clone())
+        }
+        Tag::Channel(c) => {
+            let (st, me) = (state.as_deref()?, viewer.as_ref()?);
+            let ch = st.channels.get(&c)?;
+            st.channel_permissions(me, &c)
+                .contains(Permissions::VIEW_CHANNEL)
+                .then(|| ch.name.clone())
+        }
+    };
     let body = rec.content.as_ref().map(|c| {
-        let text = strip_markdown(&notify_text(&c.body.text, |u| {
-            identity::display_name(node, u)
-        }));
+        let text = strip_markdown(&notify_text(&c.body.text, name_of));
         let t: String = text.chars().take(PREVIEW_CHARS).collect();
         if t.is_empty() && !c.body.attachments.is_empty() {
             "첨부 파일".to_owned()
@@ -271,8 +289,21 @@ pub(crate) fn broadcast_mention(text: &str) -> Option<Broadcast> {
     found
 }
 
+/// 글에 든 역할 태그(`<@&ID>`)의 역할. @everyone 역할은 뺍니다(모두 멘션은 `@everyone`으로 씁니다).
+pub(crate) fn tagged_roles(text: &str) -> impl Iterator<Item = RoleId> + '_ {
+    text.match_indices("<@&")
+        .filter_map(|(i, _)| {
+            let tail = &text[i + 3..];
+            // 16바이트 base58은 22자를 넘지 않아 그 안에서만 닫는 꺾쇠를 찾습니다.
+            let end = tail.bytes().take(23).position(|b| b == b'>')?;
+            tail[..end].parse::<RoleId>().ok()
+        })
+        .filter(|r| *r != RoleId::EVERYONE)
+}
+
 /// 이 글이 나를 멘션하는지: `<@나>`, 또는 그 채널에서 `MENTION_MANY`가 있는 작성자의 `@everyone`, 작성 뒤
-/// [`HERE_WINDOW_MS`] 안에 받은 `@here`. 받는 쪽이 작성자 권한으로 정합니다(보낸 쪽은 무엇이든 꾸밀 수 있음).
+/// [`HERE_WINDOW_MS`] 안에 받은 `@here`, 내 역할의 태그(`<@&역할>`). 받는 쪽이 작성자 권한으로 정합니다(보낸 쪽은
+/// 무엇이든 꾸밀 수 있음).
 pub(crate) fn mentions_me(
     state: &SpaceState,
     h: &EventHeader,
@@ -286,19 +317,53 @@ pub(crate) fn mentions_me(
     if m.mentions.contains(me) {
         return true;
     }
-    let (Some(kind), Some(channel)) = (broadcast_mention(&m.text), h.channel) else {
+    let Some(channel) = h.channel else {
         return false;
     };
-    state
+    let my_role = || {
+        state
+            .members
+            .get(me)
+            .is_some_and(|mine| tagged_roles(&m.text).any(|r| mine.roles.contains(&r)))
+    };
+    let hit = match broadcast_mention(&m.text) {
+        Some(Broadcast::Everyone) => true,
+        Some(Broadcast::Here) => {
+            now_ms.saturating_sub(h.created_at.as_millis()) <= HERE_WINDOW_MS || my_role()
+        }
+        None => my_role(),
+    };
+    hit && state
         .channel_permissions(&h.user, &channel)
         .contains(Permissions::MENTION_MANY)
-        && (kind == Broadcast::Everyone
-            || now_ms.saturating_sub(h.created_at.as_millis()) <= HERE_WINDOW_MS)
 }
 
-/// 알림 본문에 쓸 글: 멘션(`<@ID>`)은 `@이름`, 커스텀 이모지(`<:이름:ID>`)는 `:이름:`으로 바꿉니다.
+/// 알림 본문에서 이름으로 바꾸는 꺾쇠 표기.
+enum Tag {
+    /// `<@ID>`
+    User(UserId),
+    /// `<@&ID>`
+    Role(RoleId),
+    /// `<#ID>`
+    Channel(ChannelId),
+}
+
+impl Tag {
+    fn parse(inner: &str) -> Option<Tag> {
+        if let Some(id) = inner.strip_prefix("@&") {
+            id.parse().ok().map(Tag::Role)
+        } else if let Some(id) = inner.strip_prefix('@') {
+            id.parse().ok().map(Tag::User)
+        } else {
+            inner.strip_prefix('#')?.parse().ok().map(Tag::Channel)
+        }
+    }
+}
+
+/// 알림 본문에 쓸 글: 멘션(`<@ID>`)·역할 태그(`<@&ID>`)는 `@이름`, 채널 태그(`<#ID>`)는 `#이름`, 커스텀
+/// 이모지(`<:이름:ID>`)는 `:이름:`으로 바꿉니다. `name_of`가 이름을 주지 않으면(볼 수 없음) `@…`·`#…`이고,
 /// 알아볼 수 없는 표기는 그대로 둡니다.
-fn notify_text(text: &str, name_of: impl Fn(&UserId) -> String) -> String {
+fn notify_text(text: &str, name_of: impl Fn(Tag) -> Option<String>) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(start) = rest.find('<') {
@@ -306,12 +371,13 @@ fn notify_text(text: &str, name_of: impl Fn(&UserId) -> String) -> String {
         let tail = &rest[start..];
         if let Some(end) = tail.find('>') {
             let token = &tail[..=end];
-            if let Some(user) = token[1..end]
-                .strip_prefix('@')
-                .and_then(|id| id.parse::<UserId>().ok())
-            {
-                out.push('@');
-                out.push_str(&name_of(&user));
+            if let Some(tag) = Tag::parse(&token[1..end]) {
+                out.push(if matches!(tag, Tag::Channel(_)) {
+                    '#'
+                } else {
+                    '@'
+                });
+                out.push_str(name_of(tag).as_deref().unwrap_or("…"));
                 rest = &tail[end + 1..];
                 continue;
             }
@@ -574,18 +640,131 @@ mod tests {
     }
 
     #[test]
+    fn role_tags_mention_role_holders_when_author_may_mention_many() {
+        use yangpa_core::Timestamp;
+        use yangpa_core::event::{EVENT_VERSION, EventKind, KeyRef};
+        use yangpa_core::model::{ChannelSettings, Member, Role};
+
+        let mut state = crate::crews::tests_support::empty_state();
+        let channel = ChannelId::random();
+        state
+            .channels
+            .insert(channel, ChannelSettings::text("일반"));
+        let mods = RoleId::random();
+        state.roles.insert(
+            mods,
+            Role {
+                id: mods,
+                name: "운영진".into(),
+                color: 0,
+                rank: 1,
+                permissions: Permissions::NONE,
+                automation: false,
+            },
+        );
+        let member = |roles: Vec<RoleId>| {
+            let user = UserId::random();
+            let m = Member {
+                user,
+                roles,
+                nickname: None,
+                automation: false,
+            };
+            (user, m)
+        };
+        let (me, m1) = member(vec![mods]);
+        let (other, m2) = member(Vec::new());
+        state.members.insert(me, m1.into());
+        state.members.insert(other, m2.into());
+        let header = |user: UserId, created_at: u64| EventHeader {
+            v: EVENT_VERSION,
+            space: SpaceId::random(),
+            channel: Some(channel),
+            kind: EventKind::Message,
+            author: yangpa_core::ids::DeviceId::random(),
+            user,
+            parents: Vec::new(),
+            lamport: 1,
+            created_at: Timestamp(created_at),
+            key: KeyRef::Record {
+                root: ChannelRootId::random(),
+            },
+            body_hash: [0; 32],
+            body_len: 0,
+            scope: None,
+            state_anchor: Vec::new(),
+        };
+        let body = |text: String| MessageBody {
+            text,
+            attachments: Vec::new(),
+            embeds: Vec::new(),
+            reply_to: None,
+            thread: None,
+            mentions: Vec::new(),
+        };
+        let owner = state.owner;
+        let now = 10 * HERE_WINDOW_MS;
+        let tag = body(format!("<@&{mods}> 모여 주세요"));
+        // 소유자(모든 권한)가 부르면 그 역할을 가진 나만 멘션됩니다.
+        assert!(mentions_me(&state, &header(owner, now), &tag, &me, now));
+        assert!(!mentions_me(&state, &header(owner, now), &tag, &other, now));
+        // MENTION_MANY가 없는 멤버가 부르면 아무도 멘션되지 않습니다.
+        assert!(!mentions_me(&state, &header(other, now), &tag, &me, now));
+        // 내가 쓴 글, @everyone 역할 태그는 멘션이 아닙니다.
+        assert!(!mentions_me(&state, &header(me, now), &tag, &me, now));
+        let everyone_role = body(format!("<@&{}>", RoleId::EVERYONE));
+        assert!(!mentions_me(
+            &state,
+            &header(owner, now),
+            &everyone_role,
+            &other,
+            now
+        ));
+        // 시간이 지난 @here여도 역할 태그로는 멘션됩니다.
+        let both = body(format!("@here <@&{mods}>"));
+        assert!(mentions_me(&state, &header(owner, 0), &both, &me, now));
+        assert!(!mentions_me(&state, &header(owner, 0), &both, &other, now));
+    }
+
+    #[test]
+    fn tagged_roles_parse_only_role_tokens() {
+        let r = RoleId([7; 16]);
+        let text = format!(
+            "<@&{r}> <@{}> <#{r}> <@&없음> <@&{}> <@&{r}",
+            UserId([1; 32]),
+            RoleId::EVERYONE
+        );
+        assert_eq!(tagged_roles(&text).collect::<Vec<_>>(), vec![r]);
+        assert_eq!(tagged_roles("<@&").count(), 0);
+    }
+
+    #[test]
     fn notify_text_renders_mentions_and_emoji() {
         let minji = UserId::from_bytes([5; 32]);
-        let name = |u: &UserId| {
-            if *u == minji {
-                "민지".to_owned()
-            } else {
-                "?".to_owned()
-            }
+        let mods = RoleId::from_bytes([6; 16]);
+        let general = ChannelId::from_bytes([7; 16]);
+        let name = |t: Tag| match t {
+            Tag::User(u) if u == minji => Some("민지".to_owned()),
+            Tag::User(_) => Some("?".to_owned()),
+            Tag::Role(r) if r == mods => Some("운영진".to_owned()),
+            Tag::Channel(c) if c == general => Some("일반".to_owned()),
+            // 볼 수 없는 역할·채널.
+            Tag::Role(_) | Tag::Channel(_) => None,
         };
         assert_eq!(
             notify_text(&format!("<@{minji}> 이거 봐 <:yangpa:123><a:ab:7>"), name),
             "@민지 이거 봐 :yangpa::ab:"
+        );
+        assert_eq!(
+            notify_text(
+                &format!(
+                    "<@&{mods}> <#{general}> 보세요 <@&{}> <#{}>",
+                    RoleId([9; 16]),
+                    ChannelId([9; 16])
+                ),
+                name
+            ),
+            "@운영진 #일반 보세요 @… #…"
         );
         // 알아볼 수 없는 표기는 그대로.
         assert_eq!(

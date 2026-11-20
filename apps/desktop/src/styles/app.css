@@ -6521,3 +6521,58 @@ button.vw-title:hover {
   margin: 0;
   word-break: break-all;
 }
+
+/* AI 번역 팝업·번역된 글 표시 */
+.popover.ai-tr-pop {
+  width: 340px;
+  max-width: calc(100vw - 16px);
+  padding: 12px;
+}
+.ai-tr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-models {
+  margin-top: 6px;
+  padding: 4px;
+}
+.ai-tr-auto {
+  white-space: nowrap;
+}
+.ai-tr-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+}
+.ai-tr-details dt {
+  color: var(--text-muted);
+}
+.ai-tr-details dd {
+  margin: 0;
+}
+.tr-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.tr-mark:hover {
+  text-decoration: underline;
+}
+.tr-name-icon {
+  flex: none;
+  margin-left: 4px;
+  opacity: 0.6;
+  vertical-align: -1px;
+}

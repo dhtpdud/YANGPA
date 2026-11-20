@@ -16,9 +16,13 @@ use yangpa_core::model::{
     Permissions, SecurityLevel, SpaceKind,
 };
 use yangpa_core::time::Timestamp;
-use yangpa_core::wire::{LamportRange, WireErrorCode, YpRequest, YpResponse};
+use yangpa_core::wire::{AiTranslateAsk, LamportRange, WireErrorCode, YpRequest, YpResponse};
 use yangpa_daemon::CallCtx;
 use yangpa_daemon::testkit;
+use yangpa_rpc::api::{
+    AiProfileSaveParams, AiTranslateParams, CrewAiAutoParams, CrewAiProfileInput,
+    CrewAiProfilesParams,
+};
 use yangpa_rpc::api::{
     AttachmentInput, ChannelCreateParams, ChannelSetP2pParams, ChannelUpdateParams, ChannelView,
     CrewConvertRequestParams, CrewCreateParams, CrewUpdateParams, EmojiCreateParams,
@@ -3590,6 +3594,255 @@ async fn anonymous_channel_hides_authors_and_keeps_anonymous_posts() {
     wait_anonymous(&a, space, forum, false).await;
     let seen = wait_post(&a, space, forum, post, "끈 뒤에도 익명", |_| true).await;
     assert!(seen.anonymous && seen.author == ANONYMOUS_USER);
+}
+
+// ───────────── AI 번역 ─────────────
+
+fn ai_save(name: &str, base_url: &str, key: Option<&str>) -> AiProfileSaveParams {
+    AiProfileSaveParams {
+        id: None,
+        name: name.into(),
+        api: yangpa_core::model::AiApi::Anthropic,
+        base_url: base_url.into(),
+        model: "claude-sonnet-5-5".into(),
+        key: key.map(Into::into),
+    }
+}
+
+/// 관리자가 자기 AI 프로필을 역할에 내주면 키는 내준 기기에만 남고, 그 역할의 멤버는 내준 기기에게 번역을 부탁해
+/// 결과만 받습니다. 크루 프로필은 그 크루 안에서만 쓰고, 누가 번역할지는 `use_ai_translate` 권한(채널 덮어쓰기
+/// 포함)으로 정합니다(자기 프로필이어도).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn crew_ai_profile_translates_on_the_holder_only_for_role_members() {
+    let cl = Cluster::new();
+    let (a, b, c, space, general) = three_member_crew(&cl).await;
+    let prof = a
+        .ok::<m::AiSaveProfile>(ai_save(
+            "Claude",
+            "https://api.anthropic.com/",
+            Some("sk-test-123"),
+        ))
+        .await;
+    assert!(prof.has_key);
+    assert_eq!(prof.base_url, "https://api.anthropic.com");
+    let local = a
+        .call::<m::AiSaveProfile>(ai_save("로컬", "https://localhost:11434/v1", None))
+        .await;
+    assert_eq!(code(local), ERR_INVALID_INPUT);
+    // 키 없는 프로필은 내줄 수 없고, 크루 관리 권한이 없으면 못 내줍니다.
+    let nokey = a
+        .ok::<m::AiSaveProfile>(ai_save("빈 키", "https://api.example.com", None))
+        .await;
+    let bad = a
+        .call::<m::CrewSetAiProfiles>(CrewAiProfilesParams {
+            space,
+            profiles: vec![CrewAiProfileInput {
+                id: nokey.id.clone(),
+                roles: vec![RoleId::EVERYONE],
+            }],
+        })
+        .await;
+    assert_eq!(code(bad), ERR_INVALID_INPUT);
+    let role = create_role(&a, space, "번역", &[], 1).await;
+    set_roles(&a, space, b.user(), vec![role]).await;
+    wait_roles(&b, space, b.user(), &[role]).await;
+    let denied = b
+        .call::<m::CrewSetAiProfiles>(CrewAiProfilesParams {
+            space,
+            profiles: vec![],
+        })
+        .await;
+    assert_eq!(code(denied), ERR_FORBIDDEN);
+    a.ok::<m::CrewSetAiProfiles>(CrewAiProfilesParams {
+        space,
+        profiles: vec![CrewAiProfileInput {
+            id: prof.id.clone(),
+            roles: vec![role],
+        }],
+    })
+    .await;
+    for n in [&b, &c] {
+        eventually(&format!("{}가 크루 AI 프로필을 봄", n.name), || async {
+            let v = n.ok::<m::SpaceGet>(SpaceParams { space }).await;
+            (v.ai_profiles.len() == 1).then_some(())
+        })
+        .await;
+    }
+    // 멤버 자동 번역의 크루 언어: 관리자만, 언어 코드 형식, 멤버 보기에 실림.
+    let auto = |lang: Option<&str>| CrewAiAutoParams {
+        space,
+        lang: lang.map(Into::into),
+    };
+    let bad = a.call::<m::CrewSetAiAuto>(auto(Some("한국어"))).await;
+    assert_eq!(code(bad), ERR_INVALID_INPUT);
+    let denied = c.call::<m::CrewSetAiAuto>(auto(Some("ko"))).await;
+    assert_eq!(code(denied), ERR_FORBIDDEN);
+    a.ok::<m::CrewSetAiAuto>(auto(Some("ko"))).await;
+    eventually("C가 자동 번역 크루 언어를 봄", || async {
+        let v = c.ok::<m::SpaceGet>(SpaceParams { space }).await;
+        (v.ai_auto_lang.as_deref() == Some("ko")).then_some(())
+    })
+    .await;
+
+    // 멤버 누구나 형식·주소·모델을 보지만 키는 어디에도 없습니다.
+    let v = c.ok::<m::SpaceGet>(SpaceParams { space }).await;
+    let p = &v.ai_profiles[0];
+    assert_eq!(
+        (p.base_url.as_str(), p.model.as_str(), p.roles.clone()),
+        ("https://api.anthropic.com", "claude-sonnet-5-5", vec![role])
+    );
+    assert!(!serde_json::to_string(&v).unwrap().contains("sk-test-123"));
+    let mine = a.ok::<m::AiProfiles>(Empty).await;
+    assert!(
+        !serde_json::to_string(&mine)
+            .unwrap()
+            .contains("sk-test-123")
+    );
+
+    // 역할이 있는 B는 A에게 번역을 부탁해 결과만 받습니다(A가 캐시에서 답해 공급자를 부르지 않음). 키는 A에만 있습니다.
+    let tr = |profile: String, crew: bool, channel: Option<ChannelId>| AiTranslateParams {
+        profile,
+        crew,
+        space: Some(space),
+        channel,
+        source: None,
+        target: "한국어".into(),
+        texts: vec!["hello".into()],
+    };
+    testkit::ai_cache_seed(&a.node, &tr(prof.id.clone(), false, None), "안녕");
+    let got = eventually("B가 A에게 부탁해 번역을 받음", || async {
+        b.call::<m::AiTranslate>(tr(prof.id.clone(), true, None))
+            .await
+            .ok()
+    })
+    .await;
+    assert_eq!(
+        (got.items[0].text.as_str(), got.items[0].source.as_str()),
+        ("안녕", "English")
+    );
+    assert!(testkit::ai_stored_crew_keys(&b.node).is_empty());
+    assert_eq!(
+        testkit::ai_stored_crew_keys(&a.node),
+        vec![(space, prof.id.clone())]
+    );
+    // 예전 판에서 받아 둔 키는 시작할 때 지워집니다.
+    testkit::ai_put_received_key_and_restart(&b.node, space, &prof.id, "sk-test-123");
+    assert!(testkit::ai_stored_crew_keys(&b.node).is_empty());
+    // 키를 묻는 예전 요청에는 답하지 않고, 역할 없는 C가 직접 부탁해도 A가 거절합니다.
+    let ask = AiTranslateAsk {
+        space,
+        channel: None,
+        profile: prof.id.clone(),
+        source: None,
+        target: "한국어".into(),
+        texts: vec!["hello".into()],
+    };
+    for (n, req) in [
+        (
+            &b,
+            YpRequest::GetAiKey {
+                space,
+                id: prof.id.clone(),
+            },
+        ),
+        (&c, YpRequest::AiTranslate(Box::new(ask))),
+    ] {
+        let r = eventually(&format!("A가 {}에게 답함", n.name), || async {
+            testkit::reauth(&n.node, a.peer()).await.ok()?;
+            testkit::net_request(&n.node, a.peer(), req.clone())
+                .await
+                .ok()
+        })
+        .await;
+        assert!(
+            matches!(
+                r,
+                YpResponse::Error {
+                    code: WireErrorCode::Forbidden,
+                    ..
+                }
+            ),
+            "{r:?}"
+        );
+    }
+    let r = c
+        .call::<m::AiTranslate>(tr(prof.id.clone(), true, None))
+        .await;
+    assert_eq!(code(r), ERR_FORBIDDEN);
+
+    // 크루 프로필은 그 크루 안에서만: B가 쓸 수 있는 크루 프로필도 B가 만든 다른 크루로는 못 씁니다.
+    let other = create_crew(&b, "다른 곳").await;
+    let r = b
+        .call::<m::AiTranslate>(AiTranslateParams {
+            space: Some(other),
+            ..tr(prof.id.clone(), true, None)
+        })
+        .await;
+    assert_eq!(code(r), ERR_FORBIDDEN);
+
+    // 새 크루의 @everyone에는 `use_ai_translate`가 있고, 채널 덮어쓰기로 막으면 C는 자기 프로필로도 그 채널을 번역하지
+    // 못합니다(크루 이름은 됨). 역할을 허용한 B는 막지 않습니다.
+    let own = c
+        .ok::<m::AiSaveProfile>(ai_save("내 것", "https://api.example.com", Some("sk-c")))
+        .await;
+    let mut p = ChannelUpdateParams::new(space, general);
+    p.overwrites = Some(vec![
+        overwrite(
+            OverwriteTarget::Role(RoleId::EVERYONE),
+            Permissions::NONE,
+            Permissions::USE_AI_TRANSLATE,
+        ),
+        overwrite(
+            OverwriteTarget::Role(role),
+            Permissions::USE_AI_TRANSLATE,
+            Permissions::NONE,
+        ),
+    ]);
+    a.ok::<m::ChannelUpdate>(p).await;
+    for n in [&b, &c] {
+        eventually(
+            &format!("{} 상태에 덮어쓰기가 닿음", n.name),
+            || async {
+                let st = testkit::space_state(&n.node, &space)?;
+                (!st.channels[&general].overwrites.is_empty()).then_some(())
+            },
+        )
+        .await;
+    }
+    let st = testkit::space_state(&c.node, &space).unwrap();
+    assert!(st.ai_translate_allowed(&b.user(), Some(&general)));
+    assert!(!st.ai_translate_allowed(&c.user(), Some(&general)));
+    assert!(st.ai_translate_allowed(&c.user(), None));
+    // 캐시에 번역이 있어도 권한 검사가 먼저입니다.
+    testkit::ai_cache_seed(&c.node, &tr(own.id.clone(), false, Some(general)), "안녕");
+    let r = c
+        .call::<m::AiTranslate>(tr(own.id.clone(), false, Some(general)))
+        .await;
+    assert_eq!(code(r), ERR_FORBIDDEN);
+    // 쓸 수 있는 곳(크루 이름)은 캐시에서 바로 답하고 공급자를 부르지 않습니다(api.example.com에는 닿지 않음).
+    let key = testkit::ai_cache_seed(&c.node, &tr(own.id.clone(), false, None), "안녕");
+    let hit = c.ok::<m::AiTranslate>(tr(own.id, false, None)).await;
+    assert_eq!(
+        (hit.items[0].text.as_str(), hit.items[0].source.as_str()),
+        ("안녕", "English")
+    );
+    c.ok::<m::AiClearCache>(Empty).await;
+    assert!(!testkit::ai_cache_has(&c.node, key));
+
+    // 받는 역할을 모두 빼면 크루에서 빠집니다.
+    a.ok::<m::CrewSetAiProfiles>(CrewAiProfilesParams {
+        space,
+        profiles: vec![CrewAiProfileInput {
+            id: prof.id.clone(),
+            roles: vec![],
+        }],
+    })
+    .await;
+    eventually("B에게서 크루 AI 프로필이 빠짐", || async {
+        let v = b.ok::<m::SpaceGet>(SpaceParams { space }).await;
+        v.ai_profiles.is_empty().then_some(())
+    })
+    .await;
 }
 
 // ───────────── 크루 STUN ─────────────

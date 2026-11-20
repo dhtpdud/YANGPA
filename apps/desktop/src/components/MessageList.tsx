@@ -16,6 +16,7 @@ import { cx, hasPerm } from '../lib/misc';
 import { chKey, useStore } from '../store/store';
 import { Spinner } from './common';
 import { MessageItem } from './MessageItem';
+import { useTrText } from './Translated';
 
 const EMPTY_MSGS: MessageView[] = [];
 /** 보낸 뒤 이 시간 안에 들어온 내 메시지만 따라 내립니다(600ms 재조회 대비 여유). */
@@ -73,6 +74,7 @@ export function MessageList({
   const fillGap = useStore((s) => s.fillGap);
   const toast = useStore((s) => s.toast);
   const volatile = channelView?.settings.security === 'volatile';
+  const chName = useTrText(channelView?.settings.name ?? '', space);
 
   const messages = state?.messages ?? EMPTY_MSGS;
   const gaps = state?.gaps ?? EMPTY_GAPS;
@@ -268,7 +270,7 @@ export function MessageList({
         return (
           <div className="ch-start">
             <div className={volatile ? 'ch-start-icon volatile' : 'ch-start-icon'}>{volatile ? <Flame size={34} /> : <Hash size={34} />}</div>
-            <h2>{thread ? t('글타래의 시작') : t('#{name}에 오신 것을 환영합니다', { name: channelView?.settings.name ?? '' })}</h2>
+            <h2>{thread ? t('글타래의 시작') : t('#{name}에 오신 것을 환영합니다', { name: chName })}</h2>
             <p>
               {volatile
                 ? t('이 채널의 메시지는 디스크에 저장되지 않고, 수명이 지나면 모든 참가자 기기에서 지워집니다.')

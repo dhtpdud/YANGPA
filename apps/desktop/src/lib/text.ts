@@ -21,16 +21,15 @@ export function isSafeHttpUrl(url: string): boolean {
   }
 }
 
-/** 멘션 표기 `@이름`을 `<@ID>`로 바꿉니다(작성기에서 고른 멘션만). 긴 이름부터 바꿔 접두어 충돌을 피합니다. */
+/**
+ * 작성기에서 고른 표기(`@이름`·`#이름` → `<@ID>`·`<@&ID>`·`<#ID>`)를 꺾쇠 표기로 바꿉니다. 한 번에 훑어 긴 표기를 먼저
+ * 맞추므로 접두어가 겹치거나 바꾼 표기 안의 ID가 다른 이름과 겹쳐도 다시 바꾸지 않습니다.
+ */
 export function encodeMentions(text: string, picked: Map<string, string>): string {
-  const names = [...picked.keys()].sort((a, b) => b.length - a.length);
-  let out = text;
-  for (const name of names) {
-    const id = picked.get(name);
-    if (!id) continue;
-    out = out.split(`@${name}`).join(`<@${id}>`);
-  }
-  return out;
+  const shown = [...picked.keys()].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!shown.length) return text;
+  const re = new RegExp(shown.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+  return text.replace(re, (s) => picked.get(s) ?? s);
 }
 
 /** 본문에 언급된 사용자 ID들. */

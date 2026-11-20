@@ -301,6 +301,9 @@ impl Permissions {
     // 1 << 12: 예전 `use_crew_turn`(2026-11-07 TURN 삭제). 옛 역할에 켜져 있을 수 있어 다른 뜻으로 다시 쓰지 않습니다.
     /// 한 메시지에 20명이 넘게 멘션해도 알림 토픽에 실림(넘으면 중계 노드가 알림 토픽에서 버림).
     pub const MENTION_MANY: Permissions = Permissions(1 << 13);
+    /// AI 번역을 씀(내 프로필이든 크루가 내준 프로필이든). 채널 덮어쓰기로 채널마다 바꿀 수 있습니다. 이 비트가 생기기
+    /// 전에 만든 크루의 @everyone에는 없으므로 관리자가 켜 줘야 합니다.
+    pub const USE_AI_TRANSLATE: Permissions = Permissions(1 << 14);
     pub const MANAGE_MESSAGES: Permissions = Permissions(1 << 16);
     pub const MANAGE_CHANNELS: Permissions = Permissions(1 << 17);
     pub const MANAGE_ROLES: Permissions = Permissions(1 << 18);
@@ -324,7 +327,8 @@ impl Permissions {
             | Self::CONNECT_VOICE.0
             | Self::SPEAK.0
             | Self::STREAM.0
-            | Self::CREATE_POSTS.0,
+            | Self::CREATE_POSTS.0
+            | Self::USE_AI_TRANSLATE.0,
     );
 
     /// 모든 권한.
@@ -345,6 +349,7 @@ impl Permissions {
         ("create_posts", Self::CREATE_POSTS),
         ("use_crew_stun", Self::USE_CREW_STUN),
         ("mention_many", Self::MENTION_MANY),
+        ("use_ai_translate", Self::USE_AI_TRANSLATE),
         ("manage_messages", Self::MANAGE_MESSAGES),
         ("manage_channels", Self::MANAGE_CHANNELS),
         ("manage_roles", Self::MANAGE_ROLES),
@@ -616,7 +621,83 @@ pub struct SpaceState {
     /// 그대로이게 직렬화하지 않고, 해소기의 정규 인코딩이 참일 때만 끝에 따로 싣습니다.
     #[serde(skip)]
     pub disbanded: bool,
+    /// 크루 AI 번역 설정(`CrewAiProfilesSet`·`ChannelAiRolesSet`). `disbanded`처럼 직렬화하지 않고 해소기의 정규 인코딩이
+    /// 비지 않았을 때만 끝에 따로 실어, AI 설정을 쓰지 않은 크루의 저장 행·상태 해시가 이 기능을 모르는 빌드와 같습니다.
+    #[serde(skip)]
+    pub ai: CrewAi,
 }
+
+/// AI API 요청 형식.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiApi {
+    /// OpenAI 호환 Chat Completions(`{base}/chat/completions`).
+    Openai,
+    /// Anthropic Messages(`{base}/v1/messages`).
+    Anthropic,
+    /// Google Gemini generateContent(`{base}/models/{model}:generateContent`).
+    Gemini,
+}
+
+/// 크루가 역할에 내주는 AI API 프로필의 공개 부분. API 키는 내준 기기(`holder`)에만 있고, 받는 역할의 멤버 기기는
+/// 번역할 글을 그 기기에 보내 결과만 받습니다(`YpRequest::AiTranslate`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewAiProfile {
+    pub id: String,
+    pub name: String,
+    pub api: AiApi,
+    pub base_url: String,
+    pub model: String,
+    /// 이 프로필을 받는 역할(@everyone 포함 가능).
+    pub roles: Vec<RoleId>,
+    /// 키를 가진 기기(번역 요청을 받는 곳). 이 기기가 켜져 있어야 멤버가 번역할 수 있습니다.
+    pub holder: DeviceId,
+    /// 키가 바뀔 때마다 새로 뽑는 값. 내준 기기가 저장해 둔 키의 판이 이것과 맞을 때만 씁니다.
+    pub key_version: u64,
+}
+
+/// 크루 AI 번역 설정.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewAi {
+    pub profiles: Vec<CrewAiProfile>,
+    /// 채널별 AI 번역 역할(`ChannelAiRolesSet`). 2026-11-20부터 권한 비트 `USE_AI_TRANSLATE`와 채널 덮어쓰기로 정하고
+    /// 이 표는 보지 않습니다. 옛 이벤트를 다시 풀어도 상태 해시가 같게 남겨 둡니다.
+    pub channels: BTreeMap<ChannelId, Vec<RoleId>>,
+    /// 멤버 자동 번역의 크루 언어(`CrewAiAutoSet`, 앱 화면 언어 코드). 화면 언어가 이와 다르고 크루 프로필을 쓸 수 있는
+    /// 멤버는 따로 정하지 않았으면 번역이 켜진 채로 봅니다. 위 두 칸의 인코딩을 바꾸지 않게 직렬화에서 빼고, 정규
+    /// 인코딩 꼬리에 따로 싣습니다.
+    #[serde(skip)]
+    pub auto_lang: Option<String>,
+}
+
+impl CrewAi {
+    pub fn is_empty(&self) -> bool {
+        self.profiles.is_empty() && self.channels.is_empty() && self.auto_lang.is_none()
+    }
+}
+
+/// 크루 언어 코드 최대 길이(바이트).
+pub const MAX_AI_LANG_CODE: usize = 16;
+
+/// 크루 언어 코드 형식(`ko`, `pt-BR`, `zh-TW`처럼 영문자·하이픈).
+pub fn valid_ai_lang_code(c: &str) -> bool {
+    (2..=MAX_AI_LANG_CODE).contains(&c.len())
+        && c.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        && c.as_bytes()[0].is_ascii_alphabetic()
+}
+
+/// 크루 AI 프로필 수 상한.
+pub const MAX_AI_PROFILES: usize = 16;
+/// 프로필 ID 최대 길이(바이트).
+pub const MAX_AI_ID: usize = 32;
+/// 프로필 이름 최대 길이(바이트).
+pub const MAX_AI_NAME: usize = 128;
+/// API 주소(Base URL) 최대 길이(바이트).
+pub const MAX_AI_URL: usize = 512;
+/// 모델 이름 최대 길이(바이트).
+pub const MAX_AI_MODEL: usize = 128;
+/// 프로필 하나·채널 하나에 둘 수 있는 역할 수.
+pub const MAX_AI_ROLES: usize = 64;
 
 /// 채널의 수정·삭제 금지(`ChannelEditRulesSet`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -955,6 +1036,29 @@ impl SpaceState {
         self.edit_rules.get(channel).copied().unwrap_or_default()
     }
 
+    /// 크루 AI 프로필 `id`를 이 사용자가 쓸 수 있는지: 프로필을 받는 역할(@everyone 포함)을 가졌으면.
+    pub fn ai_profile_usable(&self, user: &UserId, id: &str) -> Option<&CrewAiProfile> {
+        let held = self.held_roles(user);
+        self.ai
+            .profiles
+            .iter()
+            .find(|p| p.id == id)
+            .filter(|p| self.is_member(user) && p.roles.iter().any(|r| held.contains(r)))
+    }
+
+    /// AI 번역을 쓸 수 있는지: 크루는 `USE_AI_TRANSLATE`(채널이 있으면 채널 덮어쓰기까지, 없으면 크루 역할만), 크루가
+    /// 아닌 대화는 늘 됩니다.
+    pub fn ai_translate_allowed(&self, user: &UserId, channel: Option<&ChannelId>) -> bool {
+        if self.kind != SpaceKind::Crew {
+            return true;
+        }
+        let p = match channel {
+            Some(c) => self.channel_permissions(user, c),
+            None => self.base_permissions(user),
+        };
+        p.contains(Permissions::USE_AI_TRANSLATE)
+    }
+
     /// `channel`이 `category` 자신이거나 그 아래(몇 단계든)에 있는지. 카테고리를 자기 아래로 옮겨 고리가 생기지 않게
     /// 봅니다. 상위 사슬은 채널 수보다 길 수 없으므로 그만큼만 올라갑니다.
     pub fn is_under(&self, channel: &ChannelId, category: &ChannelId) -> bool {
@@ -1135,6 +1239,7 @@ mod tests {
                 emoji_limits: EmojiLimits::default(),
                 emoji_by: BTreeMap::new(),
                 disbanded: false,
+                ai: Default::default(),
             },
             owner,
             bob,
@@ -1427,7 +1532,8 @@ mod tests {
         let mut roles = BTreeMap::new();
         roles.insert(
             RoleId::EVERYONE,
-            Role::everyone(Permissions::DEFAULT_EVERYONE),
+            // 형식 검사라 권한 값은 고정합니다(새 크루 기본 권한이 늘어도 바이트가 그대로이게).
+            Role::everyone(Permissions::DEFAULT_EVERYONE.remove(Permissions::USE_AI_TRANSLATE)),
         );
         roles.insert(
             mods,
@@ -1576,6 +1682,7 @@ mod tests {
             },
             emoji_by: BTreeMap::new(),
             disbanded: false,
+            ai: Default::default(),
         }
     }
 

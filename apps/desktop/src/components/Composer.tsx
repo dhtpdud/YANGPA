@@ -1,10 +1,10 @@
-// 입력창: 글(마크다운)·첨부·이모지·멘션 자동완성·답장. 한글 조합 중(isComposing)에는 Enter로 보내지 않습니다.
+// 입력창: 글(마크다운)·첨부·이모지·멘션(멤버·역할 `@`, 채널 `#`) 자동완성·답장. 한글 조합 중(isComposing)에는 Enter로 보내지 않습니다.
 // 동영상·음성을 붙이면 웹뷰에서 썸네일·크기·길이를 미리 읽어(hooks/attachments.ts) message.send에 같이 싣습니다. 못 읽으면 그냥 보냅니다.
 // 휘발성 채널에 첨부를 고르면 무엇을 지켜 주고 무엇은 못 지키는지 알립니다. 참가 전 P2P 전용 채널에서는 쓸 수 없습니다.
 
 import { AlertTriangle, CornerUpLeft, FileIcon, Flame, Paperclip, SendHorizontal, SmilePlus, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChannelView, EmojiView, MemberView } from '../api/types';
+import { EVERYONE_ROLE, type ChannelView, type EmojiView, type MemberView, type Role } from '../api/types';
 import { NO_ATTACH_TEXT, usePendingFiles, type PendingFiles } from '../hooks/attachments';
 import { anonName, isAnonymousMessage, isMine } from '../lib/anon';
 import { isP2pLocked } from '../lib/channel';
@@ -12,14 +12,14 @@ import { t, tn } from '../i18n';
 import { formatEmoji } from '../lib/emoji';
 import { searchUnicodeEmoji } from '../lib/emojiData';
 import { formatClock } from '../lib/media';
-import { cx, displayName, excerpt, hasPerm } from '../lib/misc';
+import { cx, displayName, excerpt, hasPerm, roleColor } from '../lib/misc';
 import { clipboardFiles } from '../lib/paste';
 import { isTouch } from '../lib/platform';
 import { hasChannelPerm } from '../lib/perms';
 import { encodeMentions } from '../lib/text';
-import { chKey, useStore } from '../store/store';
+import { chKey, isVolatile, useStore } from '../store/store';
 import { AlignButtons } from './AlignButtons';
-import { Avatar, CustomEmoji, Popover, Spinner } from './common';
+import { Avatar, ChannelIcon, CustomEmoji, Popover, Spinner } from './common';
 import { EmojiPicker } from './EmojiPicker';
 import { TypingIndicator } from './TypingIndicator';
 
@@ -41,7 +41,8 @@ const BROADCASTS: Broadcast[] = [
 ];
 
 type Suggest =
-  | { kind: 'mention'; start: number; items: Array<MemberView | Broadcast> }
+  | { kind: 'mention'; start: number; items: Array<MemberView | Broadcast | Role> }
+  | { kind: 'channel'; start: number; items: ChannelView[] }
   | { kind: 'emoji'; start: number; items: Array<{ key: string; insert: string; custom?: EmojiView; char?: string; label: string }> };
 
 export function Composer({
@@ -155,13 +156,26 @@ export function Composer({
     const mention = /(^|\s)@([\p{L}\p{N}_.-]{0,32})$/u.exec(before);
     if (mention) {
       const q = mention[2].toLowerCase();
-      const broadcasts = view?.kind === 'crew' && hasChannelPerm(view, channelView, me, 'mention_many') ? BROADCASTS.filter((b) => b.broadcast.startsWith(q)) : [];
+      // 모두 멘션과 역할 태그는 받는 쪽이 작성자의 `mention_many`를 보고 알리므로 그 권한이 있을 때만 보입니다.
+      const many = view?.kind === 'crew' && hasChannelPerm(view, channelView, me, 'mention_many');
+      const broadcasts = many ? BROADCASTS.filter((b) => b.broadcast.startsWith(q)) : [];
+      const roles = many && view ? view.roles.filter((r) => r.id !== EVERYONE_ROLE && r.name.toLowerCase().includes(q)).slice(0, 5) : [];
       const people = members
         .filter((m) => m.user !== me && displayName(m).toLowerCase().includes(q))
         .sort((a, b) => Number(b.online) - Number(a.online))
         .slice(0, 8);
-      const items = [...broadcasts, ...people];
+      const items = [...broadcasts, ...roles, ...people];
       setSuggest(items.length ? { kind: 'mention', start: caret - mention[2].length - 1, items } : null);
+      setSel(0);
+      return;
+    }
+    // 줄 첫머리의 `# 제목`과 헷갈리지 않게 한 글자 이상 쳤을 때만 띄웁니다.
+    const tag = view?.kind === 'crew' ? /(^|\s)#([\p{L}\p{N}_.-]{1,32})$/u.exec(before) : null;
+    if (tag && view) {
+      const q = tag[2].toLowerCase();
+      // 휘발성 채널 ID는 디스크에 남는 다른 채널의 글에 싣지 않습니다.
+      const items = view.channels.filter((c) => c.settings.kind !== 'category' && !isVolatile(c) && c.settings.name.toLowerCase().includes(q)).slice(0, 8);
+      setSuggest(items.length ? { kind: 'channel', start: caret - tag[2].length - 1, items } : null);
       setSel(0);
       return;
     }
@@ -197,13 +211,21 @@ export function Composer({
 
   const accept = (i: number) => {
     if (!suggest) return;
+    // 고른 항목은 입력창에 `@이름`·`#이름`으로 보이고 보낼 때 꺾쇠 표기로 바뀝니다(encodeMentions).
+    const pick = (shown: string, token: string) => {
+      const label = shown.replace(/\s+/g, '_');
+      mentionMap.current.set(label, token);
+      insertAt(suggest.start, `${label} `);
+    };
     if (suggest.kind === 'mention') {
       const m = suggest.items[i];
       if (!m) return;
       if ('broadcast' in m) return insertAt(suggest.start, `@${m.broadcast} `);
-      const name = displayName(m).replace(/\s+/g, '_');
-      mentionMap.current.set(name, m.user);
-      insertAt(suggest.start, `@${name} `);
+      if ('rank' in m) return pick(`@${m.name}`, `<@&${m.id}>`);
+      pick(`@${displayName(m)}`, `<@${m.user}>`);
+    } else if (suggest.kind === 'channel') {
+      const c = suggest.items[i];
+      if (c) pick(`#${c.settings.name}`, `<#${c.channel}>`);
     } else {
       const e = suggest.items[i];
       if (e) insertAt(suggest.start, `${e.insert} `);
@@ -244,14 +266,30 @@ export function Composer({
     <div className={cx('composer', volatile && 'volatile')}>
       {suggest && (
         <div className="suggest">
-          <div className="suggest-title">{suggest.kind === 'mention' ? t('멤버') : t('이모지')}</div>
-          {suggest.kind === 'mention'
+          <div className="suggest-title">
+            {suggest.kind === 'mention' ? (suggest.items.some((m) => 'rank' in m) ? t('멤버·역할') : t('멤버')) : suggest.kind === 'channel' ? t('채널') : t('이모지')}
+          </div>
+          {suggest.kind === 'channel'
+            ? suggest.items.map((c, i) => (
+                <button key={c.channel} type="button" className={cx('suggest-item', i === sel && 'active')} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(i)}>
+                  <ChannelIcon channel={c} size={16} />
+                  <span>{c.settings.name}</span>
+                </button>
+              ))
+            : suggest.kind === 'mention'
             ? suggest.items.map((m, i) =>
                 'broadcast' in m ? (
                   <button key={m.broadcast} type="button" className={cx('suggest-item', i === sel && 'active')} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(i)}>
                     <span className="suggest-at">@</span>
                     <span>@{m.broadcast}</span>
                     <span className="muted small">{m.label}</span>
+                  </button>
+                ) : 'rank' in m ? (
+                  <button key={m.id} type="button" className={cx('suggest-item', i === sel && 'active')} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(i)}>
+                    <span className="suggest-at" style={{ color: roleColor(m.color) }}>
+                      @
+                    </span>
+                    <span style={{ color: roleColor(m.color) }}>{m.name}</span>
                   </button>
                 ) : (
                   <button key={m.user} type="button" className={cx('suggest-item', i === sel && 'active')} onMouseDown={(e) => e.preventDefault()} onClick={() => accept(i)}>

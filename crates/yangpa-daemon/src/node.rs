@@ -236,6 +236,7 @@ impl Node {
         spaces::load_all(&node).await?;
         // 다른 작업 영역의 시작 고리(저장된 공간을 다시 세운 뒤, 네트워크 이벤트를 받기 전).
         crews::start(&node);
+        crate::ai::start(&node);
         volatile::start(&node);
         blobs::start(&node);
         policy::start(&node);

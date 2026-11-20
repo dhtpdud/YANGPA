@@ -52,7 +52,7 @@ function setup(over: Partial<SpaceView> = {}) {
     ...over,
   } as SpaceView;
   // 앞 시험이 건 공간 새로 읽기(80ms 뒤)가 이 시험 안에서 돌아도 보기를 빈 값으로 덮지 않게 space.get은 지금 보기를 돌려줍니다.
-  const call = vi.fn(async (method: string, _params?: unknown) => (method === 'space.get' ? useStore.getState().views[SPACE] : {}));
+  const call = vi.fn(async (method: string, _params?: unknown) => (method === 'space.get' ? useStore.getState().views[SPACE] : method === 'ai.profiles' ? [] : {}));
   const savePrefs = vi.fn(async () => undefined);
   useStore.setState({
     client: { call, transport: { savePrefs } } as unknown as ApiClient,
@@ -229,7 +229,7 @@ describe('크루 STUN 서버', () => {
       const p = params as Record<string, unknown>;
       const view = useStore.getState().views[SPACE];
       if (method === 'space.get') return view;
-      if (method === 'crew.committer_candidates') return [];
+      if (method === 'crew.committer_candidates' || method === 'ai.profiles') return [];
       if (method === 'crew.set_servers') {
         const stun = p.stun as string[];
         if (stun.some((x) => x.startsWith('turn'))) throw new RpcError(ErrorCode.InvalidInput, REJECT);

@@ -35,6 +35,8 @@ import { Composer } from './Composer';
 import { ForumView } from './ForumView';
 import { MessageList } from './MessageList';
 import { BackButton } from './BackButton';
+import { AiTranslateButton } from './AiTranslate';
+import { TrName, TrText, useTrText } from './Translated';
 import { VoiceView } from './VoiceView';
 import { SearchResults } from './SearchResults';
 
@@ -70,7 +72,9 @@ export function TopBar({ space, channel }: { space: SpaceView; channel?: Channel
         {channel ? (
           <>
             <ChannelIcon channel={channel} size={22} />
-            <h1 className="tb-title">{channel.settings.name}</h1>
+            <h1 className="tb-title">
+              <TrName text={channel.settings.name} space={space} />
+            </h1>
             <VolatileBadge channel={channel} />
             {channel.p2p && (
               <span
@@ -100,14 +104,7 @@ export function TopBar({ space, channel }: { space: SpaceView; channel?: Channel
                 <Bot size={11} strokeWidth={2.5} /> {t('AI 읽기 허용')}
               </button>
             )}
-            {channel.settings.topic && (
-              <>
-                <span className="tb-divider" />
-                <span className="tb-topic" title={channel.settings.topic}>
-                  {channel.settings.topic}
-                </span>
-              </>
-            )}
+            {channel.settings.topic && <Topic space={space.space} channel={channel} />}
           </>
         ) : (
           <h1 className="tb-title">{space.kind === 'space' ? displayName(peer) : space.settings.name}</h1>
@@ -215,6 +212,7 @@ export function TopBar({ space, channel }: { space: SpaceView; channel?: Channel
             <Images size={20} />
           </button>
         )}
+        <AiTranslateButton space={space} channel={channel} />
         <button
           type="button"
           className={cx('icon-btn', prefs.memberList && 'active')}
@@ -304,6 +302,19 @@ export function VolatileBanner({ space, channel }: { space: string; channel: Cha
 }
 
 /** 상시 휘발성 채널의 참가 상한이 차서 이 기기가 참가하지 못하는 동안(자리가 나면 데몬이 알아서 참가시킴). */
+/** 상단 막대의 채널 설명. 번역되면 툴팁도 번역문(원문은 번역 표시의 툴팁). */
+function Topic({ space, channel }: { space: string; channel: ChannelView }) {
+  const topic = channel.settings.topic;
+  return (
+    <>
+      <span className="tb-divider" />
+      <span className="tb-topic" title={useTrText(topic, space, channel.channel)}>
+        <TrText text={topic} space={space} channel={channel.channel} />
+      </span>
+    </>
+  );
+}
+
 function FullGate({ channel }: { channel: ChannelView }) {
   return (
     <div className="join-gate">
@@ -333,8 +344,12 @@ function JoinGate({ space, channel }: { space: string; channel: ChannelView }) {
   return (
     <div className="join-gate">
       <div className="jg-icon">{s.security === 'volatile' ? <Flame size={40} /> : <LogIn size={40} />}</div>
-      <h2>#{s.name}</h2>
-      <p className="muted">{s.topic}</p>
+      <h2>
+        #<TrText text={s.name} space={space} />
+      </h2>
+      <p className="muted">
+        <TrText text={s.topic} space={space} channel={channel.channel} />
+      </p>
       <ul className="jg-list">
         <li>{t('들어와 있는 동안만 대화를 받습니다. {effect}', { effect: leaveEffectText(s) })}</li>
         <li>
@@ -470,6 +485,7 @@ export function SpacePane({ space }: { space: SpaceView }) {
   // 입장·퇴장 채널은 들어와 있을 때만, P2P 전용 채널은 참가했을 때만 내용이 보이므로 그때만 캡처를 지켜봅니다.
   const watchCapture = !!channel && volatile && !locked && (channel.settings.join_mode !== 'join_leave' || channel.joined);
   const search = useStore((s) => s.search);
+  const chName = useTrText(channel?.settings.name ?? '', space.space);
 
   let body;
   if (!channel) {
@@ -502,7 +518,7 @@ export function SpacePane({ space }: { space: SpaceView }) {
       </>
     );
   } else {
-    const placeholder = t('{channel}에 메시지 보내기', { channel: `${volatile ? '🔥 ' : '#'}${channel.settings.name}` });
+    const placeholder = t('{channel}에 메시지 보내기', { channel: `${volatile ? '🔥 ' : '#'}${chName}` });
     body = (
       <>
         {volatile && <VolatileBanner space={space.space} channel={channel} />}

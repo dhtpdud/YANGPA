@@ -131,6 +131,100 @@ pub(crate) async fn set_servers(
     Ok(empty())
 }
 
+/// `crew.set_ai_profiles`: 크루가 역할에 내주는 AI API 프로필 목록 전체(`manage_space`, 키는 상태에 싣지 않음).
+pub(crate) async fn set_ai_profiles(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::CrewSetAiProfiles>,
+) -> R<m::CrewSetAiProfiles> {
+    let (state, me) = rpc(crews::crew_state(node, &p.space))?;
+    rpc(crews::need(&state, &me, Permissions::MANAGE_SPACE))?;
+    let profiles = crate::ai::next_crew_profiles(node, p.space, &state, &p.profiles)?;
+    if profiles == state.ai.profiles {
+        return Ok(empty());
+    }
+    publish(node, p.space, EventBody::CrewAiProfilesSet { profiles }).await?;
+    Ok(empty())
+}
+
+/// `crew.set_ai_auto`: 멤버 자동 번역의 크루 언어(`manage_space`).
+pub(crate) async fn set_ai_auto(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::CrewSetAiAuto>,
+) -> R<m::CrewSetAiAuto> {
+    let (state, me) = rpc(crews::crew_state(node, &p.space))?;
+    rpc(crews::need(&state, &me, Permissions::MANAGE_SPACE))?;
+    let lang = p.lang.as_deref().map(str::trim).filter(|l| !l.is_empty());
+    if lang.is_some_and(|l| !yangpa_core::model::valid_ai_lang_code(l)) {
+        return Err(RpcError::invalid_input(
+            "크루 언어 코드가 올바르지 않습니다",
+        ));
+    }
+    if state.ai.auto_lang.as_deref() == lang {
+        return Ok(empty());
+    }
+    let lang = lang.map(str::to_owned);
+    publish(node, p.space, EventBody::CrewAiAutoSet { lang }).await?;
+    Ok(empty())
+}
+
+pub(crate) async fn ai_profiles(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    _p: P<m::AiProfiles>,
+) -> R<m::AiProfiles> {
+    me(node)?;
+    Ok(crate::ai::profiles(node))
+}
+
+pub(crate) async fn ai_save_profile(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::AiSaveProfile>,
+) -> R<m::AiSaveProfile> {
+    me(node)?;
+    crate::ai::save_profile(node, p)
+}
+
+pub(crate) async fn ai_delete_profile(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::AiDeleteProfile>,
+) -> R<m::AiDeleteProfile> {
+    me(node)?;
+    crate::ai::delete_profile(node, &p.id)?;
+    Ok(empty())
+}
+
+pub(crate) async fn ai_clear_cache(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    _p: P<m::AiClearCache>,
+) -> R<m::AiClearCache> {
+    me(node)?;
+    crate::ai::clear_cache(node)?;
+    Ok(empty())
+}
+
+pub(crate) async fn ai_models(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::AiModels>,
+) -> R<m::AiModels> {
+    me(node)?;
+    crate::ai::models(node, p).await
+}
+
+pub(crate) async fn ai_translate(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::AiTranslate>,
+) -> R<m::AiTranslate> {
+    me(node)?;
+    crate::ai::translate(node, p).await
+}
+
 /// `crew.use_servers`: 이 기기가 그 크루의 STUN 서버를 쓸지(이 기기에만 저장).
 pub(crate) async fn use_servers(
     node: &Arc<Node>,

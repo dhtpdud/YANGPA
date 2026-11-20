@@ -172,9 +172,10 @@ pub(crate) fn after_call(
 }
 
 /// 감사 로그에 남기지 않는 호출. Tor 통화의 소리 패킷(`voice.media`)은 초당 수십 번 불려, 성공한 호출까지 적으면
-/// 디스크를 계속 쓰고 감사 로그를 밀어내며 말한 때가 디스크에 남습니다(실패만 적음).
+/// 디스크를 계속 쓰고 감사 로그를 밀어내며 말한 때가 디스크에 남습니다(실패만 적음). AI 번역(`ai.translate`)도 앱이
+/// 보이는 글마다 불러 같은 까닭으로 실패만 적습니다(소유자 범위라 중요한 줄을 밀어내므로).
 pub(crate) fn skip_audit(method: &str, error: Option<i64>) -> bool {
-    method == "voice.media" && error.is_none()
+    matches!(method, "voice.media" | "ai.translate") && error.is_none()
 }
 
 /// 서버가 직접 답한 호출(`auth.hello`, 구독, 인증·범위 검사 거절)의 감사 로그. 인증하지 않은 연결은 `auth.hello`

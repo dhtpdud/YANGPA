@@ -38,6 +38,7 @@ import { BridgesSection } from './Bridges';
 import { FileCircuitsSection } from './FileCircuits';
 import { DirectModeWarning, StunServersSection } from './StunServers';
 import { MediaTab } from './MediaSettings';
+import { AiTab } from './AiSettings';
 
 const TABS: Array<[UserTab, string, string?]> = [
   ['profile', t('프로필'), t('내 계정')],
@@ -50,6 +51,7 @@ const TABS: Array<[UserTab, string, string?]> = [
   ['media', t('음성·화면공유')],
   ['appearance', t('모양·언어')],
   ['notify', t('알림')],
+  ['ai', t('AI 번역')],
   ['tokens', t('API 토큰'), t('자동화')],
   ['confirm', t('확인 대기')],
   ['audit', t('감사 기록')],
@@ -90,6 +92,7 @@ export function UserSettingsModal({ tab, onClose }: { tab?: UserTab; onClose: ()
           {current === 'media' && <MediaTab />}
           {current === 'appearance' && <AppearanceTab />}
           {current === 'notify' && <NotifyTab />}
+          {current === 'ai' && <AiTab />}
           {current === 'tokens' && <TokensTab />}
           {current === 'confirm' && <ConfirmTab />}
           {current === 'audit' && <AuditTab />}

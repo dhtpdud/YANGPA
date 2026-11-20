@@ -30,6 +30,18 @@ describe('마크다운: 글 조각(예전 tokenize와 같음)', () => {
     expect(stripMarkdown('**@here** 모여')).toBe('@here 모여');
   });
 
+  it('역할 태그 <@&ID>·채널 태그 <#ID>(코드·가린 링크 글 안, @everyone 역할은 아님)', () => {
+    const role = 'A2cD4eF6gH8jK9mN1pQ3rS';
+    const ch = '1pQ3rS5tU7vW9xY7Hq3sZz';
+    expect(inline(`<@&${role}> 모여서 <#${ch}> 봐`)).toEqual([{ t: 'role', id: role }, txt(' 모여서 '), { t: 'channel', id: ch }, txt(' 봐')]);
+    for (const no of [`\`<#${ch}>\``, `[<#${ch}>](https://a.example)`, '<@&1111111111111111>', '<#짧음>', `<@&${role}x>`]) {
+      const types = JSON.stringify(inline(no));
+      expect(types).not.toContain('"t":"role"');
+      expect(types).not.toContain('"t":"channel"');
+    }
+    expect(stripMarkdown(`**<@&${role}>** <#${ch}>`)).toBe('@… #…');
+  });
+
   it('코드 블록 안은 해석하지 않고, 블록 앞뒤 줄바꿈은 블록이 먹는다', () => {
     expect(parseMarkdown('앞\n```rust\nlet x = "<@abc>" **a**;\n```\n뒤')).toEqual([
       p(txt('앞')),

@@ -112,6 +112,12 @@ pub enum EventKind {
     CrewDisband,
     /// 카테고리를 다른 카테고리 안에 넣거나 빼기(`CategoryParentSet`).
     CategoryParentSet,
+    /// 크루 AI API 프로필 목록(`CrewAiProfilesSet`).
+    CrewAiProfilesSet,
+    /// 채널의 AI 번역 역할(`ChannelAiRolesSet`).
+    ChannelAiRolesSet,
+    /// 멤버 자동 번역의 크루 언어(`CrewAiAutoSet`).
+    CrewAiAutoSet,
     // 키 합의 레인: 그룹 키 갱신. 본문은 상태 키로 암호화.
     /// 키 그룹 갱신 한 조각(`KeyUpdatePayload`). 크루 그룹은 공간 스트림, 비공개 그룹은 `KeyGroup` 스트림.
     KeyUpdate,
@@ -187,6 +193,9 @@ impl EventKind {
         (101, EventKind::MemberBadges),
         (102, EventKind::CrewDisband),
         (103, EventKind::CategoryParentSet),
+        (104, EventKind::CrewAiProfilesSet),
+        (105, EventKind::ChannelAiRolesSet),
+        (106, EventKind::CrewAiAutoSet),
     ];
 
     pub fn code(self) -> u16 {
@@ -849,6 +858,12 @@ mod tests {
         assert_eq!(EventKind::CrewDisband.lane(), Lane::State);
         assert_eq!(EventKind::CategoryParentSet.code(), 103);
         assert_eq!(EventKind::CategoryParentSet.lane(), Lane::State);
+        assert_eq!(EventKind::CrewAiProfilesSet.code(), 104);
+        assert_eq!(EventKind::CrewAiProfilesSet.lane(), Lane::State);
+        assert_eq!(EventKind::ChannelAiRolesSet.code(), 105);
+        assert_eq!(EventKind::ChannelAiRolesSet.lane(), Lane::State);
+        assert_eq!(EventKind::CrewAiAutoSet.code(), 106);
+        assert_eq!(EventKind::CrewAiAutoSet.lane(), Lane::State);
         // 익명 글은 메시지 레인이고 본문 종류는 원래 종류입니다.
         for (anon, base) in [
             (EventKind::AnonMessage, EventKind::Message),

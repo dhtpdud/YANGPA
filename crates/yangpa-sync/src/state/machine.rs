@@ -22,8 +22,9 @@ use yangpa_core::ids::{
 };
 use yangpa_core::links::ContactInfo;
 use yangpa_core::model::{
-    BanInfo, ChannelKind, ChannelSettings, ChannelTransport, ChatTtl, CrewServers, EditRules,
-    EmojiLimits, HistoryVisibility, InviteState, MAX_CREW_SERVER_LEN, MAX_CREW_SERVERS,
+    BanInfo, ChannelKind, ChannelSettings, ChannelTransport, ChatTtl, CrewAi, CrewAiProfile,
+    CrewServers, EditRules, EmojiLimits, HistoryVisibility, InviteState, MAX_AI_ID, MAX_AI_MODEL,
+    MAX_AI_NAME, MAX_AI_PROFILES, MAX_AI_ROLES, MAX_AI_URL, MAX_CREW_SERVER_LEN, MAX_CREW_SERVERS,
     MAX_VOLATILE_CAP, MIN_VOLATILE_CAP, Member, OverwriteTarget, PermissionOverwrite, Permissions,
     Role, RoleDisplay, SharedMap, SpaceKind, SpaceSettings, SpaceState, valid_attach_limit,
 };
@@ -369,6 +370,7 @@ impl Machine {
                 emoji_limits: Default::default(),
                 emoji_by: Default::default(),
                 disbanded: false,
+                ai: Default::default(),
             },
             deleted_channels: imbl::OrdSet::new(),
             deleted_roles: imbl::OrdSet::new(),
@@ -569,6 +571,11 @@ impl Machine {
             EventBody::CategoryParentSet { channel, parent } => {
                 self.category_parent_set(&user, channel, parent.as_ref())
             }
+            EventBody::CrewAiProfilesSet { profiles } => self.crew_ai_profiles_set(&user, profiles),
+            EventBody::ChannelAiRolesSet { channel, roles } => {
+                self.channel_ai_roles_set(&user, channel, roles.as_deref())
+            }
+            EventBody::CrewAiAutoSet { lang } => self.crew_ai_auto_set(&user, lang.as_deref()),
         };
         self.settle(eff)
     }
@@ -1116,6 +1123,96 @@ impl Machine {
             self.st.edit_rules.insert(*id, rules);
         }
         Ok(Effect::changed())
+    }
+
+    /// 크루 AI API 프로필 목록 바꾸기(목록 전체). 크루에서만, `MANAGE_SPACE`, 한도 안, ID가 겹치지 않고 있는 역할만,
+    /// 지금과 달라야 합니다. 키는 싣지 않으므로 볼 것이 없습니다.
+    fn crew_ai_profiles_set(&mut self, user: &UserId, profiles: &[CrewAiProfile]) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        self.need(user, Permissions::MANAGE_SPACE)?;
+        if profiles.len() > MAX_AI_PROFILES {
+            return Err(AuthError::Limit("AI 프로필 수"));
+        }
+        let mut ids = BTreeSet::new();
+        for p in profiles {
+            let ok = !p.id.is_empty()
+                && p.id.len() <= MAX_AI_ID
+                && ids.insert(p.id.as_str())
+                && !p.name.trim().is_empty()
+                && p.name.len() <= MAX_AI_NAME
+                && p.base_url.starts_with("https://")
+                && p.base_url.len() <= MAX_AI_URL
+                && !p.model.trim().is_empty()
+                && p.model.len() <= MAX_AI_MODEL;
+            if !ok {
+                return Err(AuthError::Invalid("AI 프로필 형식"));
+            }
+            self.check_ai_roles(&p.roles)?;
+        }
+        if profiles == self.st.ai.profiles.as_slice() {
+            return Err(AuthError::Invalid("이미 그 AI 프로필 목록"));
+        }
+        self.st.ai.profiles = profiles.to_vec();
+        Ok(Effect::changed())
+    }
+
+    /// 멤버 자동 번역의 크루 언어(`None`이면 끔). 크루에서만, `MANAGE_SPACE`, 언어 코드 형식, 지금과 달라야 합니다.
+    fn crew_ai_auto_set(&mut self, user: &UserId, lang: Option<&str>) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        self.need(user, Permissions::MANAGE_SPACE)?;
+        if lang.is_some_and(|l| !yangpa_core::model::valid_ai_lang_code(l)) {
+            return Err(AuthError::Invalid("크루 언어 코드"));
+        }
+        if self.st.ai.auto_lang.as_deref() == lang {
+            return Err(AuthError::Invalid("이미 그 자동 번역 설정"));
+        }
+        self.st.ai.auto_lang = lang.map(str::to_owned);
+        Ok(Effect::changed())
+    }
+
+    /// 채널에서 AI 번역을 쓸 수 있는 역할 정하기(`None`이면 모두). 크루에서만, 그 채널의 `MANAGE_CHANNELS`, 카테고리
+    /// 아님, 있는 역할만, 지금과 달라야 합니다.
+    fn channel_ai_roles_set(
+        &mut self,
+        user: &UserId,
+        id: &ChannelId,
+        roles: Option<&[RoleId]>,
+    ) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        let ch = self.st.channels.get(id).ok_or(AuthError::UnknownChannel)?;
+        self.need_in(user, id, Permissions::MANAGE_CHANNELS)?;
+        if ch.kind == ChannelKind::Category {
+            return Err(AuthError::Invalid("카테고리에는 AI 번역 역할이 없음"));
+        }
+        if let Some(r) = roles {
+            self.check_ai_roles(r)?;
+        }
+        if self.st.ai.channels.get(id).map(Vec::as_slice) == roles {
+            return Err(AuthError::Invalid("이미 그 AI 번역 역할"));
+        }
+        match roles {
+            Some(r) => self.st.ai.channels.insert(*id, r.to_vec()),
+            None => self.st.ai.channels.remove(id),
+        };
+        Ok(Effect::changed())
+    }
+
+    /// AI 설정의 역할 목록: 한도 안, 겹치지 않고 있는 역할만.
+    fn check_ai_roles(&self, roles: &[RoleId]) -> Result<(), AuthError> {
+        let unique = roles.iter().collect::<BTreeSet<_>>().len() == roles.len();
+        if roles.len() > MAX_AI_ROLES
+            || !unique
+            || !roles.iter().all(|r| self.st.roles.contains_key(r))
+        {
+            return Err(AuthError::Invalid("AI 역할 목록"));
+        }
+        Ok(())
     }
 
     /// 크루 STUN·TURN 서버 목록 바꾸기(목록 전체). 크루에서만, `MANAGE_SPACE`, 줄 수·길이 한도 안, 지금과 달라야 합니다.
@@ -2132,6 +2229,7 @@ pub(super) mod synthetic {
                 emoji_limits: Default::default(),
                 emoji_by: Default::default(),
                 disbanded: false,
+                ai: Default::default(),
             },
             deleted_channels: imbl::OrdSet::new(),
             deleted_roles: imbl::OrdSet::new(),

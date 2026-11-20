@@ -94,6 +94,17 @@ api_methods! {
     /// 받기를 시작합니다. 진행과 끝은 `update.progress` 알림.
     UpdateDownload = "update.download" [Owner, Global, human_only] (UpdateDownloadParams) -> Empty;
 
+    // AI 번역. 내 API 키로 비용이 나가므로 앱(소유자 토큰)만 씁니다.
+    AiProfiles = "ai.profiles" [Owner, Global] (Empty) -> Vec<AiProfileView>;
+    AiSaveProfile = "ai.save_profile" [Owner, Global, human_only] (AiProfileSaveParams) -> AiProfileView;
+    AiDeleteProfile = "ai.delete_profile" [Owner, Global, human_only] (AiProfileIdParams) -> Empty;
+    /// 공급자에게 모델 목록을 묻습니다(Tor로 도는 기기는 Arti로).
+    AiModels = "ai.models" [Owner, Global, human_only] (AiModelsParams) -> Vec<String>;
+    /// 글을 번역합니다(Tor로 도는 기기는 Arti로).
+    AiTranslate = "ai.translate" [Owner, OptionalGlobal] (AiTranslateParams) -> AiTranslateResult;
+    /// 이 기기 DB의 번역 캐시를 비웁니다.
+    AiClearCache = "ai.clear_cache" [Owner, Global, human_only] (Empty) -> Empty;
+
     // 표시 상태(온라인·자리 비움·숨기·오프라인)와 마지막 동기화 시각 비공개. 오프라인으로 바꾸거나 오프라인에서
     // 나오면 데몬이 다시 뜹니다.
     PresenceGet = "presence.get" [Read, Global] (Empty) -> PresenceView;
@@ -148,6 +159,10 @@ api_methods! {
     CrewUpdate = "crew.update" [Admin, Required] (CrewUpdateParams) -> Empty;
     /// 크루 STUN 서버 목록(`manage_space`). 그 서버가 멤버 기기의 공인 IP를 보게 되므로 사람만.
     CrewSetServers = "crew.set_servers" [Admin, Required, human_only] (CrewServersParams) -> Empty;
+    /// 크루가 역할에 내주는 AI API 프로필(`manage_space`). 내 API 키를 받는 역할의 멤버 기기에 건네므로 사람만.
+    CrewSetAiProfiles = "crew.set_ai_profiles" [Admin, Required, human_only] (CrewAiProfilesParams) -> Empty;
+    /// 멤버 자동 번역의 크루 언어(`None`이면 끔).
+    CrewSetAiAuto = "crew.set_ai_auto" [Admin, Required, human_only] (CrewAiAutoParams) -> Empty;
     /// 이 기기가 그 크루의 서버를 쓸지. 크루 서버가 이 기기의 공인 IP를 보게 되므로 사람만.
     CrewUseServers = "crew.use_servers" [Settings, Required, human_only] (CrewUseServersParams) -> Empty;
     /// 1:1 대화를 앞으로 들어올 멤버에게 드러낼 수 있는 동의라 자동화 토큰이면 사람 확인.

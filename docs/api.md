@@ -126,6 +126,39 @@ GUI·CLI·MCP 서버가 모두 이 API를 씁니다. 원격 접근은 기본 비
   (`Range`, 받은 양이 늘지 않은 시도가 6번 이어지면 `network`). 진행·끝은 `update.progress`. 이름이 그 꼴이 아니면 `-32602`, 이미 받는
   중이면 그대로 둠. 데몬이 뜰 때 `updates/`를 지움
 
+### AI 번역
+내 AI API 프로필로, 또는 크루가 역할에 내준 프로필로 글을 번역합니다. 규칙은 protocol.md "AI 번역 프로필", decisions.md "AI 번역".
+요청은 Tor로 도는 기기에서 Arti로만 나가고 오프라인 모드에서는 `1009`. 키는 어떤 메서드로도 돌려주지 않습니다.
+- `ai.profiles() → AiProfileView[]` (owner) — 내 프로필. `AiProfileView`: `{id, name, api: "openai"|"anthropic"|"gemini", base_url, model,
+  has_key}`
+- `ai.save_profile({id?, name, api, base_url, model, key?}) → AiProfileView` (owner, 사람 토큰만) — `id`가 없으면 새로 만듦(32개까지).
+  `key`를 빼면 저장한 키를 그대로 둠. 주소는 https이고 공인 호스트여야 하고(끝의 `/`는 뗌, 아니면 `1005`), 없는 `id`면 `1004`
+- `ai.delete_profile({id}) → {}` (owner, 사람 토큰만) — 크루에 내준 복사본은 그대로(크루 설정에서 따로 뺌)
+- `ai.models({id?, api, base_url, key?}) → string[]` (owner, 사람 토큰만) — 공급자에게 모델 이름 목록을 물음(OpenAI 호환·Anthropic은
+  `GET …/models`의 `data[].id`, Gemini는 `models[].name` 중 generateContent를 받는 것). `key`가 없거나 비었으면 `id` 프로필에
+  저장한 키로. 주소 규칙은 `ai.save_profile`과 같고(`1005`), 공급자 오류·빈 목록은 `1009`
+- `ai.translate({profile, crew?, space?, channel?, source?, target, texts}) → {items: [{text, source}]}` (owner) — `texts`를 순서대로
+  번역(64개·16000자까지). `source`·`target`은 자연어 언어 이름(100자까지, `source`가 없으면 글마다 알아냄), 결과 `source`는 원문
+  언어 이름(대상 언어로, 모르면 빈 칸). 모델이 형식을 어기면 그 글은 원문 그대로. `crew`면 `profile`은 `space` 크루가 내준
+  프로필이고 쓸 수 있는 역할이어야 하며(`1003`), 키는 그 프로필을 내준 기기에만 있어 그 기기에게 번역을 부탁합니다(닿지 못하면
+  `1009`, 그 기기가 거절하면 `1003`). `channel`을
+  주면 그 채널을 볼 수 있고(`1004`) 그 채널에서 `use_ai_translate` 권한이 있고(채널 덮어쓰기까지, `1003`) 휘발성이면 이 기기가 API
+  읽기를 허용했어야 합니다(`1007`). `space`만 주면(채널·크루 이름) 크루 역할의 `use_ai_translate`(`1003`). 크루가 아닌 대화는 권한을
+  보지 않음.
+  서비스 오류는 `1009`에 서비스가 준 메시지 앞부분
+- `ai.clear_cache({}) → {}` (owner, 사람 토큰만) — 이 기기 DB의 번역 캐시(`ai_translations`)를 모두 지움. `ai.translate`는 결과를
+  이 캐시에 두고 같은 형식·주소·모델·언어·원문이면 서비스에 다시 묻지 않음(휘발성·수명 있는 채널은 빼고, decisions.md "AI 번역")
+- `crew.set_ai_profiles({space, profiles: [{id, roles}]}) → {}` (admin, 사람 토큰만) — `manage_space`, 크루만. 크루 프로필 목록 전체를
+  바꿈(16개까지). `id`가 내 프로필이면 지금 내용과 키를 실어 내주고, 크루 프로필이면 역할만 바꿈(내게 보이지 않는 역할은 그대로).
+  빠진 프로필과 받는 역할이 하나도 남지 않은 프로필은 크루에서 빠짐.
+  키가 없는 내 프로필은 `1005`. 바뀌었을 때만 `CrewAiProfilesSet`
+- `crew.set_ai_auto({space, lang: string | null}) → {}` (admin, 사람 토큰만) — `manage_space`, 크루만. 멤버 자동 번역의 크루
+  언어(앱 화면 언어 코드, `null`이면 끔). 형식이 틀리면 `1005`, 지금과 같으면 아무것도 하지 않음, 바뀌면 `CrewAiAutoSet`.
+  보기: `SpaceView.ai_auto_lang?: string`. 앱은 화면 언어가 이와 다르고 크루 프로필을 쓸 수 있는 멤버를, 그 멤버가 ‘이 크루
+  번역하기’를 켜거나 끄지 않았으면 번역이 켜진 채로 봅니다.
+- 보기: `SpaceView.ai_profiles?: CrewAiProfile[]`(`{id, name, api, base_url, model, roles, holder, key_version}`, 키 없음, 내게
+  보이지 않는 역할은 뺌). 누가 번역을 쓸지는 권한 `use_ai_translate`(역할 권한, 채널은 `channel.update`의 `overwrites`)
+
 ### 후원자 표시
 월 정기 후원자의 프로필 카드 배너(14달러 이상)와 프로필 사진 후광(50달러 이상). GitHub 1회 후원도 같은 금액 이상이면 결제 뒤 30일 동안. 규칙은 protocol.md "후원자 표시", decisions.md
 "후원자 카드 배너와 후광".
@@ -385,7 +418,7 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
   - `anonymous`: 익명 글(익명 채널에서 썼거나 그 채널이 지금 익명). `author`·`author_device`는 모두 0인 ID(`ANONYMOUS_USER`·
     `ANONYMOUS_DEVICE`, base58 `11111111111111111111111111111111`)이고 `author_blocked`는 늘 거짓. `mine`은 내가 쓴 글(익명 글 포함). 둘 다 거짓이면 빠짐.
     `mentions_me`는 나를 멘션한 글: `<@내 ID>`, 또는 그 채널에서 `mention_many` 권한이 있는 작성자의 `@everyone`, 작성 뒤 5분 안에
-    받은 `@here`(받는 데몬이 작성자 권한으로 정하고 안 읽은 멘션 수에도 셈, 내 글은 아님). 거짓이면 빠짐.
+    받은 `@here`, 내 역할의 태그 `<@&역할 ID>`(받는 데몬이 작성자 권한으로 정하고 안 읽은 멘션 수에도 셈, 내 글은 아님). 거짓이면 빠짐.
     `anon_name`은 익명 글의 가명('형용사 + 동물', 예: `용감한 수달`): (공간, 채널, 사용자)로 정해져 같은 채널에서는 늘 같고 모든
     멤버 화면에서 같으며 채널이 다르면 다름(decisions.md "익명 가명"). 익명 글의 알림(`message.new`로 띄우는 OS 알림)은 보낸 사람이
     그 가명이고 기본 프사
@@ -393,7 +426,9 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
   - `GapView = {after?: EventId, before?: EventId}` — 받지 않은 기록 구간
 - `message.send({space, channel, text, attachments?: AttachmentInput[], reply_to?, thread?}) → {id}`
   — 본문의 `<@사용자 ID>` 중 크루 멤버는 멘션으로 담습니다(100명까지). `@everyone`·`@here`는 글자 그대로 보내고 받는 쪽이
-  작성자의 `mention_many` 권한을 보고 멘션으로 칩니다(앞뒤가 글자·숫자·`_`이거나 앞이 `\`면 아님, 위 `mentions_me`). 첨부는 10개까지, 경로는 절대 경로의 보통 파일(또는 `paste`), 이름은 1~255자. 하나의 크기는 기본 무제한이고 채널의
+  작성자의 `mention_many` 권한을 보고 멘션으로 칩니다(앞뒤가 글자·숫자·`_`이거나 앞이 `\`면 아님, 위 `mentions_me`). 역할 태그
+  `<@&역할 ID>`도 글자 그대로 보내고 같은 권한으로 그 역할을 가진 멤버에게 멘션이 됩니다(@everyone 역할 ID는 무시). 채널 태그
+  `<#채널 ID>`는 표시만 하고(앱이 `#채널 이름`으로 그리고 누르면 그 채널로 감) 알림은 없습니다. 첨부는 10개까지, 경로는 절대 경로의 보통 파일(또는 `paste`), 이름은 1~255자. 하나의 크기는 기본 무제한이고 채널의
   `attach_limit`이 있으면 그것까지(넘으면 파일을 읽기 전에 `1005`). 휘발성 채널의 첨부는 아래.
   첨부에는 ATTACH_FILES가 필요(없으면 파일을 읽기 전에 `1003`). 이미지 첨부는 썸네일(`thumbnail_base64`, 긴 변 320px 이하)과
   `width`·`height`를, MP4·MOV는 `duration_ms`를 보내는 쪽이 채웁니다. 보내기가 실패하면 준비한 첨부 블롭은 지웁니다.
@@ -587,9 +622,9 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
   역할·멤버를 다루는 모든 순위 비교(추방·밴·역할 부여·초대 역할 포함)가 이것을 씁니다
 - `role.create({space, name, color?, permissions: string[], rank?}) → {role}` (admin) — `manage_roles`. 권한 이름:
   `view_channel`, `send_messages`, `read_history`, `add_reactions`, `attach_files`, `embed_links`, `use_external_emoji`,
-  `connect_voice`, `speak`, `stream`, `create_posts`, `use_crew_stun`, `mention_many`, `manage_messages`, `manage_channels`, `manage_roles`, `kick`,
-  `create_invite`, `manage_emoji`, `manage_voice`, `manage_space`, `ban`, `administrator`. `mention_many`는 20명 넘는 멘션과
-  `@everyone`·`@here`. 자기에게 없는 권한은 못 줌,
+  `connect_voice`, `speak`, `stream`, `create_posts`, `use_crew_stun`, `mention_many`, `use_ai_translate`, `manage_messages`,
+  `manage_channels`, `manage_roles`, `kick`, `create_invite`, `manage_emoji`, `manage_voice`, `manage_space`, `ban`, `administrator`.
+  `mention_many`는 20명 넘는 멘션과 `@everyone`·`@here`. `use_ai_translate`는 AI 번역(새 크루의 @everyone에 있음). 자기에게 없는 권한은 못 줌,
   `rank`(기본 1)는 1 이상(`1005`)이고 만들 역할의 수준이 내 순위보다 낮아야 함(`1003`: 관리자 권한 역할을 만들면 관리자 역할
   사이의 순위로 봄). `color`는 `0xRRGGBB`
 - `role.update({space, role, name?, color?, permissions?, rank?, visible_to?, see_admins?}) → {}` (admin, AI면 사람 확인) — @everyone은

@@ -14,8 +14,8 @@ use crate::ids::{
 };
 use crate::keyupdate::KeyUpdatePayload;
 use crate::model::{
-    ChannelSettings, ChannelTransport, EmojiLimits, Flair, Member, Permissions, Role, RoleDisplay,
-    SpaceKind, SpaceSettings,
+    ChannelSettings, ChannelTransport, CrewAiProfile, EmojiLimits, Flair, Member, Permissions,
+    Role, RoleDisplay, SpaceKind, SpaceSettings,
 };
 use crate::sign::{Sig, SignDomain, SigningKeypair, verify};
 use crate::time::Timestamp;
@@ -578,6 +578,22 @@ pub enum EventBody {
         channel: ChannelId,
         parent: Option<ChannelId>,
     },
+    /// 크루 AI API 프로필 목록 전체(코드 104). 크루에서만, `MANAGE_SPACE`, 한도 안(`MAX_AI_*`), 있는 역할만, 지금과
+    /// 달라야 함. 키는 싣지 않습니다(받는 역할의 기기가 키를 가진 기기에게 물음).
+    CrewAiProfilesSet {
+        profiles: Vec<CrewAiProfile>,
+    },
+    /// 채널에서 AI 번역을 쓸 수 있는 역할(코드 105). `None`이면 모두. 그 채널의 `MANAGE_CHANNELS`, 카테고리 아님,
+    /// 있는 역할만, 지금과 달라야 함.
+    ChannelAiRolesSet {
+        channel: ChannelId,
+        roles: Option<Vec<RoleId>>,
+    },
+    /// 멤버 자동 번역의 크루 언어(코드 106). `None`이면 끔. 크루에서만, `MANAGE_SPACE`, 언어 코드 형식
+    /// (`valid_ai_lang_code`), 지금과 달라야 함.
+    CrewAiAutoSet {
+        lang: Option<String>,
+    },
 }
 
 /// 휘발성 세션 키 회전 공지. 회전한 기기가 서명하고 지금 참가자에게 직접 보냅니다. 키는 참가자마다 따로 미는 감싸기
@@ -685,6 +701,9 @@ impl EventBody {
             EventBody::MemberBadges { .. } => EventKind::MemberBadges,
             EventBody::CrewDisband => EventKind::CrewDisband,
             EventBody::CategoryParentSet { .. } => EventKind::CategoryParentSet,
+            EventBody::CrewAiProfilesSet { .. } => EventKind::CrewAiProfilesSet,
+            EventBody::ChannelAiRolesSet { .. } => EventKind::ChannelAiRolesSet,
+            EventBody::CrewAiAutoSet { .. } => EventKind::CrewAiAutoSet,
         }
     }
 
@@ -1286,6 +1305,40 @@ mod tests {
         assert_eq!(
             EventBody::decode(&nest.encode().unwrap(), EventKind::CategoryParentSet).unwrap(),
             nest
+        );
+        let ai = EventBody::CrewAiProfilesSet {
+            profiles: vec![CrewAiProfile {
+                id: "p1".into(),
+                name: "Claude".into(),
+                api: crate::model::AiApi::Anthropic,
+                base_url: "https://api.anthropic.com".into(),
+                model: "claude-sonnet-5-5".into(),
+                roles: vec![RoleId::EVERYONE],
+                holder: DeviceId([3; 32]),
+                key_version: 7,
+            }],
+        };
+        assert_eq!(index(&ai), 53);
+        assert_eq!(
+            EventBody::decode(&ai.encode().unwrap(), EventKind::CrewAiProfilesSet).unwrap(),
+            ai
+        );
+        let ai_roles = EventBody::ChannelAiRolesSet {
+            channel: ChannelId([1; 16]),
+            roles: Some(vec![RoleId::EVERYONE]),
+        };
+        assert_eq!(index(&ai_roles), 54);
+        assert_eq!(
+            EventBody::decode(&ai_roles.encode().unwrap(), EventKind::ChannelAiRolesSet).unwrap(),
+            ai_roles
+        );
+        let ai_auto = EventBody::CrewAiAutoSet {
+            lang: Some("ko".into()),
+        };
+        assert_eq!(index(&ai_auto), 55);
+        assert_eq!(
+            EventBody::decode(&ai_auto.encode().unwrap(), EventKind::CrewAiAutoSet).unwrap(),
+            ai_auto
         );
         // 2판의 MLS 종류(80·81)는 다시 쓰지 않으므로 이 판에서는 모르는 종류입니다.
         assert_eq!(EventKind::from_code(80), EventKind::Other(80));

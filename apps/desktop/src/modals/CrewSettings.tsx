@@ -37,6 +37,7 @@ import { ArchiveNodes } from './ArchiveNodes';
 import { PermTemplateBar } from './PermTemplates';
 import { CrewTrustField } from './Trust';
 import { CrewServersSection, CrewServersUseField } from './CrewServers';
+import { CrewAiAutoField, RoleAiProfiles } from './CrewAi';
 
 const TABS: Array<[CrewTab, string]> = [
   ['overview', t('개요')],
@@ -163,6 +164,7 @@ function Overview({ space }: { space: string }) {
       <CrewTrustField space={space} />
       <CrewServersUseField space={space} />
       <CrewServersSection space={space} />
+      <CrewAiAutoField space={space} />
       {typeof view.settings.strict_rotation === 'boolean' && (
         <Field
           label={t('엄격한 키 회전')}
@@ -473,6 +475,7 @@ function RoleEditor({ space, role, canManage, onDelete }: { space: string; role:
           </span>
         </div>
       )}
+      <RoleAiProfiles space={space} role={role} />
       {canManage && (
         <PermTemplateBar
           scope={t('역할')}

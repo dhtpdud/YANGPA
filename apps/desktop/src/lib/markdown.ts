@@ -3,8 +3,10 @@
 // `:::center`·`:::right`·`:::left` 줄과 `:::` 줄 사이 정렬(마크다운에 없는 표시라 우리 앱만 그림, 겹쳐 쓰지 않음).
 // HTML로 바꾸지 않고 노드 트리를 돌려주므로 React가 그대로 이스케이프해 그립니다. 짝이 없거나 모르는 표기, http(s)가 아닌 링크는
 // 글자 그대로 남습니다. 코드 안은 해석하지 않고, 글 조각 안의 링크·멘션(<@ID>)·커스텀 이모지는 예전 tokenize와 같습니다.
+// 역할 태그(<@&ID>)·채널 태그(<#ID>)는 디스코드와 같은 표기입니다.
 // `@everyone`·`@here`는 데몬 messages::broadcast_mention과 같은 경계(앞뒤가 글자·숫자·_가 아님)로 찾습니다.
 
+import { EVERYONE_ROLE } from '../api/types';
 import { t } from '../i18n';
 import { parseReactionEmoji } from './emoji';
 import { isSafeHttpUrl } from './text';
@@ -15,6 +17,10 @@ export type Inline =
   | { t: 'text'; v: string }
   | { t: 'emoji'; name: string; id: string; animated: boolean }
   | { t: 'mention'; user: string }
+  /** 역할 태그 `<@&ID>`. */
+  | { t: 'role'; id: string }
+  /** 채널 태그 `<#ID>`. */
+  | { t: 'channel'; id: string }
   | { t: 'everyone'; v: 'everyone' | 'here' }
   | { t: 'url'; href: string }
   | { t: 'link'; href: string; children: Inline[] }
@@ -243,6 +249,9 @@ function lists(li: LineItem[], start: number, end: number, depth: number, o: Ctx
 /** `\`로 글자 그대로 쓸 수 있는 문자(ASCII 문장 부호). 윈도 경로의 `\U` 같은 것은 그대로 둡니다. */
 const PUNCT = /[!-/:-@[-`{-~]/;
 const MENTION = /^<@([1-9A-HJ-NP-Za-km-z]{32,44})>$/;
+/** 역할·채널 태그(16바이트 ID의 base58은 16~22자). */
+const ROLE_TAG = /^<@&([1-9A-HJ-NP-Za-km-z]{16,22})>$/;
+const CHANNEL_TAG = /^<#([1-9A-HJ-NP-Za-km-z]{16,22})>$/;
 const AUTOLINK = /^<(https?:\/\/[^\s<>]+)>$/;
 const BROADCAST_AT = /@(everyone|here)(?![\p{L}\p{N}_])/uy;
 const isNameChar = (c: string | undefined) => c !== undefined && /[\p{L}\p{N}_]/u.test(c);
@@ -315,6 +324,11 @@ function matchAngle(src: string, i: number, links: boolean): { node: Inline; end
   if (!links) return null;
   const mm = MENTION.exec(tok);
   if (mm) return { node: { t: 'mention', user: mm[1] }, end };
+  const rm = ROLE_TAG.exec(tok);
+  // @everyone 역할은 태그로 그리지 않습니다(모두 멘션은 `@everyone`, 데몬도 무시).
+  if (rm && rm[1] !== EVERYONE_ROLE) return { node: { t: 'role', id: rm[1] }, end };
+  const cm = CHANNEL_TAG.exec(tok);
+  if (cm) return { node: { t: 'channel', id: cm[1] }, end };
   const um = AUTOLINK.exec(tok);
   if (um) return { node: { t: 'url', href: um[1] }, end };
   return null;
@@ -509,7 +523,11 @@ function inlineText(ns: Inline[]): string {
         s += `:${n.name}:`;
         break;
       case 'mention':
+      case 'role':
         s += '@…';
+        break;
+      case 'channel':
+        s += '#…';
         break;
       case 'everyone':
         s += `@${n.v}`;

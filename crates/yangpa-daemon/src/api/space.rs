@@ -179,6 +179,16 @@ pub(crate) async fn get(node: &Arc<Node>, _ctx: &CallCtx, p: P<m::SpaceGet>) -> 
         crew_stun: false,
         use_crew_servers: false,
         disbanded: state.disbanded,
+        ai_profiles: state
+            .ai
+            .profiles
+            .iter()
+            .map(|p| yangpa_core::model::CrewAiProfile {
+                roles: shown.filter(&p.roles),
+                ..p.clone()
+            })
+            .collect(),
+        ai_auto_lang: state.ai.auto_lang.clone(),
     };
     crate::stun::fill_space_view(node, &p.space, &state, &me.user(), &mut view);
     Ok(view)

@@ -338,6 +338,7 @@ fn build(users: usize, devices: usize) -> Crew {
         emoji_limits: Default::default(),
         emoji_by: Default::default(),
         disbanded: false,
+        ai: Default::default(),
     };
     Crew {
         space: SpaceId(tag16(0x71, 0)),

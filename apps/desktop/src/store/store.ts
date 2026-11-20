@@ -39,6 +39,7 @@ import { appLinkKind, channelLink } from '../lib/links';
 import { ANON_CALL_ENDED, ANON_VOICE_OFF_WARNING, anonCallEnded } from '../lib/anon';
 import { isP2pLocked, planChannelMove, type DropWhere } from '../lib/channel';
 import { DEFAULT_LIBRARY, sanitizeLibrary, type LibraryPrefs } from '../supporter/library';
+import { DEFAULT_AI_TR, sanitizeAiTr, type AiTrPrefs } from '../lib/aiTr';
 import { rememberRecent } from '../lib/misc';
 import { sanitizeRules, type NotifyRules } from '../lib/notify';
 import { sanitizeTemplates, type PermTemplate } from '../lib/perms';
@@ -84,6 +85,7 @@ export type UserTab =
   | 'notify'
   | 'storage'
   | 'media'
+  | 'ai'
   | 'about';
 
 export interface AttachmentRef {
@@ -195,6 +197,8 @@ export interface Prefs {
   lang?: Lang;
   /** 새 판을 저절로 확인(설정 › 정보, 기본 켬). Tor로 GitHub 릴리스를 봅니다. */
   updateCheck: boolean;
+  /** AI 번역(채널 위 번역 버튼): 고른 프로필·언어·켠 크루와 채널. 번역 결과는 넣지 않습니다. */
+  aiTr: AiTrPrefs;
 }
 
 export interface ForumViewPrefs {
@@ -231,6 +235,7 @@ const DEFAULT_PREFS: Prefs = {
   library: DEFAULT_LIBRARY,
   stripMetadata: true,
   updateCheck: true,
+  aiTr: DEFAULT_AI_TR,
 };
 
 /** 검색 결과 쪽 크기 범위(데몬 상한 500). */
@@ -2075,6 +2080,7 @@ export function sanitizePrefs(raw: Record<string, unknown>): Partial<Prefs> {
   }
   if (raw.viewer && typeof raw.viewer === 'object') out.viewer = sanitizeViewer(raw.viewer);
   if (raw.library && typeof raw.library === 'object') out.library = sanitizeLibrary(raw.library);
+  if (raw.aiTr && typeof raw.aiTr === 'object') out.aiTr = sanitizeAiTr(raw.aiTr);
   if (raw.lastChannel && typeof raw.lastChannel === 'object') {
     const lc: Record<string, string> = {};
     // 뒤쪽이 최근 것(rememberRecent 순서)이라 뒤에서부터 남깁니다.

@@ -1823,6 +1823,7 @@ fn sample_state(owner: UserId) -> SpaceState {
         emoji_limits: Default::default(),
         emoji_by: Default::default(),
         disbanded: false,
+        ai: Default::default(),
         volatile_caps: Default::default(),
     }
 }

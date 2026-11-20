@@ -1125,6 +1125,193 @@ fn channel_attach_limit_rules() {
     assert!(state(&r).attach_limits.is_empty());
 }
 
+fn ai_profile(id: &str, roles: Vec<RoleId>) -> yangpa_core::model::CrewAiProfile {
+    yangpa_core::model::CrewAiProfile {
+        id: id.into(),
+        name: "Claude".into(),
+        api: yangpa_core::model::AiApi::Anthropic,
+        base_url: "https://api.anthropic.com".into(),
+        model: "claude-sonnet-5-5".into(),
+        roles,
+        holder: DeviceId([1; 32]),
+        key_version: 1,
+    }
+}
+
+/// 크루 AI 프로필(목록 전체)과 채널 AI 역할: 권한·형식·같은 값 거부, 역할로 쓸 수 있는지, 정규 인코딩 꼬리.
+#[test]
+fn crew_ai_profiles_and_channel_roles() {
+    let mut cr = crew();
+    let (o, a) = (&cr.o, &cr.a);
+    let r1 = role(1, 1, Permissions::NONE);
+    cr.c.push(o, EventBody::RoleCreate { role: r1.clone() });
+    cr.c.push(o, text_channel(ch(1), "일반"));
+    cr.c.push(o, kind_channel(ch(2), ChannelKind::Category));
+    let set = |profiles| EventBody::CrewAiProfilesSet { profiles };
+    let no_perm = cr.c.push(a, set(vec![ai_profile("p", vec![r1.id])]));
+    let ok = cr.c.push(o, set(vec![ai_profile("p", vec![r1.id])]));
+    let same = cr.c.push(o, set(vec![ai_profile("p", vec![r1.id])]));
+    let dup = cr.c.push(
+        o,
+        set(vec![ai_profile("q", vec![]), ai_profile("q", vec![])]),
+    );
+    let http = cr.c.push(
+        o,
+        set(vec![yangpa_core::model::CrewAiProfile {
+            base_url: "http://api.example.com".into(),
+            ..ai_profile("q", vec![])
+        }]),
+    );
+    let unknown_role =
+        cr.c.push(o, set(vec![ai_profile("q", vec![RoleId([9; 16])])]));
+    let too_many = cr.c.push(
+        o,
+        set((0..17)
+            .map(|i| ai_profile(&format!("p{i}"), vec![]))
+            .collect()),
+    );
+    let roles = |channel, roles| EventBody::ChannelAiRolesSet { channel, roles };
+    let ch_no_perm = cr.c.push(a, roles(ch(1), Some(vec![r1.id])));
+    let ch_ok = cr.c.push(o, roles(ch(1), Some(vec![r1.id])));
+    let ch_same = cr.c.push(o, roles(ch(1), Some(vec![r1.id])));
+    let ch_category = cr.c.push(o, roles(ch(2), Some(vec![])));
+    let ch_unknown = cr.c.push(o, roles(ch(9), None));
+    let r = cr.c.resolve();
+    assert_rejected(
+        &r,
+        no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_SPACE),
+    );
+    assert_applied(&r, ok);
+    assert_rejected(&r, same, AuthError::Invalid("이미 그 AI 프로필 목록"));
+    for id in [dup, http] {
+        assert_rejected(&r, id, AuthError::Invalid("AI 프로필 형식"));
+    }
+    assert_rejected(&r, unknown_role, AuthError::Invalid("AI 역할 목록"));
+    assert_rejected(&r, too_many, AuthError::Limit("AI 프로필 수"));
+    assert_rejected(
+        &r,
+        ch_no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_CHANNELS),
+    );
+    assert_applied(&r, ch_ok);
+    assert_rejected(&r, ch_same, AuthError::Invalid("이미 그 AI 번역 역할"));
+    assert_rejected(
+        &r,
+        ch_category,
+        AuthError::Invalid("카테고리에는 AI 번역 역할이 없음"),
+    );
+    assert_rejected(&r, ch_unknown, AuthError::UnknownChannel);
+    let st = state(&r);
+    assert_eq!(st.ai.profiles, vec![ai_profile("p", vec![r1.id])]);
+    // 역할이 없는 멤버는 프로필을 못 씁니다. 채널 AI 역할 표는 더 보지 않고 권한 비트로 정합니다.
+    assert!(st.ai_profile_usable(&a.id(), "p").is_none());
+    assert!(st.ai.channels.contains_key(&ch(1)));
+    assert_eq!(
+        st.ai_translate_allowed(&a.id(), Some(&ch(1))),
+        st.channel_permissions(&a.id(), &ch(1))
+            .contains(Permissions::USE_AI_TRANSLATE)
+    );
+    assert!(st.ai_translate_allowed(&o.id(), None));
+    cr.c.push(
+        o,
+        EventBody::MemberUpdate {
+            user: a.id(),
+            roles: vec![r1.id],
+            nickname: None,
+        },
+    );
+    let r = cr.c.resolve();
+    let st = state(&r);
+    assert!(st.ai_profile_usable(&a.id(), "p").is_some());
+    assert!(st.ai_profile_usable(&cr.b.id(), "p").is_none());
+
+    // 정규 인코딩: AI 설정은 해산 표시(거짓) 뒤 꼬리로 붙어 되살아나고, 없으면 옛 바이트 그대로입니다.
+    let mut res = Resolver::with_genesis(cr.genesis);
+    res.insert_events(cr.c.events.clone());
+    let m = res.machine.as_ref().expect("해소기 상태");
+    let bytes = m.encode();
+    assert_eq!(
+        Machine::decode(&bytes, Limits::default()).unwrap().st.ai,
+        m.st.ai
+    );
+    let mut plain = m.clone();
+    plain.st.ai = Default::default();
+    let old = plain.encode();
+    assert!(bytes.len() > old.len() + 1 && bytes.starts_with(&old));
+    assert_eq!(bytes[old.len()], 0, "해산 표시(거짓)가 먼저");
+    assert!(
+        Machine::decode(&old, Limits::default())
+            .unwrap()
+            .st
+            .ai
+            .is_empty()
+    );
+    let mut both = m.clone();
+    both.st.disbanded = true;
+    let back = Machine::decode(&both.encode(), Limits::default()).unwrap();
+    assert!(back.st.disbanded && back.st.ai == m.st.ai);
+}
+
+/// 멤버 자동 번역의 크루 언어: 권한·크루·형식·같은 값 거부, 정규 인코딩 꼬리(없으면 예전 바이트, 있으면 뒤에 붙음).
+#[test]
+fn crew_ai_auto_lang() {
+    let mut cr = crew();
+    let (o, a) = (&cr.o, &cr.a);
+    let set = |lang: Option<&str>| EventBody::CrewAiAutoSet {
+        lang: lang.map(Into::into),
+    };
+    let no_perm = cr.c.push(a, set(Some("ko")));
+    let bad = cr.c.push(o, set(Some("한국어")));
+    let off_same = cr.c.push(o, set(None));
+    let ok = cr.c.push(o, set(Some("ko")));
+    let same = cr.c.push(o, set(Some("ko")));
+    let r = cr.c.resolve();
+    assert_rejected(
+        &r,
+        no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_SPACE),
+    );
+    assert_rejected(&r, bad, AuthError::Invalid("크루 언어 코드"));
+    assert_rejected(&r, off_same, AuthError::Invalid("이미 그 자동 번역 설정"));
+    assert_applied(&r, ok);
+    assert_rejected(&r, same, AuthError::Invalid("이미 그 자동 번역 설정"));
+    assert_eq!(state(&r).ai.auto_lang.as_deref(), Some("ko"));
+
+    let mut res = Resolver::with_genesis(cr.genesis);
+    res.insert_events(cr.c.events.clone());
+    let m = res.machine.as_ref().expect("해소기 상태");
+    let bytes = m.encode();
+    let back = Machine::decode(&bytes, Limits::default()).unwrap();
+    assert_eq!(back.st.ai.auto_lang.as_deref(), Some("ko"));
+    // 프로필이 없어도 꼬리(해산 표시, 빈 AI 설정, 언어)가 붙고, 언어를 빼면 예전 바이트입니다.
+    let mut plain = m.clone();
+    plain.st.ai.auto_lang = None;
+    let old = plain.encode();
+    assert!(bytes.len() > old.len() && bytes.starts_with(&old));
+    let back_old = Machine::decode(&old, Limits::default()).unwrap();
+    assert!(back_old.st.ai.is_empty());
+    // 프로필이 있는 크루: 언어가 없으면 (해산 표시, AI 설정) 그대로, 언어는 그 뒤에 붙습니다.
+    let mut with_prof = m.clone();
+    with_prof.st.ai.profiles = vec![ai_profile("p", vec![])];
+    let lang_bytes = with_prof.encode();
+    with_prof.st.ai.auto_lang = None;
+    let prof_bytes = with_prof.encode();
+    assert!(lang_bytes.starts_with(&prof_bytes) && lang_bytes.len() > prof_bytes.len());
+    let back = Machine::decode(&prof_bytes, Limits::default()).unwrap();
+    assert_eq!((back.st.ai.profiles.len(), back.st.ai.auto_lang), (1, None));
+}
+
+#[test]
+fn ai_lang_code_format() {
+    for ok in ["ko", "en", "pt-BR", "zh-TW"] {
+        assert!(yangpa_core::model::valid_ai_lang_code(ok), "{ok}");
+    }
+    for bad in ["", "k", "한국어", "-en", "en_US", "abcdefghijklmnopq"] {
+        assert!(!yangpa_core::model::valid_ai_lang_code(bad), "{bad}");
+    }
+}
+
 fn nest(channel: ChannelId, parent: Option<ChannelId>) -> EventBody {
     EventBody::CategoryParentSet { channel, parent }
 }

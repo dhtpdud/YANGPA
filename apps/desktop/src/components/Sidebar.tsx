@@ -38,6 +38,7 @@ import { isPeerConnected } from '../voice/policy';
 import { AnonIcon, Avatar, ChannelIcon, P2pIcon, Popover, Spinner } from './common';
 import { MenuButton, MenuSep, NotifyItems, copyId, openPersonMenu } from './menus';
 import { StatusMenu, myDot, myStatusText } from './StatusMenu';
+import { TrName } from './Translated';
 
 /**
  * 커밋 대기(pending_commit): 멤버·기기 변경을 크루 키 그룹에 반영하는(키 갱신) 작업이 남음. 확정 기기만 할 수 있어서,
@@ -167,7 +168,9 @@ export function ChannelRow({ space, c, active, drag }: { space: SpaceView; c: Ch
           <ChannelIcon channel={c} />
           {c.p2p && <P2pIcon className="ch-p2p" />}
           {c.anonymous && <AnonIcon className="ch-anon" />}
-          <span className="ch-name">{c.settings.name}</span>
+          <span className="ch-name">
+            <TrName text={c.settings.name} space={space} />
+          </span>
           {ttl && <span className="ch-ttl">{ttl}</span>}
           {c.settings.join_mode === 'join_leave' && (
             <span className={cx('ch-join', c.joined && 'on')} title={c.joined ? t('입장함') : t('입장하지 않음')}>
@@ -432,7 +435,9 @@ export function ChannelSidebar({ space }: { space: SpaceView }) {
         <div className="cat-head" onPointerDown={canManage ? dnd.start(cat) : undefined}>
           <button type="button" className="cat-btn" onClick={() => setCollapsed({ ...collapsed, [cat.channel]: !isCollapsed })}>
             {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-            <span>{cat.settings.name}</span>
+            <span>
+              <TrName text={cat.settings.name} space={space} />
+            </span>
           </button>
           {canManage && (
             <>
@@ -455,7 +460,7 @@ export function ChannelSidebar({ space }: { space: SpaceView }) {
       <button type="button" className="sb-header" onClick={(e) => setMenu(e.currentTarget.getBoundingClientRect())}>
         <span className="sb-title">
           {space.kind === 'space' && <span className="tag">1:1</span>}
-          {title}
+          {space.kind === 'crew' ? <TrName text={title} space={space} /> : title}
         </span>
         <ChevronDown size={18} />
       </button>

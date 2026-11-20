@@ -1658,6 +1658,7 @@ pub(crate) mod tests_support {
             emoji_limits: Default::default(),
             emoji_by: Default::default(),
             disbanded: false,
+            ai: Default::default(),
         }
     }
 }

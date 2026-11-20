@@ -11,6 +11,7 @@
 //! 내용을 되살릴 수 없습니다.
 
 mod admin;
+mod ai_cache;
 mod blobs;
 mod db;
 mod error;
@@ -31,6 +32,7 @@ mod tests;
 mod testutil;
 
 pub use admin::{ApiTokenRecord, AuditEntry, PeerRecord, PendingConfirmation};
+pub use ai_cache::{AI_CACHE_MAX_ROWS, CachedTranslation};
 pub use blobs::{BlobStatus, BlobStore, ChunkWrite, PersistentBlob};
 pub use db::{BLOB_DIR_NAME, DB_FILE_NAME, Store, StoreOptions};
 pub use error::{Result, StoreError};

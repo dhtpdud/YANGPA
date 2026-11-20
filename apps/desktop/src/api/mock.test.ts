@@ -519,8 +519,8 @@ describe('MOCK 백엔드', () => {
     await client.call('channel.update', { space: sp, channel, overwrites: ok });
     expect(await read()).toEqual(ok.slice(0, 2));
     const bad: unknown[][] = [
-      // 비트 11은 크루 STUN 사용, 12는 예전 크루 TURN 사용(다시 쓰지 않음), 13은 많이 멘션하기라 쓰지 않는 14를 씁니다.
-      [{ target: everyone, allow: 2 ** 14, deny: 0 }],
+      // 비트 11은 크루 STUN 사용, 12는 예전 크루 TURN 사용(다시 쓰지 않음), 13은 많이 멘션하기, 14는 AI 번역 사용이라 쓰지 않는 15를 씁니다.
+      [{ target: everyone, allow: 2 ** 15, deny: 0 }],
       [{ target: everyone, allow: 1, deny: 1 }],
       [ok[0], { target: everyone, allow: 2, deny: 0 }],
       [{ target: { type: 'role', id: 'nope' }, allow: 1, deny: 0 }],

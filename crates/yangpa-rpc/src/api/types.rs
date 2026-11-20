@@ -13,7 +13,7 @@ use yangpa_core::badge::Badge;
 use yangpa_core::device::{DeviceEntry, Profile};
 use yangpa_core::ids::{BlobId, ChannelId, DeviceId, EmojiId, EventId, RoleId, SpaceId, UserId};
 use yangpa_core::model::{
-    ChannelSettings, EmojiLimits, Role, RoleDisplay, SpaceKind, SpaceSettings,
+    AiApi, ChannelSettings, CrewAiProfile, EmojiLimits, Role, RoleDisplay, SpaceKind, SpaceSettings,
 };
 use yangpa_core::time::Timestamp;
 
@@ -224,6 +224,12 @@ pub struct SpaceView {
     /// 소유자가 해산한 크루(`crew.disband`). 아무도 쓸 수 없고 `crew.leave`로 이 기기에서 지웁니다.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disbanded: bool,
+    /// 크루가 역할에 내주는 AI API 프로필(키 없음, `crew.set_ai_profiles`). 멤버 누구나 형식·주소·모델을 봅니다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ai_profiles: Vec<CrewAiProfile>,
+    /// 멤버 자동 번역의 크루 언어(`crew.set_ai_auto`, 앱 화면 언어 코드).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ai_auto_lang: Option<String>,
 }
 
 /// 채널 보기.
@@ -273,6 +279,32 @@ pub struct ChannelView {
     /// 끝 기준, 열면 받아 옴).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub has_new: bool,
+}
+
+/// 내 AI API 프로필(`ai.profiles`). 키는 돌려주지 않고 저장했는지만 알립니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiProfileView {
+    pub id: String,
+    pub name: String,
+    pub api: AiApi,
+    pub base_url: String,
+    pub model: String,
+    pub has_key: bool,
+}
+
+/// `ai.translate`의 답. 항목은 보낸 글과 같은 순서입니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiTranslateResult {
+    pub items: Vec<AiTranslation>,
+}
+
+/// 번역 하나. 이미 대상 언어였으면 `text`가 원문 그대로입니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiTranslation {
+    pub text: String,
+    /// 원문 언어 이름(대상 언어로 씀). 모르면 빈 칸.
+    #[serde(default)]
+    pub source: String,
 }
 
 /// 멤버 보기.

@@ -5,7 +5,7 @@
 // 게시글 메시지로 그립니다(MessageList의 게시글 행). 보기 설정(정렬·방향·보기·태그 맞춤)은 채널마다 이 기기에 기억합니다.
 
 import { ArrowLeft, Film, Image as ImageIcon, LayoutGrid, List, Lock, MessageSquare, Paperclip, Pencil, Pin, Play, Plus, Star } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { isRenderableMime } from '../api/client';
 import {
   ANONYMOUS_USER,
@@ -33,6 +33,16 @@ import { ForumCompose } from './ForumCompose';
 import { ForumEdit } from './ForumEdit';
 import { MessageItem } from './MessageItem';
 import { MessageList } from './MessageList';
+import { TrText, useTrText } from './Translated';
+
+/** 지금 보는 포럼(제목·미리보기·태그를 그 채널 내용으로 번역하려고). 목록 부품마다 공간·채널을 넘기지 않게 둡니다. */
+const ForumAt = createContext<{ space?: string; channel?: string }>({});
+
+/** 포럼 글의 짧은 글(제목·미리보기·태그). AI 번역을 켠 크루면 번역합니다(내 글은 본문처럼 그대로). */
+function Tr({ text, mine }: { text: string; mine?: boolean }) {
+  const at = useContext(ForumAt);
+  return mine ? <>{text}</> : <TrText text={text} space={at.space} channel={at.channel} />;
+}
 
 function PostTags({ ids, tags }: { ids: number[]; tags: ForumTag[] }) {
   return (
@@ -41,7 +51,7 @@ function PostTags({ ids, tags }: { ids: number[]; tags: ForumTag[] }) {
         const tg = tags.find((x) => x.id === id);
         return tg ? (
           <span key={id} className="tag">
-            {tg.emoji} {tg.name}
+            {tg.emoji} <Tr text={tg.name} />
           </span>
         ) : null;
       })}
@@ -73,7 +83,9 @@ export function ForumPostHeader({ post, tags, featured, editedAt }: { post: Foru
       <h2 className="forum-post-title">
         {post.pinned && <Pin size={16} className="pin" />}
         {post.locked && <Lock size={16} className="muted" />}
-        <span>{post.title}</span>
+        <span>
+          <Tr text={post.title} mine={post.mine} />
+        </span>
         {featured && <FeaturedBadge />}
       </h2>
       {post.tags.length > 0 && <PostTags ids={post.tags} tags={tags} />}
@@ -127,7 +139,9 @@ function PostTitle({ post }: { post: ForumPostView }) {
       {post.pinned && <Pin size={14} className="pin" />}
       {post.locked && <Lock size={14} className="muted" />}
       {post.featured && <FeaturedBadge />}
-      <span className="post-title-text">{post.title}</span>
+      <span className="post-title-text">
+        <Tr text={post.title} mine={post.mine} />
+      </span>
     </div>
   );
 }
@@ -139,7 +153,11 @@ function PostRow({ post, tags, members, onOpen }: { post: ForumPostView; tags: F
       <div className="post-main">
         <PostTitle post={post} />
         <PostTags ids={post.tags} tags={tags} />
-        {preview && <div className="post-preview">{preview}</div>}
+        {preview && (
+          <div className="post-preview">
+            <Tr text={preview} mine={post.mine} />
+          </div>
+        )}
         <PostMeta post={post} members={members} />
       </div>
       <div className="post-side">
@@ -175,7 +193,7 @@ function Cover({ space, post }: { space: string; post: ForumPostView }) {
   }
   if (c) return <div className="pc-cover empty">{isVideo ? <Film size={30} /> : <ImageIcon size={30} />}</div>;
   const preview = previewText(post);
-  return <div className="pc-cover text">{preview || <MessageSquare size={30} />}</div>;
+  return <div className="pc-cover text">{preview ? <Tr text={preview} mine={post.mine} /> : <MessageSquare size={30} />}</div>;
 }
 
 function PostCard({
@@ -323,7 +341,7 @@ function FeaturedPost({
         {meta.pinned && <Pin size={16} className="pin" />}
         {meta.locked && <Lock size={16} className="muted" />}
         <button type="button" className="ff-open" onClick={open}>
-          {meta.title}
+          <Tr text={meta.title} mine={meta.mine} />
         </button>
       </h2>
       {meta.tags.length > 0 && <PostTags ids={meta.tags} tags={channel.settings.forum_tags} />}
@@ -347,7 +365,11 @@ function FeaturedPost({
           />
         ) : (
           <div className="ff-preview">
-            {preview && <p>{preview}</p>}
+            {preview && (
+              <p>
+                <Tr text={preview} mine={meta.mine} />
+              </p>
+            )}
             {loading && <Spinner />}
           </div>
         )}
@@ -361,9 +383,23 @@ function FeaturedPost({
   );
 }
 
+/** 방금 고친 글은 목록을 다시 읽기 전까지 고친 값(mode.post)을 씁니다. */
+function freshest(post: ForumPostView, posts: ForumPostView[] | null): ForumPostView {
+  const listed = posts?.find((p) => p.id === post.id);
+  return listed && (listed.edited_at ?? 0) >= (post.edited_at ?? 0) ? listed : post;
+}
+
 type Mode = { kind: 'list' } | { kind: 'compose' } | { kind: 'post'; post: ForumPostView } | { kind: 'edit'; post: ForumPostView };
 
 export function ForumView({ space, channel }: { space: SpaceView; channel: ChannelView }) {
+  return (
+    <ForumAt.Provider value={{ space: space.space, channel: channel.channel }}>
+      <ForumBody space={space} channel={channel} />
+    </ForumAt.Provider>
+  );
+}
+
+function ForumBody({ space, channel }: { space: SpaceView; channel: ChannelView }) {
   const client = useStore((s) => s.client);
   const me = useStore((s) => s.me);
   const forumTick = useStore((s) => s.forumTick);
@@ -450,6 +486,8 @@ export function ForumView({ space, channel }: { space: SpaceView; channel: Chann
     const loaded = useStore.getState().channels[chKey(space.space, channel.channel, openPost.id)]?.loaded;
     if (!loaded) void loadLatest(space.space, channel.channel, openPost.id);
   }, [openPost, loadLatest, space.space, channel.channel]);
+  const replyPost = openPost ? freshest(openPost, posts) : null;
+  const replyTitle = useTrText(replyPost && !replyPost.mine ? replyPost.title : '', space.space, channel.channel);
 
   const setFeatured = async (post: EventId | null) => {
     if (!client) return;
@@ -482,9 +520,7 @@ export function ForumView({ space, channel }: { space: SpaceView; channel: Chann
   }
 
   if (mode.kind === 'post') {
-    // 방금 고친 글은 목록을 다시 읽기 전까지 고친 값(mode.post)을 씁니다.
-    const listed = posts?.find((p) => p.id === mode.post.id);
-    const post = listed && (listed.edited_at ?? 0) >= (mode.post.edited_at ?? 0) ? listed : mode.post;
+    const post = freshest(mode.post, posts);
     // 내 글이고 수정 금지 채널이 아니면 수정 페이지를 엽니다(익명 글도 내 글이면 mine).
     const canEdit = !!post.mine && !channel.no_edit && !!client;
     const editPost = canEdit ? () => setMode({ kind: 'edit', post }) : undefined;
@@ -503,7 +539,9 @@ export function ForumView({ space, channel }: { space: SpaceView; channel: Chann
           <div className="ft-title">
             {post.pinned && <Pin size={14} />}
             {post.locked && <Lock size={14} />}
-            <span>{post.title}</span>
+            <span>
+              <Tr text={post.title} mine={post.mine} />
+            </span>
           </div>
           {client && (canManage || canFeature || canEdit) && (
             <div className="ft-actions">
@@ -544,7 +582,7 @@ export function ForumView({ space, channel }: { space: SpaceView; channel: Chann
             <Lock size={14} /> {t('잠긴 글입니다')}
           </div>
         ) : (
-          <Composer space={space.space} channel={channel.channel} thread={post.id} channelView={channel} placeholder={t('「{title}」에 답글', { title: post.title })} />
+          <Composer space={space.space} channel={channel.channel} thread={post.id} channelView={channel} placeholder={t('「{title}」에 답글', { title: post.mine ? post.title : replyTitle })} />
         )}
       </div>
     );
@@ -587,7 +625,7 @@ export function ForumView({ space, channel }: { space: SpaceView; channel: Chann
             </button>
             {tags.map((tg) => (
               <button key={tg.id} type="button" className={cx('chip', selected.includes(tg.id) && 'active')} aria-pressed={selected.includes(tg.id)} onClick={() => toggleTag(tg.id)}>
-                {tg.emoji} {tg.name}
+                {tg.emoji} <Tr text={tg.name} />
               </button>
             ))}
             {tags.length > 1 && (

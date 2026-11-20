@@ -12,7 +12,7 @@ use yangpa_core::ids::{
     BlobId, CallId, ChannelId, DeviceId, EmojiId, EventId, RoleId, SpaceId, UserId,
 };
 use yangpa_core::model::{
-    ChannelKind, EmojiLimits, ForumTag, HistoryVisibility, JoinMode, PermissionOverwrite,
+    AiApi, ChannelKind, EmojiLimits, ForumTag, HistoryVisibility, JoinMode, PermissionOverwrite,
     SecurityLevel,
 };
 use yangpa_core::time::Timestamp;
@@ -1182,6 +1182,80 @@ pub struct CrewServersParams {
     pub space: SpaceId,
     #[serde(default)]
     pub stun: Vec<String>,
+}
+
+/// `ai.save_profile`: 내 AI API 프로필 만들기(`id` 없음)·고치기. `key`가 없으면 저장된 키를 그대로 둡니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiProfileSaveParams {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub name: String,
+    pub api: AiApi,
+    pub base_url: String,
+    pub model: String,
+    #[serde(default)]
+    pub key: Option<SecretString>,
+}
+
+/// `ai.models`: 공급자가 주는 모델 이름 목록. `key`가 없거나 비었으면 `id` 프로필에 저장한 키를 씁니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiModelsParams {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub api: AiApi,
+    pub base_url: String,
+    #[serde(default)]
+    pub key: Option<SecretString>,
+}
+
+/// `ai.delete_profile`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiProfileIdParams {
+    pub id: String,
+}
+
+/// `ai.translate`: 글 여러 개를 한 번에 번역합니다. `crew`면 `profile`은 `space` 크루가 내준 프로필이고, 아니면 내
+/// 프로필입니다. `space`·`channel`은 글이 있는 곳으로, 채널 AI 역할과 휘발성 채널을 검사합니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiTranslateParams {
+    pub profile: String,
+    #[serde(default)]
+    pub crew: bool,
+    #[serde(default)]
+    pub space: Option<SpaceId>,
+    #[serde(default)]
+    pub channel: Option<ChannelId>,
+    /// 원문 언어(자연어). 없으면 글마다 알아냅니다.
+    #[serde(default)]
+    pub source: Option<String>,
+    /// 번역할 언어(자연어, 예: `한국어`, `쉬운 한국어`, `English (US)`).
+    pub target: String,
+    pub texts: Vec<String>,
+}
+
+/// `crew.set_ai_profiles`: 크루가 내주는 AI 프로필 목록 전체(`manage_space`). `id`가 내 프로필이면 지금 내용과 키를
+/// 실어 내주고(이미 내준 것이면 새로 고침), 아니면 이미 내준 크루 프로필을 그대로 둡니다. 빠진 프로필은 내주지 않습니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewAiProfilesParams {
+    pub space: SpaceId,
+    pub profiles: Vec<CrewAiProfileInput>,
+}
+
+/// `crew.set_ai_auto`: 멤버 자동 번역의 크루 언어(앱 화면 언어 코드, `None`이면 끔). 화면 언어가 이와 다르고 크루
+/// 프로필을 쓸 수 있는 멤버는 따로 끄지 않았으면 번역이 켜집니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewAiAutoParams {
+    pub space: SpaceId,
+    #[serde(default)]
+    pub lang: Option<String>,
+}
+
+/// [`CrewAiProfilesParams`]의 항목.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewAiProfileInput {
+    pub id: String,
+    #[serde(default)]
+    pub roles: Vec<RoleId>,
 }
 
 /// `crew.use_servers`: 이 기기가 그 크루의 STUN 서버를 쓸지(이 기기에만 저장).

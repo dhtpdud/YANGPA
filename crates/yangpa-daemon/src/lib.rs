@@ -36,6 +36,7 @@ pub(crate) mod topics;
 
 // 다른 작업 영역(자리표시·고리 함수). docs/daemon.md "모듈 소유" 참고.
 pub(crate) mod admin;
+pub(crate) mod ai;
 pub(crate) mod anon;
 pub(crate) mod archive;
 pub(crate) mod badges;

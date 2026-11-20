@@ -65,6 +65,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_posts: t('포럼 글쓰기'),
   use_crew_stun: t('크루 STUN 사용'),
   mention_many: t('많이 멘션하기(20명 넘게, @everyone·@here)'),
+  use_ai_translate: t('AI 번역 사용'),
   manage_messages: t('메시지 관리'),
   manage_channels: t('채널 관리'),
   manage_roles: t('역할 관리'),

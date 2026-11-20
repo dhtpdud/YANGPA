@@ -10,7 +10,8 @@ import { formatLastSeen } from '../lib/format';
 import { byLevelDesc, cx, displayName, roleColor, topRole } from '../lib/misc';
 import { useStore } from '../store/store';
 import { BackButton } from './BackButton';
-import { AnonIcon, Avatar, BannerBack, EmojiText } from './common';
+import { TrText } from './Translated';
+import { AnonIcon, Avatar, BannerBack } from './common';
 import { openPersonMenu } from './menus';
 
 const PAGE = 200;
@@ -109,10 +110,10 @@ export function MemberList({ space }: { space: SpaceView }) {
       } else online.push(m);
     }
     const sortByName = (a: MemberView, b: MemberView) => displayName(a).localeCompare(displayName(b), currentLang());
-    const out: Array<{ id: string; label: string; members: MemberView[] }> = [];
+    const out: Array<{ id: string; label: string; members: MemberView[]; role?: boolean }> = [];
     for (const r of roles) {
       const list = byRole.get(r.id);
-      if (list?.length) out.push({ id: r.id, label: r.name, members: list.sort(sortByName) });
+      if (list?.length) out.push({ id: r.id, label: r.name, members: list.sort(sortByName), role: true });
     }
     if (online.length) out.push({ id: 'online', label: t('온라인'), members: online.sort(sortByName) });
     // 최근은 데몬 순서(마지막 연결 최신 순) 그대로.
@@ -154,7 +155,7 @@ export function MemberList({ space }: { space: SpaceView }) {
       {sections.map((sec) => (
         <div key={sec.id} className="mem-section">
           <div className="mem-head">
-            <EmojiText text={sec.label} /> — {sec.members.length}
+            {sec.role ? <TrText text={sec.label} space={space.space} emoji /> : sec.label} — {sec.members.length}
           </div>
           {sec.members.map((m) => {
             const role = topRole(m, space.roles);

@@ -311,7 +311,7 @@ export function ContentViewer(props: ViewerProps) {
                 <strong>{author}</strong>
                 <span className="muted">{formatFull(item.msg.created_at)}</span>
               </div>
-              <MessageText text={item.msg.text} members={members} me={me} />
+              <MessageText text={item.msg.text} members={members} me={me} space={space} />
             </article>
           ) : item.type === 'image' || item.type === 'video' ? (
             <ViewerMedia

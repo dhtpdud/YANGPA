@@ -2159,6 +2159,11 @@ fn deleted_view(rt: &ChanRt, id: &EventId) -> Option<MessageView> {
     })
 }
 
+/// 이 휘발성 채널을 API(자동화 토큰·AI 번역)가 읽도록 허용했는지(`channel.allow_api_read`).
+pub(crate) fn api_read_allowed(node: &Node, space: &SpaceId, channel: &ChannelId) -> bool {
+    node.volatile.api_read.lock().contains(&(*space, *channel))
+}
+
 /// 채널 보기 채우기(휘발성 채널만). 입장 여부(입장·퇴장 방식), 참가자, 읽지 않은 수, API 읽기 허용.
 pub(crate) fn fill_channel_view(
     node: &Node,

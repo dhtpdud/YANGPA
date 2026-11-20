@@ -8,8 +8,8 @@
 //! - 끈 노드도 gossip을 쓰는 크루에서는 묶음 16개를 모두 구독합니다. 켠 노드가 묶음에 올린 글을 끈 노드가 실시간으로
 //!   받게 하려는 것으로, 끈 노드가 받는 양은 크루 토픽 하나일 때와 같습니다. 끈 노드는 예전처럼 크루 토픽에 올립니다.
 //! - 묶음 토픽에 받을 피어가 없으면(`NoPeers`) 크루 토픽에 싣습니다.
-//! - 알림 토픽 중계: 모두 보는 채널의 메시지이고 멘션이나 답장이 있어야 하며, 멘션이 20명을 넘거나 `@everyone`·`@here`가
-//!   있으면 그 채널에서 `MENTION_MANY`가 있어야 합니다. 작성 기기마다 몰아서 30개, 분당 10개. 어기면 더 퍼뜨리지 않습니다(`Ignore`).
+//! - 알림 토픽 중계: 모두 보는 채널의 메시지이고 멘션이나 답장이 있어야 하며, 멘션이 20명을 넘거나 `@everyone`·`@here`·역할
+//!   태그(`<@&ID>`)가 있으면 그 채널에서 `MENTION_MANY`가 있어야 합니다. 작성 기기마다 몰아서 30개, 분당 10개. 어기면 더 퍼뜨리지 않습니다(`Ignore`).
 //! - 안 읽음 힌트: 켠 노드는 1분마다 연결된 멤버 한 곳에 따라가지 않는 채널의 끝(`GetChannelTips`)을 묻고, 이 기기가 가진
 //!   것보다 늦은 메시지가 있는 채널에 `ChannelView::has_new`를 켭니다(RAM에만).
 
@@ -329,8 +329,9 @@ pub(crate) fn event_bucket(
     bucket_channel(index, state, &c).then(|| GossipTopic::Bucket(*space, channel_bucket(space, &c)))
 }
 
-/// 알림 토픽에 실을 메시지인지: 모두 보는 채널의 메시지, 멘션·답장·모두 멘션(`@everyone`·`@here`)이 있음, 멘션이
-/// 많거나 모두 멘션이면 `MENTION_MANY`. 본문은 받은(또는 쓴) 뒤 저장된 메시지 행에서 봅니다(아직 열지 못했으면 싣지 않음).
+/// 알림 토픽에 실을 메시지인지: 모두 보는 채널의 메시지, 멘션·답장·모두 멘션(`@everyone`·`@here`)·역할 태그가 있음,
+/// 멘션이 많거나 모두 멘션·역할 태그면 `MENTION_MANY`. 본문은 받은(또는 쓴) 뒤 저장된 메시지 행에서 봅니다(아직 열지
+/// 못했으면 싣지 않음).
 pub(crate) fn notify_worthy(
     node: &Node,
     state: &SpaceState,
@@ -353,7 +354,9 @@ pub(crate) fn notify_worthy(
         return false;
     };
     let m = &content.body;
-    let broadcast = crate::messages::broadcast_mention(&m.text).is_some();
+    // 역할 태그도 여러 사람을 부르므로 모두 멘션처럼 다룹니다.
+    let broadcast = crate::messages::broadcast_mention(&m.text).is_some()
+        || crate::messages::tagged_roles(&m.text).next().is_some();
     if m.mentions.is_empty() && m.reply_to.is_none() && !broadcast {
         return false;
     }

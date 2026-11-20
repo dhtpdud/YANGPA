@@ -9,13 +9,14 @@ import { Ban, Gauge, Lock, MessageCircle, ShieldCheck, ShieldAlert, UserMinus } 
 import { useEffect, useState } from 'react';
 import type { Profile, SafetyNumberView, UserDeviceView } from '../api/types';
 import { BadgeIcon, ShownBadges, useBadges } from '../components/Badges';
-import { Avatar, EmojiText, ProposeFriendButton, Spinner, StillImg, avatarIndex, useImageBlobSrc } from '../components/common';
+import { Avatar, ProposeFriendButton, Spinner, StillImg, avatarIndex, useImageBlobSrc } from '../components/common';
 import { t, tc } from '../i18n';
 import { formatExpiresIn, formatLastSeen, groupDigits } from '../lib/format';
 import { byLevelDesc, displayName, hasPerm, outranks, roleColor } from '../lib/misc';
 import { useStore } from '../store/store';
 import { Modal } from './Modal';
 import { TrustSection } from './Trust';
+import { TrText } from '../components/Translated';
 
 export function FriendProfileModal({ user, tab: initialTab, onClose }: { user: string; tab?: 'settings'; onClose: () => void }) {
   const client = useStore((s) => s.client);
@@ -170,7 +171,7 @@ export function FriendProfileModal({ user, tab: initialTab, onClose }: { user: s
               {roles.map((r) => (
                 <span key={r.id} className="role-chip">
                   <span className="role-dot" style={{ background: roleColor(r.color) ?? 'var(--text-muted)' }} />
-                  <EmojiText text={r.name} />
+                  <TrText text={r.name} space={space?.space} emoji />
                 </span>
               ))}
             </div>

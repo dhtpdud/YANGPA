@@ -19,7 +19,7 @@ import { Attachment, Embed } from './Attachment';
 import { Avatar, CustomEmoji, Popover, copyText } from './common';
 import { MenuButton, openPersonMenu } from './menus';
 import { EmojiPicker } from './EmojiPicker';
-import { MessageText } from './MessageText';
+import { MessageBody } from './Translated';
 
 /**
  * 메시지 메뉴의 파일 관리: 공유 중단·재개와 첨부 보관. 라이브러리와 같은 동작(hooks/sharing·pins)입니다.
@@ -294,7 +294,7 @@ export const MessageItem = memo(function MessageItem(p: MessageItemProps) {
             <>
               {m.text && (
                 <div className="msg-body">
-                  <MessageText text={m.text} members={members} me={me} />
+                  <MessageBody text={m.text} space={space} channel={channel} members={members} me={me} skip={mine} />
                   {/* 게시글은 제목 아래(ForumPostHeader)에 고친 일시를 따로 보입니다. */}
                   {m.edited_at && !p.post && (
                     <span className="edited" title={t('{time}에 수정', { time: formatFull(m.edited_at) })}>

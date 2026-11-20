@@ -31,9 +31,41 @@ struct CanonRef<'a> {
     delegation: &'a Option<DelegationCert>,
     retired_invites: &'a imbl::OrdSet<[u8; 32]>,
     keys: &'a CrewKeys,
-    /// 해산 표시. 거짓이면 싣지 않아, 해산하지 않은 크루의 바이트·상태 해시가 해산을 모르는 빌드와 같습니다.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    /// 해산 표시와 AI 설정. 둘 다 기본값이면 싣지 않아, 해산하지 않고 AI 설정이 없는 크루의 바이트·상태 해시가 이를
+    /// 모르는 빌드와 같습니다.
+    #[serde(skip_serializing_if = "Tail::is_default")]
+    tail: Tail<'a>,
+}
+
+/// 정규 인코딩 끝의 선택 꼬리. AI 설정이 비었으면 해산 표시만(예전 바이트 그대로), 있으면 해산 표시(거짓이라도) 뒤에
+/// AI 설정을 싣고, 자동 번역 크루 언어가 있을 때만 그 뒤에 더 싣습니다(없으면 이 칸을 모르는 빌드와 같은 바이트).
+/// postcard 튜플은 길이를 싣지 않아 값이 이어 붙습니다.
+struct Tail<'a> {
     disbanded: bool,
+    ai: &'a CrewAi,
+}
+
+impl Tail<'_> {
+    fn is_default(&self) -> bool {
+        !self.disbanded && self.ai.is_empty()
+    }
+}
+
+impl Serialize for Tail<'_> {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeTuple;
+        if self.ai.is_empty() {
+            return s.serialize_bool(self.disbanded);
+        }
+        let auto = self.ai.auto_lang.as_ref();
+        let mut t = s.serialize_tuple(if auto.is_some() { 3 } else { 2 })?;
+        t.serialize_element(&self.disbanded)?;
+        t.serialize_element(self.ai)?;
+        if let Some(lang) = auto {
+            t.serialize_element(lang)?;
+        }
+        t.end()
+    }
 }
 
 /// 정규 인코딩(읽기).
@@ -64,12 +96,26 @@ struct CanonOwned {
     keys: CrewKeys,
     #[serde(deserialize_with = "trailing_flag")]
     disbanded: bool,
+    #[serde(deserialize_with = "trailing_ai")]
+    ai: CrewAi,
+    #[serde(deserialize_with = "trailing_lang")]
+    ai_auto_lang: Option<String>,
 }
 
 /// 정규 인코딩 끝의 선택 표시: 바이트가 끝났으면(해산하지 않은 크루) 거짓입니다. 깨진 바이트도 거짓이 되지만 상태 해시
 /// 검사가 걸러 냅니다.
 fn trailing_flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     Ok(bool::deserialize(d).unwrap_or(false))
+}
+
+/// 해산 표시 뒤의 선택 AI 설정: 바이트가 끝났으면 빈 설정입니다.
+fn trailing_ai<'de, D: serde::Deserializer<'de>>(d: D) -> Result<CrewAi, D::Error> {
+    Ok(CrewAi::deserialize(d).unwrap_or_default())
+}
+
+/// AI 설정 뒤의 선택 자동 번역 크루 언어: 바이트가 끝났으면 없음입니다.
+fn trailing_lang<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    Ok(String::deserialize(d).ok())
 }
 
 impl Machine {
@@ -282,7 +328,10 @@ impl Machine {
             delegation: &self.delegation,
             retired_invites: &self.retired_invites,
             keys: &self.keys,
-            disbanded: self.st.disbanded,
+            tail: Tail {
+                disbanded: self.st.disbanded,
+                ai: &self.st.ai,
+            },
         };
         postcard::to_stdvec(&c).expect("상태 직렬화는 실패하지 않음")
     }
@@ -309,6 +358,10 @@ impl Machine {
             genesis: c.genesis,
             st: SpaceState {
                 disbanded: c.disbanded,
+                ai: CrewAi {
+                    auto_lang: c.ai_auto_lang,
+                    ..c.ai
+                },
                 ..c.st
             },
             deleted_channels: c.deleted_channels,
