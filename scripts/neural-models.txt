@@ -9,7 +9,9 @@ mimi/decoder_model.onnx ea750bbc62723e3074911df02429e3683f074dde9057034583b7e0dd
 dac/encoder_model.onnx 7f985f37236fa5ef581285bd9644f372c06e74bd4767cfb524ee94558228343d https://huggingface.co/onnx-community/dac_24khz-ONNX/resolve/4b180296388b0cebdca8191db999e87b03cd7a95/onnx/encoder_model_fp16.onnx
 dac/decoder_model.onnx adf016cf402816d0639fe3cd791580f85e48980259a6f3e3c4993c5a2d661ff8 https://huggingface.co/onnx-community/dac_24khz-ONNX/resolve/4b180296388b0cebdca8191db999e87b03cd7a95/onnx/decoder_model_fp16.onnx
 # ONNX Runtime 1.30.0(Microsoft, MIT). 앱이 실행 중에 엽니다(ort load-dynamic).
-onnxruntime/onnxruntime.dll 7e39e2bdbba836d98071ef28620735ba36a47c554cf794585269aecc50fab0da https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/lib/onnxruntime.dll
-onnxruntime/onnxruntime_providers_shared.dll b9b7ab9e2a8b08ee7ae4a7ac1c8bfd44a741f17ad8d0f764953140a57de0b796 https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/lib/onnxruntime_providers_shared.dll
-onnxruntime/LICENSE c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674 https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/LICENSE
-onnxruntime/ThirdPartyNotices.txt c53a76501ef60db6f865f20599f220761201ac4057683acefdab37d861b86622 https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip onnxruntime-win-x64-1.30.0/ThirdPartyNotices.txt
+# Microsoft 공식 NuGet 패키지(nupkg는 zip)에서 꺼냅니다. GitHub 릴리스(microsoft/onnxruntime)가 404가 되어 2026-11-21에 옮김(꺼낸
+# 파일은 그 zip과 바이트까지 같음).
+onnxruntime/onnxruntime.dll 7e39e2bdbba836d98071ef28620735ba36a47c554cf794585269aecc50fab0da https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.30.0/microsoft.ml.onnxruntime.1.30.0.nupkg runtimes/win-x64/native/onnxruntime.dll
+onnxruntime/onnxruntime_providers_shared.dll b9b7ab9e2a8b08ee7ae4a7ac1c8bfd44a741f17ad8d0f764953140a57de0b796 https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.30.0/microsoft.ml.onnxruntime.1.30.0.nupkg runtimes/win-x64/native/onnxruntime_providers_shared.dll
+onnxruntime/LICENSE c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674 https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.30.0/microsoft.ml.onnxruntime.1.30.0.nupkg LICENSE
+onnxruntime/ThirdPartyNotices.txt c53a76501ef60db6f865f20599f220761201ac4057683acefdab37d861b86622 https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.30.0/microsoft.ml.onnxruntime.1.30.0.nupkg ThirdPartyNotices.txt
