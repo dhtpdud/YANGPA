@@ -1,5 +1,7 @@
 //! 이벤트 본문(암호화 전 평문). postcard로 직렬화한 뒤 패딩·암호화합니다.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -14,8 +16,8 @@ use crate::ids::{
 };
 use crate::keyupdate::KeyUpdatePayload;
 use crate::model::{
-    ChannelSettings, ChannelTransport, CrewAiProfile, EmojiLimits, Flair, Member, Permissions,
-    Role, RoleDisplay, SpaceKind, SpaceSettings,
+    ChannelSettings, ChannelTransport, CrewAiProfile, EmojiLimits, Flair, Member, Onboarding,
+    Permissions, Role, RoleDisplay, SpaceKind, SpaceSettings,
 };
 use crate::sign::{Sig, SignDomain, SigningKeypair, verify};
 use crate::time::Timestamp;
@@ -594,6 +596,25 @@ pub enum EventBody {
     CrewAiAutoSet {
         lang: Option<String>,
     },
+    /// 크루 온보딩 설정 전체(코드 107). 크루에서만, `MANAGE_SPACE`, 한도·형식([`Onboarding::check_limits`]), 선택지 역할은
+    /// 있는 역할·@everyone 아님·관리자 권한 없음, 더하거나 뺀 선택지 역할은 작성자가 줄 수 있어야 함(`MANAGE_ROLES`, 그
+    /// 역할보다 높은 순위), 지금과 달라야 함.
+    CrewOnboardingSet {
+        onboarding: Onboarding,
+    },
+    /// 온보딩에서 작성자가 고른 역할(코드 108). 작성자의 역할 중 지금 온보딩 선택지가 주는 역할을 이 목록으로 바꾸고
+    /// 나머지 역할은 그대로 둡니다. 목록의 역할은 모두 선택지에 있고, 있는 역할이며 관리자 권한이 없어야 함. 단일 선택·
+    /// 필수 질문은 앱이 지킵니다(어겨도 고를 수 있는 역할을 받을 뿐).
+    OnboardingPick {
+        roles: Vec<RoleId>,
+    },
+    /// 크루 온보딩의 한 언어 번역(코드 109): 원문 → 번역문 전체, 빈 목록이면 그 언어 지우기. 크루에서만, `MANAGE_SPACE`,
+    /// 언어 코드 형식(`valid_ai_lang_code`), 원문은 지금 온보딩에 있고 번역문은 그 칸의 한도·형식([`Onboarding::check_lang`]),
+    /// 언어 수 한도, 지금과 달라야 함. 온보딩을 바꾸면 사라진 원문의 번역은 빠집니다.
+    CrewOnboardingLangSet {
+        lang: String,
+        texts: BTreeMap<String, String>,
+    },
 }
 
 /// 휘발성 세션 키 회전 공지. 회전한 기기가 서명하고 지금 참가자에게 직접 보냅니다. 키는 참가자마다 따로 미는 감싸기
@@ -704,6 +725,9 @@ impl EventBody {
             EventBody::CrewAiProfilesSet { .. } => EventKind::CrewAiProfilesSet,
             EventBody::ChannelAiRolesSet { .. } => EventKind::ChannelAiRolesSet,
             EventBody::CrewAiAutoSet { .. } => EventKind::CrewAiAutoSet,
+            EventBody::CrewOnboardingSet { .. } => EventKind::CrewOnboardingSet,
+            EventBody::OnboardingPick { .. } => EventKind::OnboardingPick,
+            EventBody::CrewOnboardingLangSet { .. } => EventKind::CrewOnboardingLangSet,
         }
     }
 
@@ -1340,6 +1364,92 @@ mod tests {
             EventBody::decode(&ai_auto.encode().unwrap(), EventKind::CrewAiAutoSet).unwrap(),
             ai_auto
         );
+        let onboarding = EventBody::CrewOnboardingSet {
+            onboarding: Onboarding {
+                welcome: "어서 오세요".into(),
+                questions: vec![crate::model::OnboardingQuestion {
+                    title: "무엇을 하나요?".into(),
+                    multiple: true,
+                    required: false,
+                    options: vec![crate::model::OnboardingOption {
+                        label: "그림".into(),
+                        description: String::new(),
+                        roles: vec![RoleId([4; 16])],
+                    }],
+                }],
+            },
+        };
+        assert_eq!(index(&onboarding), 56);
+        assert_eq!(
+            EventBody::decode(&onboarding.encode().unwrap(), EventKind::CrewOnboardingSet).unwrap(),
+            onboarding
+        );
+        // 모든 한도를 채운 설정(3바이트 글자)도 패딩(최대 몇 %)·인증 태그를 붙여 본문 한도 안에 듭니다.
+        let text = |n: usize| "가".repeat(n);
+        let full = EventBody::CrewOnboardingSet {
+            onboarding: Onboarding {
+                welcome: text(crate::model::MAX_ONBOARDING_WELCOME),
+                questions: vec![
+                    crate::model::OnboardingQuestion {
+                        title: text(crate::model::MAX_ONBOARDING_TEXT),
+                        multiple: true,
+                        required: true,
+                        options: vec![
+                            crate::model::OnboardingOption {
+                                label: text(crate::model::MAX_ONBOARDING_LABEL),
+                                description: text(crate::model::MAX_ONBOARDING_TEXT),
+                                roles: vec![
+                                    RoleId([4; 16]);
+                                    crate::model::MAX_ONBOARDING_OPTION_ROLES
+                                ],
+                            };
+                            crate::model::MAX_ONBOARDING_OPTIONS
+                        ],
+                    };
+                    crate::model::MAX_ONBOARDING_QUESTIONS
+                ],
+            },
+        };
+        if let EventBody::CrewOnboardingSet { onboarding } = &full {
+            assert_eq!(onboarding.check_limits(), Ok(()));
+        }
+        assert!(full.encode().unwrap().len() <= crate::event::MAX_BODY_LEN * 7 / 8);
+        let pick = EventBody::OnboardingPick {
+            roles: vec![RoleId([4; 16])],
+        };
+        assert_eq!(index(&pick), 57);
+        assert_eq!(
+            EventBody::decode(&pick.encode().unwrap(), EventKind::OnboardingPick).unwrap(),
+            pick
+        );
+        let lang = EventBody::CrewOnboardingLangSet {
+            lang: "en".into(),
+            texts: [("그림".to_owned(), "Drawing".to_owned())].into(),
+        };
+        assert_eq!(index(&lang), 58);
+        assert_eq!(
+            EventBody::decode(&lang.encode().unwrap(), EventKind::CrewOnboardingLangSet).unwrap(),
+            lang
+        );
+        // 번역 바이트 한도를 채운 한 언어도 본문 한도 안에 듭니다.
+        let mut texts = BTreeMap::new();
+        let mut bytes = 0;
+        for i in 0.. {
+            let (k, v) = (
+                format!("{i:05}{}", text(95)),
+                text(crate::model::MAX_ONBOARDING_TEXT),
+            );
+            if bytes + k.len() + v.len() > crate::model::MAX_ONBOARDING_LANG_BYTES {
+                break;
+            }
+            bytes += k.len() + v.len();
+            texts.insert(k, v);
+        }
+        let full_lang = EventBody::CrewOnboardingLangSet {
+            lang: "zh-TW".into(),
+            texts,
+        };
+        assert!(full_lang.encode().unwrap().len() <= crate::event::MAX_BODY_LEN * 7 / 8);
         // 2판의 MLS 종류(80·81)는 다시 쓰지 않으므로 이 판에서는 모르는 종류입니다.
         assert_eq!(EventKind::from_code(80), EventKind::Other(80));
         assert_eq!(EventKind::from_code(81), EventKind::Other(81));

@@ -339,6 +339,8 @@ fn build(users: usize, devices: usize) -> Crew {
         emoji_by: Default::default(),
         disbanded: false,
         ai: Default::default(),
+        onboarding: Default::default(),
+        onboarding_langs: Default::default(),
     };
     Crew {
         space: SpaceId(tag16(0x71, 0)),

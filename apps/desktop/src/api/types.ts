@@ -463,6 +463,32 @@ export interface SpaceView {
   ai_profiles?: CrewAiProfile[];
   /** 멤버 자동 번역의 크루 언어(`crew.set_ai_auto`, 앱 화면 언어 코드). */
   ai_auto_lang?: string;
+  /** 크루 온보딩(`crew.set_onboarding`). 질문이 있으면 새 멤버에게 답할 창을 띄웁니다. 없으면 생략. */
+  onboarding?: Onboarding;
+  /** 온보딩 번역(`crew.set_onboarding_lang`): 언어 코드 → 원문 → 번역문. 없는 칸은 원문으로 보입니다. 없으면 생략. */
+  onboarding_langs?: Record<string, Record<string, string>>;
+}
+
+/** 크루 온보딩: 새 멤버가 답하는 질문과, 고른 선택지가 주는 역할. 질문이 없으면 꺼짐. */
+export interface Onboarding {
+  welcome: string;
+  questions: OnboardingQuestion[];
+}
+
+export interface OnboardingQuestion {
+  title: string;
+  /** 여러 개 고르기. */
+  multiple: boolean;
+  /** 답해야 마칠 수 있음. */
+  required: boolean;
+  options: OnboardingOption[];
+}
+
+export interface OnboardingOption {
+  label: string;
+  description: string;
+  /** 고르면 받는 역할(1~8개). */
+  roles: RoleId[];
 }
 
 /** 크루 STUN 서버 목록(`space.get`의 `crew_servers`, `crew.set_servers`). 8줄까지. */
@@ -1358,6 +1384,11 @@ export interface Methods {
   /** 크루가 역할에 내주는 AI 프로필 목록 전체(`manage_space`, 사람만). 내 프로필 id면 지금 내용과 키를 실어 내줌. */
   'crew.set_ai_profiles': [{ space: SpaceId; profiles: { id: string; roles: RoleId[] }[] }, Empty];
   'crew.set_ai_auto': [{ space: SpaceId; lang?: string | null }, Empty];
+  /** 크루 온보딩 설정 전체(`manage_space`, 선택지 역할은 내가 줄 수 있는 역할만, 사람만). */
+  'crew.set_onboarding': [{ space: SpaceId; onboarding: Onboarding }, Empty];
+  /** 온보딩 답(질문 순서대로 고른 선택지 번호). 선택지가 주는 역할 중 고르지 않은 것은 뺍니다. */
+  'crew.onboarding_pick': [{ space: SpaceId; answers: number[][] }, Empty];
+  'crew.set_onboarding_lang': [{ space: SpaceId; lang: string; texts: Record<string, string> }, Empty];
   'member.list': [SpaceParams, MemberView[]];
   /** 큰 크루용 멤버 목록 쪽(온라인·최근 거르기, 이름 검색). */
   'member.search': [MemberSearchParams, MemberPage];

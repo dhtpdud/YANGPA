@@ -1,6 +1,6 @@
 //! 크루 영역(B1) 통합 시험: 초대 가입, 3자 대화, 권한·순위(API와 적용 경로), 추방·탈퇴, 비공개 채널, 이모지,
 //! 소유권 이전, 1:1→크루 전환, 포럼 게시글 변경 순서, 초대 만료·횟수·폐기, 커밋 확정 노드가 꺼졌을 때, P2P 전용 채널,
-//! 신뢰 스위치, 크루 STUN 서버.
+//! 신뢰 스위치, 크루 STUN 서버, 크루 온보딩.
 //!
 //! 노드는 한 프로세스 안에서 127.0.0.1로 직접 연결합니다(`common` 참고). 고정 sleep 없이 조건을 기다립니다.
 
@@ -12,8 +12,9 @@ use yangpa_core::event::{EventKind, StreamId};
 use yangpa_core::ids::{BlobId, ChannelId, EventId, RoleId, SpaceId, UserId};
 use yangpa_core::links::InviteLink;
 use yangpa_core::model::{
-    ChannelKind, EmojiLimits, ForumTag, HistoryVisibility, OverwriteTarget, PermissionOverwrite,
-    Permissions, SecurityLevel, SpaceKind,
+    ChannelKind, EmojiLimits, ForumTag, HistoryVisibility, Onboarding, OnboardingOption,
+    OnboardingQuestion, OverwriteTarget, PermissionOverwrite, Permissions, SecurityLevel,
+    SpaceKind,
 };
 use yangpa_core::time::Timestamp;
 use yangpa_core::wire::{AiTranslateAsk, LamportRange, WireErrorCode, YpRequest, YpResponse};
@@ -33,6 +34,7 @@ use yangpa_rpc::api::{
     SortOrder, SpaceChannelParams, SpaceParams, TagMatch, TransferOwnershipParams, UrlParams, m,
 };
 use yangpa_rpc::api::{ConnectionMode, TrustSetSpaceParams, TrustSetUserParams, UserParams};
+use yangpa_rpc::api::{CrewOnboardingLangParams, CrewOnboardingParams, CrewOnboardingPickParams};
 use yangpa_rpc::api::{CrewServersParams, CrewUseServersParams};
 use yangpa_rpc::api::{Empty, FileCircuitsParams, MessageListParams};
 use yangpa_rpc::api::{Method, Notification, Scope};
@@ -1454,6 +1456,130 @@ async fn disband_ends_crew_for_all_and_leave_purges() {
     // 소유자가 아닌 멤버도 나가기로 지웁니다(해산한 크루는 탈퇴 이벤트를 내지 않음).
     b.ok::<m::CrewLeave>(SpaceParams { space }).await;
     assert!(!testkit::known_spaces(&b.node).contains(&space));
+}
+
+/// 크루 온보딩: 관리자만 설정하고(관리자 역할·빈 선택지 거부), 멤버가 답하면 고른 선택지의 역할만 바뀌어 다른 멤버도
+/// 보고 그 역할의 비공개 채널이 열리고 닫히며, 다시 켜도 설정과 고른 역할이 남습니다(이벤트를 다시 해소).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn crew_onboarding_set_and_pick() {
+    let cl = Cluster::new();
+    let (a, mut b, c, space, _channel) = three_member_crew(&cl).await;
+    let art = create_role(&a, space, "그림", &[], 1).await;
+    let music = create_role(&a, space, "음악", &[], 2).await;
+    let admin = create_role(&a, space, "관리", &["administrator"], 3).await;
+    for n in [&b, &c] {
+        wait_role_known(n, space, music).await;
+        wait_role_known(n, space, admin).await;
+    }
+    // ‘그림’ 역할만 보는 비공개 채널.
+    let b_dev = testkit::device_id(&b.node).unwrap();
+    let mut p = channel_params(space, "그림방", ChannelKind::Text);
+    p.private_roles = Some(vec![art]);
+    p.history = Some(HistoryVisibility::Public);
+    let secret = a.ok::<m::ChannelCreate>(p).await.channel;
+    eventually("A가 비공개 채널 그룹을 만듦", || async {
+        testkit::channel_key_seq(&a.node, &space, secret)
+    })
+    .await;
+    a.send(space, secret, "그림 이야기").await;
+    let ob = |options: Vec<Vec<RoleId>>| Onboarding {
+        welcome: "어서 오세요".into(),
+        questions: vec![OnboardingQuestion {
+            title: "무엇을 하나요?".into(),
+            multiple: true,
+            required: true,
+            options: options
+                .into_iter()
+                .enumerate()
+                .map(|(i, roles)| OnboardingOption {
+                    label: format!("선택지{i}"),
+                    description: String::new(),
+                    roles,
+                })
+                .collect(),
+        }],
+    };
+    let set = |onboarding| CrewOnboardingParams { space, onboarding };
+    let r = b
+        .call::<m::CrewSetOnboarding>(set(ob(vec![vec![art]])))
+        .await;
+    assert_eq!(code(r), ERR_FORBIDDEN, "관리 권한 없는 멤버");
+    let r = a
+        .call::<m::CrewSetOnboarding>(set(ob(vec![vec![admin]])))
+        .await;
+    assert_eq!(code(r), ERR_INVALID_INPUT, "관리자 역할");
+    let r = a.call::<m::CrewSetOnboarding>(set(ob(vec![vec![]]))).await;
+    assert_eq!(code(r), ERR_INVALID_INPUT, "역할 없는 선택지");
+    a.ok::<m::CrewSetOnboarding>(set(ob(vec![vec![art], vec![music]])))
+        .await;
+    eventually("B가 온보딩을 봄", || async {
+        let v = b.ok::<m::SpaceGet>(SpaceParams { space }).await;
+        (v.onboarding?.questions.len() == 1).then_some(())
+    })
+    .await;
+    // 번역: 관리자만, 온보딩에 있는 원문만. 앞뒤 공백·원문과 같은 번역문은 빠집니다.
+    let lang = |texts: &[(&str, &str)]| CrewOnboardingLangParams {
+        space,
+        lang: "en".into(),
+        texts: texts
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect(),
+    };
+    let r = b
+        .call::<m::CrewSetOnboardingLang>(lang(&[("어서 오세요", "Welcome")]))
+        .await;
+    assert_eq!(code(r), ERR_FORBIDDEN, "관리 권한 없는 멤버의 번역");
+    let r = a
+        .call::<m::CrewSetOnboardingLang>(lang(&[("없는 글", "Nope")]))
+        .await;
+    assert_eq!(code(r), ERR_INVALID_INPUT, "없는 원문");
+    a.ok::<m::CrewSetOnboardingLang>(lang(&[
+        ("어서 오세요", " Welcome "),
+        ("선택지0", "선택지0"),
+    ]))
+    .await;
+    let en: std::collections::BTreeMap<String, String> =
+        [("어서 오세요".to_owned(), "Welcome".to_owned())].into();
+    eventually("B가 온보딩 번역을 봄", || async {
+        let v = b.ok::<m::SpaceGet>(SpaceParams { space }).await;
+        (v.onboarding_langs.get("en") == Some(&en)).then_some(())
+    })
+    .await;
+    let pick = |answers: Vec<Vec<u32>>| CrewOnboardingPickParams { space, answers };
+    let r = b.call::<m::CrewOnboardingPick>(pick(vec![vec![]])).await;
+    assert_eq!(code(r), ERR_INVALID_INPUT, "필수 질문");
+    let r = b.call::<m::CrewOnboardingPick>(pick(vec![vec![5]])).await;
+    assert_eq!(code(r), ERR_INVALID_INPUT, "없는 선택지");
+    b.ok::<m::CrewOnboardingPick>(pick(vec![vec![0, 1]])).await;
+    wait_roles(&c, space, b.user(), &[art, music]).await;
+    eventually("B가 그림방 그룹에 들어감", || async {
+        testkit::channel_key_seq(&b.node, &space, secret)
+    })
+    .await;
+    sees_text(&b, space, secret, "그림 이야기").await;
+    // ‘그림’을 빼고 다시 답하면 그룹에서 빠져 그 뒤 메시지는 받아도 못 읽습니다.
+    b.ok::<m::CrewOnboardingPick>(pick(vec![vec![1]])).await;
+    wait_roles(&a, space, b.user(), &[music]).await;
+    eventually("B 기기가 그림방 그룹에서 빠짐", || async {
+        let ma = testkit::key_group_members(&a.node, &space, Some(secret))?;
+        (!ma.contains(&b_dev)).then_some(())
+    })
+    .await;
+    let later = a.send(space, secret, "역할 뒤 그림 이야기").await;
+    let evs = testkit::stream_events(&a.node, &space, StreamId::Channel(secret)).unwrap();
+    testkit::ingest_from(&b.node, space, evs, a.peer())
+        .await
+        .unwrap();
+    assert!(
+        testkit::message_text(&b.node, &later).is_none(),
+        "그림 역할을 뺀 B가 읽음"
+    );
+    b.restart().await;
+    let v = b.ok::<m::SpaceGet>(SpaceParams { space }).await;
+    assert_eq!(v.onboarding.map(|o| o.questions[0].options.len()), Some(2));
+    assert_eq!(v.onboarding_langs.get("en"), Some(&en));
+    wait_roles(&b, space, b.user(), &[music]).await;
 }
 
 /// 같은 멤버가 있는 크루 둘 가운데 하나를 이 기기에서 지워도, 남은 크루가 그 멤버 기기에 봉인할 키 행은 남습니다

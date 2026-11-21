@@ -1665,6 +1665,11 @@ textarea.input {
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* 주제의 줄바꿈을 그대로 보여 줍니다(상단 막대는 한 줄로 줄이고 툴팁에 전체). */
+.jg-topic {
+  white-space: pre-wrap;
+  max-width: 460px;
+}
 .jg-list {
   text-align: left;
   max-width: 460px;
@@ -1713,6 +1718,8 @@ textarea.input {
   overflow-y: auto;
   overflow-x: hidden;
   overflow-anchor: none;
+  /* 스크롤바가 생겼다 없어지며 폭이 바뀌면 줄바꿈 → 행 높이 → 스크롤바가 끝없이 되풀이됩니다(빈 채널 안내문). 칸을 늘 비워 둡니다. */
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   contain: strict;
@@ -3799,6 +3806,215 @@ button.att-peer:hover {
 }
 .card.row {
   flex-direction: row;
+}
+/* 크루 온보딩(modals/CrewOnboarding.tsx) */
+.co-welcome {
+  white-space: pre-wrap;
+  margin: 0 0 12px;
+}
+.co-question {
+  margin-bottom: 16px;
+}
+.co-question h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+}
+.co-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.co-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--elev-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-align: left;
+}
+.co-option:hover {
+  border-color: var(--border-strong);
+}
+.co-option.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+.co-label {
+  font-weight: 600;
+}
+.co-option.warn {
+  border-color: var(--warning);
+}
+.co-option-roles {
+  color: var(--text-faint);
+}
+.co-option.warn .co-option-roles {
+  color: var(--warning);
+}
+/* 설정 › 온보딩: 디스코드처럼 질문 카드 안에 답변 타일 두 줄, 점선 추가 타일 */
+.co-qcard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+}
+.co-qhead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.co-qnum {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.co-qsub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.co-qsub b {
+  color: var(--text-strong);
+}
+.co-qcard .co-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0;
+}
+@media (max-width: 720px) {
+  .co-qcard .co-options {
+    grid-template-columns: 1fr;
+  }
+}
+.co-qcard .co-option {
+  min-height: 68px;
+  justify-content: center;
+  padding: 10px 16px;
+}
+.co-qcard .co-label {
+  font-size: 15px;
+}
+.co-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.co-add:hover {
+  color: var(--text-strong);
+  border-color: var(--text-muted);
+}
+.co-qcard .co-option.co-add {
+  flex-direction: row;
+  align-items: center;
+  border-style: dashed;
+  background: transparent;
+}
+.co-add-question {
+  padding: 14px;
+  border-radius: 10px;
+}
+.co-qfoot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.co-editor-question {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+}
+.co-editor-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.co-editor-question + .co-editor-step,
+.co-editor-step:first-child {
+  border-top: none;
+}
+.co-role-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+}
+.co-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 8px;
+  border-radius: 4px;
+  background: var(--elev-bg);
+  color: var(--text-strong);
+  font-size: 13px;
+}
+.co-role-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.co-role-x {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.co-role-x:hover {
+  color: var(--text-strong);
+}
+.co-role-add {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.co-remove {
+  color: var(--danger);
+}
+/* 온보딩 번역 편집: 원문을 위에 작게, 아래 번역 입력칸 */
+.co-tr-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.co-tr-src {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+.co-tr-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
 }
 .card h3 {
   display: flex;

@@ -347,7 +347,7 @@ function JoinGate({ space, channel }: { space: string; channel: ChannelView }) {
       <h2>
         #<TrText text={s.name} space={space} />
       </h2>
-      <p className="muted">
+      <p className="muted jg-topic">
         <TrText text={s.topic} space={space} channel={channel.channel} />
       </p>
       <ul className="jg-list">

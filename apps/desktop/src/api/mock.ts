@@ -60,6 +60,7 @@ import {
   type MessageView,
   type NetStatus,
   type Notification,
+  type Onboarding,
   type PeerPolicy,
   type PendingConfirmation,
   type PermissionOverwrite,
@@ -2099,6 +2100,64 @@ export class MockBackend {
         this.spaceUpdated(sp);
         return {};
       }
+      case 'crew.set_onboarding': {
+        const sp = this.space(p.space);
+        if (sp.view.kind !== 'crew') throw new RpcError(ErrorCode.InvalidInput, '크루가 아님');
+        this.requirePerm(sp, 'manage_space');
+        const ob = p.onboarding as Onboarding;
+        const roles = ob.questions.flatMap((q) => q.options.flatMap((o) => o.roles));
+        if (ob.questions.some((q) => !q.title.trim() || q.options.length === 0 || q.options.some((o) => !o.label.trim() || o.roles.length === 0))) {
+          throw new RpcError(ErrorCode.InvalidInput, '온보딩 질문·선택지가 비었거나 한도를 넘었습니다');
+        }
+        if (roles.some((r) => r === EVERYONE_ROLE || !sp.view.roles.some((x) => x.id === r))) throw new RpcError(ErrorCode.InvalidInput, '없는 역할입니다');
+        if (roles.some((r) => ((sp.view.roles.find((x) => x.id === r)?.permissions ?? 0) >>> 31) & 1)) {
+          throw new RpcError(ErrorCode.InvalidInput, '관리자 권한이 있는 역할은 온보딩 선택지에 넣을 수 없습니다');
+        }
+        sp.view.onboarding = ob.welcome.trim() || ob.questions.length ? ob : undefined;
+        // 데몬처럼 사라진 원문의 번역(그래서 빈 언어)을 뺍니다.
+        const src = onboardingSources(ob);
+        const langs = Object.entries(sp.view.onboarding_langs ?? {})
+          .map(([l, m]) => [l, Object.fromEntries(Object.entries(m).filter(([k]) => src.has(k)))] as const)
+          .filter(([, m]) => Object.keys(m).length > 0);
+        sp.view.onboarding_langs = langs.length ? Object.fromEntries(langs) : undefined;
+        this.spaceUpdated(sp);
+        return {};
+      }
+      case 'crew.set_onboarding_lang': {
+        const sp = this.space(p.space);
+        if (sp.view.kind !== 'crew') throw new RpcError(ErrorCode.InvalidInput, '크루가 아님');
+        this.requirePerm(sp, 'manage_space');
+        const src = onboardingSources(sp.view.onboarding ?? { welcome: '', questions: [] });
+        const texts = Object.fromEntries(
+          Object.entries(p.texts as Record<string, string>)
+            .map(([k, v]) => [k, v.trim()])
+            .filter(([k, v]) => v && v !== k),
+        );
+        if (Object.keys(texts).some((k) => !src.has(k))) throw new RpcError(ErrorCode.InvalidInput, '온보딩에 없는 글이거나 번역문이 한도를 넘었습니다');
+        const langs = { ...sp.view.onboarding_langs };
+        if (Object.keys(texts).length) langs[p.lang as string] = texts;
+        else delete langs[p.lang as string];
+        sp.view.onboarding_langs = Object.keys(langs).length ? langs : undefined;
+        this.spaceUpdated(sp);
+        return {};
+      }
+      case 'crew.onboarding_pick': {
+        const sp = this.space(p.space);
+        const ob = sp.view.onboarding ?? { welcome: '', questions: [] };
+        const answers = p.answers as number[][];
+        if (answers.length !== ob.questions.length) throw new RpcError(ErrorCode.InvalidInput, '온보딩 답이 질문과 맞지 않습니다');
+        const picked = new Set<string>();
+        ob.questions.forEach((q, i) => {
+          if (!q.multiple && answers[i].length > 1) throw new RpcError(ErrorCode.InvalidInput, '온보딩 답이 질문과 맞지 않습니다');
+          if (q.required && answers[i].length === 0) throw new RpcError(ErrorCode.InvalidInput, '답해야 하는 온보딩 질문이 있습니다');
+          for (const n of answers[i]) for (const r of q.options[n]?.roles ?? []) picked.add(r);
+        });
+        const offered = new Set(ob.questions.flatMap((q) => q.options.flatMap((o) => o.roles)));
+        const m = sp.view.members.find((x) => x.user === this.me);
+        if (m) m.roles = [...m.roles.filter((r) => !offered.has(r)), ...picked];
+        this.spaceUpdated(sp);
+        return {};
+      }
       case 'crew.set_ai_profiles': {
         const sp = this.space(p.space);
         if (sp.view.kind !== 'crew') throw new RpcError(ErrorCode.InvalidInput, '크루가 아님');
@@ -3446,6 +3505,11 @@ const VOLATILE_LINES = [
   '오케이 접수',
   '스크린샷은 못 막으니까 조심 ㅎㅎ',
 ].map(sample);
+
+/** 온보딩의 번역할 수 있는 원문(빈 칸 빼고). */
+function onboardingSources(ob: Onboarding): Set<string> {
+  return new Set([ob.welcome, ...ob.questions.flatMap((q) => [q.title, ...q.options.flatMap((o) => [o.label, o.description])])].filter(Boolean));
+}
 
 /** 브라우저 개발용 MOCK 전송. URL에 ?onboarding이면 신원 없이, ?quiet면 무작위 활동 없이 시작합니다. */
 export function createMockTransport(opts?: MockOptions): Transport & { backend: MockBackend } {

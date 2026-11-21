@@ -163,6 +163,12 @@ api_methods! {
     CrewSetAiProfiles = "crew.set_ai_profiles" [Admin, Required, human_only] (CrewAiProfilesParams) -> Empty;
     /// 멤버 자동 번역의 크루 언어(`None`이면 끔).
     CrewSetAiAuto = "crew.set_ai_auto" [Admin, Required, human_only] (CrewAiAutoParams) -> Empty;
+    /// 크루 온보딩 설정 전체(`manage_space`, 선택지 역할은 내가 줄 수 있는 역할만). 질문이 없으면 꺼짐.
+    CrewSetOnboarding = "crew.set_onboarding" [Admin, Required, human_only] (CrewOnboardingParams) -> Empty;
+    /// 온보딩 한 언어의 번역(원문 → 번역문, 빈 목록이면 그 언어 지우기). 멤버는 앱 화면 언어의 번역을 봅니다.
+    CrewSetOnboardingLang = "crew.set_onboarding_lang" [Admin, Required, human_only] (CrewOnboardingLangParams) -> Empty;
+    /// 온보딩 답하기: 고른 선택지의 역할을 내가 받습니다(선택지가 주는 다른 역할은 뺌).
+    CrewOnboardingPick = "crew.onboarding_pick" [Write, Required] (CrewOnboardingPickParams) -> Empty;
     /// 이 기기가 그 크루의 서버를 쓸지. 크루 서버가 이 기기의 공인 IP를 보게 되므로 사람만.
     CrewUseServers = "crew.use_servers" [Settings, Required, human_only] (CrewUseServersParams) -> Empty;
     /// 1:1 대화를 앞으로 들어올 멤버에게 드러낼 수 있는 동의라 자동화 토큰이면 사람 확인.

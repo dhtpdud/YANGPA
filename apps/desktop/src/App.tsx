@@ -18,6 +18,7 @@ import { t } from './i18n';
 import { cx } from './lib/misc';
 import { ModalRoot } from './modals/Modal';
 import { Onboarding } from './modals/Onboarding';
+import { useCrewOnboardingPrompt } from './modals/CrewOnboarding';
 import { useStore } from './store/store';
 
 function Toasts() {
@@ -156,6 +157,7 @@ export function App() {
   const libraryPreview = useStore((s) => s.prefs.library.preview);
   const boot = useStore((s) => s.boot);
   const client = useStore((s) => s.client);
+  useCrewOnboardingPrompt(phase === 'ready' && opened ? view : undefined);
 
   useEffect(() => {
     void boot();

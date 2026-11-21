@@ -69,7 +69,7 @@ import {
 
 export { chKey } from './apply';
 
-export type CrewTab = 'overview' | 'roles' | 'members' | 'invites' | 'emoji' | 'seeders' | 'moderation';
+export type CrewTab = 'overview' | 'roles' | 'members' | 'invites' | 'onboarding' | 'emoji' | 'seeders' | 'moderation';
 export type UserTab =
   | 'profile'
   | 'devices'
@@ -110,6 +110,8 @@ export type Modal =
   | { kind: 'channelCreate'; space: SpaceId; parent?: ChannelId | null; channelKind?: ChannelKind }
   | { kind: 'channelSettings'; space: SpaceId; channel: ChannelId }
   | { kind: 'crewSettings'; space: SpaceId; tab?: CrewTab }
+  /** 크루 온보딩 답하기(들어온 뒤 저절로, 또는 크루 메뉴의 ‘역할 고르기’). */
+  | { kind: 'crewOnboarding'; space: SpaceId; lang?: string }
   | { kind: 'userSettings'; tab?: UserTab }
   | { kind: 'image'; att: AttachmentRef }
   /** 채널 콘텐츠 뷰어(글·이미지·영상을 하나씩 넘겨 보기). */
@@ -199,6 +201,8 @@ export interface Prefs {
   updateCheck: boolean;
   /** AI 번역(채널 위 번역 버튼): 고른 프로필·언어·켠 크루와 채널. 번역 결과는 넣지 않습니다. */
   aiTr: AiTrPrefs;
+  /** 이 기기에서 온보딩을 마친 크루(다시 저절로 띄우지 않음). 뒤쪽이 최근 것. */
+  onboarded: SpaceId[];
 }
 
 export interface ForumViewPrefs {
@@ -236,7 +240,11 @@ const DEFAULT_PREFS: Prefs = {
   stripMetadata: true,
   updateCheck: true,
   aiTr: DEFAULT_AI_TR,
+  onboarded: [],
 };
+
+/** 온보딩을 마친 크루를 기억하는 수(설정 파일 64KiB 제한 안에 들게). */
+export const MAX_ONBOARDED = 200;
 
 /** 검색 결과 쪽 크기 범위(데몬 상한 500). */
 export const SEARCH_PAGE_MIN = 1;
@@ -2081,6 +2089,9 @@ export function sanitizePrefs(raw: Record<string, unknown>): Partial<Prefs> {
   if (raw.viewer && typeof raw.viewer === 'object') out.viewer = sanitizeViewer(raw.viewer);
   if (raw.library && typeof raw.library === 'object') out.library = sanitizeLibrary(raw.library);
   if (raw.aiTr && typeof raw.aiTr === 'object') out.aiTr = sanitizeAiTr(raw.aiTr);
+  if (Array.isArray(raw.onboarded)) {
+    out.onboarded = raw.onboarded.filter((x): x is string => typeof x === 'string' && x.length <= 96).slice(-MAX_ONBOARDED);
+  }
   if (raw.lastChannel && typeof raw.lastChannel === 'object') {
     const lc: Record<string, string> = {};
     // 뒤쪽이 최근 것(rememberRecent 순서)이라 뒤에서부터 남깁니다.

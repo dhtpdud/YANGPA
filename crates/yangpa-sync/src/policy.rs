@@ -645,6 +645,8 @@ mod tests {
                 emoji_by: Default::default(),
                 disbanded: false,
                 ai: Default::default(),
+                onboarding: Default::default(),
+                onboarding_langs: Default::default(),
             },
             member,
             outsider: UserId([3; 32]),

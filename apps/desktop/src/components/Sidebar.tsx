@@ -23,6 +23,7 @@ import {
   Pencil,
   Handshake,
   IdCard,
+  ListChecks,
   Trash2,
 } from 'lucide-react';
 import { useMemo, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
@@ -299,6 +300,9 @@ export function SpaceMenu({ space, anchor, onClose }: { space: SpaceView; anchor
       )}
       {canManage && <MenuButton icon={<Plus size={15} />} label={t('채널 만들기')} onClick={run(() => openModal({ kind: 'channelCreate', space: space.space }))} />}
       {crew && <MenuButton icon={<Pencil size={15} />} label={t('크루 별명 바꾸기')} onClick={run(() => openModal({ kind: 'crewSettings', space: space.space, tab: 'overview' }))} />}
+      {crew && !!space.onboarding?.questions.length && !space.disbanded && (
+        <MenuButton icon={<ListChecks size={15} />} label={t('역할 고르기')} onClick={run(() => openModal({ kind: 'crewOnboarding', space: space.space }))} />
+      )}
       <MenuButton
         icon={<Gauge size={15} />}
         label={crew ? t('이 크루 속도 제한') : t('이 대화 속도 제한')}

@@ -31,38 +31,57 @@ struct CanonRef<'a> {
     delegation: &'a Option<DelegationCert>,
     retired_invites: &'a imbl::OrdSet<[u8; 32]>,
     keys: &'a CrewKeys,
-    /// 해산 표시와 AI 설정. 둘 다 기본값이면 싣지 않아, 해산하지 않고 AI 설정이 없는 크루의 바이트·상태 해시가 이를
-    /// 모르는 빌드와 같습니다.
+    /// 해산 표시·AI 설정·온보딩. 모두 기본값이면 싣지 않아, 해산하지 않고 AI 설정·온보딩이 없는 크루의 바이트·상태
+    /// 해시가 이를 모르는 빌드와 같습니다.
     #[serde(skip_serializing_if = "Tail::is_default")]
     tail: Tail<'a>,
 }
 
 /// 정규 인코딩 끝의 선택 꼬리. AI 설정이 비었으면 해산 표시만(예전 바이트 그대로), 있으면 해산 표시(거짓이라도) 뒤에
 /// AI 설정을 싣고, 자동 번역 크루 언어가 있을 때만 그 뒤에 더 싣습니다(없으면 이 칸을 모르는 빌드와 같은 바이트).
+/// 온보딩이 있으면 언어 칸을 늘 싣고(없으면 빈 문자열: 언어 코드는 두 글자 이상) 그 뒤에 온보딩을, 온보딩 번역이 있을
+/// 때만 그 뒤에 번역을 싣습니다(번역은 온보딩이 있을 때만 남음).
 /// postcard 튜플은 길이를 싣지 않아 값이 이어 붙습니다.
 struct Tail<'a> {
     disbanded: bool,
     ai: &'a CrewAi,
+    onboarding: &'a Onboarding,
+    langs: &'a OnboardingLangs,
 }
 
 impl Tail<'_> {
     fn is_default(&self) -> bool {
-        !self.disbanded && self.ai.is_empty()
+        !self.disbanded && self.ai.is_empty() && self.onboarding.is_empty() && self.langs.is_empty()
     }
 }
 
 impl Serialize for Tail<'_> {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeTuple;
-        if self.ai.is_empty() {
+        let langs = (!self.langs.is_empty()).then_some(self.langs);
+        let ob = (!self.onboarding.is_empty() || langs.is_some()).then_some(self.onboarding);
+        if self.ai.is_empty() && ob.is_none() {
             return s.serialize_bool(self.disbanded);
         }
-        let auto = self.ai.auto_lang.as_ref();
-        let mut t = s.serialize_tuple(if auto.is_some() { 3 } else { 2 })?;
+        let auto = self.ai.auto_lang.as_deref();
+        let n = if langs.is_some() {
+            5
+        } else if ob.is_some() {
+            4
+        } else {
+            2 + usize::from(auto.is_some())
+        };
+        let mut t = s.serialize_tuple(n)?;
         t.serialize_element(&self.disbanded)?;
         t.serialize_element(self.ai)?;
-        if let Some(lang) = auto {
-            t.serialize_element(lang)?;
+        if ob.is_some() || auto.is_some() {
+            t.serialize_element(auto.unwrap_or(""))?;
+        }
+        if let Some(ob) = ob {
+            t.serialize_element(ob)?;
+        }
+        if let Some(langs) = langs {
+            t.serialize_element(langs)?;
         }
         t.end()
     }
@@ -100,6 +119,10 @@ struct CanonOwned {
     ai: CrewAi,
     #[serde(deserialize_with = "trailing_lang")]
     ai_auto_lang: Option<String>,
+    #[serde(deserialize_with = "trailing_onboarding")]
+    onboarding: Onboarding,
+    #[serde(deserialize_with = "trailing_langs")]
+    onboarding_langs: OnboardingLangs,
 }
 
 /// 정규 인코딩 끝의 선택 표시: 바이트가 끝났으면(해산하지 않은 크루) 거짓입니다. 깨진 바이트도 거짓이 되지만 상태 해시
@@ -113,9 +136,19 @@ fn trailing_ai<'de, D: serde::Deserializer<'de>>(d: D) -> Result<CrewAi, D::Erro
     Ok(CrewAi::deserialize(d).unwrap_or_default())
 }
 
-/// AI 설정 뒤의 선택 자동 번역 크루 언어: 바이트가 끝났으면 없음입니다.
+/// AI 설정 뒤의 선택 자동 번역 크루 언어: 바이트가 끝났거나 빈 문자열(온보딩만 있음)이면 없음입니다.
 fn trailing_lang<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
-    Ok(String::deserialize(d).ok())
+    Ok(String::deserialize(d).ok().filter(|l| !l.is_empty()))
+}
+
+/// 언어 칸 뒤의 선택 온보딩: 바이트가 끝났으면 빈 설정입니다.
+fn trailing_onboarding<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Onboarding, D::Error> {
+    Ok(Onboarding::deserialize(d).unwrap_or_default())
+}
+
+/// 온보딩 뒤의 선택 번역: 바이트가 끝났으면 없음입니다.
+fn trailing_langs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<OnboardingLangs, D::Error> {
+    Ok(OnboardingLangs::deserialize(d).unwrap_or_default())
 }
 
 impl Machine {
@@ -331,6 +364,8 @@ impl Machine {
             tail: Tail {
                 disbanded: self.st.disbanded,
                 ai: &self.st.ai,
+                onboarding: &self.st.onboarding,
+                langs: &self.st.onboarding_langs,
             },
         };
         postcard::to_stdvec(&c).expect("상태 직렬화는 실패하지 않음")
@@ -362,6 +397,8 @@ impl Machine {
                     auto_lang: c.ai_auto_lang,
                     ..c.ai
                 },
+                onboarding: c.onboarding,
+                onboarding_langs: c.onboarding_langs,
                 ..c.st
             },
             deleted_channels: c.deleted_channels,

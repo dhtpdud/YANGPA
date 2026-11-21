@@ -118,6 +118,12 @@ pub enum EventKind {
     ChannelAiRolesSet,
     /// 멤버 자동 번역의 크루 언어(`CrewAiAutoSet`).
     CrewAiAutoSet,
+    /// 크루 온보딩 설정(`CrewOnboardingSet`).
+    CrewOnboardingSet,
+    /// 온보딩에서 작성자 자신이 고른 역할(`OnboardingPick`).
+    OnboardingPick,
+    /// 크루 온보딩의 한 언어 번역(`CrewOnboardingLangSet`).
+    CrewOnboardingLangSet,
     // 키 합의 레인: 그룹 키 갱신. 본문은 상태 키로 암호화.
     /// 키 그룹 갱신 한 조각(`KeyUpdatePayload`). 크루 그룹은 공간 스트림, 비공개 그룹은 `KeyGroup` 스트림.
     KeyUpdate,
@@ -196,6 +202,9 @@ impl EventKind {
         (104, EventKind::CrewAiProfilesSet),
         (105, EventKind::ChannelAiRolesSet),
         (106, EventKind::CrewAiAutoSet),
+        (107, EventKind::CrewOnboardingSet),
+        (108, EventKind::OnboardingPick),
+        (109, EventKind::CrewOnboardingLangSet),
     ];
 
     pub fn code(self) -> u16 {
@@ -864,6 +873,12 @@ mod tests {
         assert_eq!(EventKind::ChannelAiRolesSet.lane(), Lane::State);
         assert_eq!(EventKind::CrewAiAutoSet.code(), 106);
         assert_eq!(EventKind::CrewAiAutoSet.lane(), Lane::State);
+        assert_eq!(EventKind::CrewOnboardingSet.code(), 107);
+        assert_eq!(EventKind::CrewOnboardingSet.lane(), Lane::State);
+        assert_eq!(EventKind::OnboardingPick.code(), 108);
+        assert_eq!(EventKind::OnboardingPick.lane(), Lane::State);
+        assert_eq!(EventKind::CrewOnboardingLangSet.code(), 109);
+        assert_eq!(EventKind::CrewOnboardingLangSet.lane(), Lane::State);
         // 익명 글은 메시지 레인이고 본문 종류는 원래 종류입니다.
         for (anon, base) in [
             (EventKind::AnonMessage, EventKind::Message),

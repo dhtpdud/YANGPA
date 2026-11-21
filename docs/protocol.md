@@ -2148,6 +2148,52 @@ Tor로 도는 기기는 Arti로만(요청마다 새 격리 토큰), https이고 
 `1007`). 오프라인 모드에서는 막힙니다. 키·글·주소·결과는 로그와 디스크에 남기지 않고, 결과는 앱이 메모리에만 둡니다(휘발성 채널
 본문은 그 메시지를 그린 동안만).
 
+### 크루 온보딩 (`CrewOnboardingSet` 107, `OnboardingPick` 108)
+
+디스코드 서버 온보딩처럼 새 멤버가 질문에 답해 역할을 스스로 받습니다(decisions.md "크루 온보딩").
+
+- `SpaceState.onboarding: Onboarding{welcome, questions: [{title, multiple, required, options: [{label, description, roles}]}]}`.
+  질문이 없으면 꺼짐입니다. `Onboarding::roles()`(선택지가 주는 역할 전부)가 멤버가 스스로 바꿀 수 있는 역할입니다.
+- `CrewOnboardingSet{onboarding}`(상태 레인, 공간 스트림, 변형 56): 크루만(`WrongSpaceKind`), `MANAGE_SPACE`, 한도·형식
+  (`Onboarding::check_limits`: 질문 15개·선택지 20개·선택지 역할 1~8개, 환영 문구 2000자·질문 제목과 선택지 설명 100자·선택지 이름
+  50자(글자 수), 제목·이름은 비지 않고 제어 문자 없음, 환영 문구·설명만 줄바꿈·탭 허용, 아니면 `Invalid("온보딩 …")`), 선택지 역할은
+  @everyone이 아니고(`EveryoneProtected`) 있는 역할이며(`UnknownRole`) 관리자 권한이 없어야 함(`Invalid("온보딩에 관리자 역할")`),
+  지금과 같으면 `Invalid("이미 그 온보딩 설정")`. 선택지 역할 모음에 더하거나 빼는 역할은 초대 역할과 같은 `may_assign`(
+  `MANAGE_ROLES`, 그 역할보다 높은 순위, 아니면 `RankTooLow`)이라 문구만 바꾸는 관리자는 높은 역할이 걸린 설정도 고칩니다. 모든
+  한도를 채워도(3바이트 글자) 본문 한도 256KiB의 7/8 안에 듭니다(`body.rs` 시험).
+- `OnboardingPick{roles}`(상태 레인, 공간 스트림, 변형 57): 작성자의 역할 중 `onboarding.roles()`에 든 것을 `roles`로 바꾸고 나머지
+  역할은 그대로 둡니다. 동시에 지워진 역할은 조용히 빼고, 남은 역할은 선택지에 있어야 하며(`Invalid("온보딩에 없는 역할")`), 지금
+  갖지 않은 역할을 새로 받으려면 관리자 권한이 없어야 합니다(설정 뒤 `RoleUpdate`로 관리자가 된 역할, `Invalid("온보딩에 관리자
+  역할")`). 결과가 `MAX_ROLES`를 넘으면 `Limit("역할 수")`, 바뀌는 게 없으면 받되 상태는 그대로입니다. 순위가 바뀌므로
+  `rank_changed`를 부릅니다. 단일 선택·필수 질문은 데몬(`crew.onboarding_pick`)과 앱이 지키고 해소기는 보지 않습니다(어겨도 고를
+  수 있는 역할을 받을 뿐).
+- `MemberUpdate`를 쓰지 않는 까닭: 옛 빌드가 아는 종류라 `MANAGE_ROLES` 없는 자기 역할 변경을 잘못된 이벤트로 거부합니다. 새
+  종류는 옛 빌드가 모르는 종류로 저장·전달만 합니다.
+- `RoleDelete`는 그 역할을 선택지에서도 뺍니다(초대 역할과 같음). 역할이 다 빠진 선택지는 남아 다음 저장 때 앱이 채우게 합니다.
+- 기존 데이터 호환: `onboarding`은 `serde(skip)`라 저장된 상태 행이 그대로이고, 정규 인코딩 꼬리는 온보딩이 비어 있으면 예전 그대로
+  입니다. 있으면 `(해산 여부, ai, 크루 언어 또는 "", onboarding)`을 붙입니다(언어 코드는 두 글자 이상이라 빈 문자열은 "없음",
+  읽을 때 끝이 없거나 읽을 수 없으면 빈 값). 온보딩을 쓴 크루의 체크포인트는 상태 해시가 달라 옛 빌드가 따르지 못하고, 옛 빌드는
+  고른 역할을 적용하지 않습니다.
+
+#### 언어별 온보딩 (`CrewOnboardingLangSet` 109)
+
+- `SpaceState.onboarding_langs: BTreeMap<언어 코드, BTreeMap<원문, 번역문>>`. 질문·선택지·역할은 원문 온보딩 하나뿐이고 번역은 글만
+  바꿉니다. 번호가 아니라 원문으로 찾아(앱의 `t('원문')`과 같음) 질문을 옮겨도 번역이 따라가고, 원문이 바뀐 칸은 원문으로 보입니다.
+  답(`OnboardingPick`)은 언어와 상관없이 같습니다.
+- `CrewOnboardingLangSet{lang, texts}`(상태 레인, 공간 스트림, 변형 58): 크루만, `MANAGE_SPACE`, `valid_ai_lang_code(lang)`(아니면
+  `Invalid("온보딩 언어 코드")`). `texts`가 비면 그 언어를 지웁니다(없으면 `Invalid("없는 온보딩 번역")`). 아니면
+  `Onboarding::check_lang`: 원문은 지금 온보딩의 비지 않은 글(환영 문구·질문 제목·선택지 이름·설명, `Invalid("온보딩에 없는 원문")`),
+  번역문은 비지 않고 그 칸의 글자 수·줄바꿈 규칙(같은 원문이 여러 칸이면 넉넉한 쪽, `Invalid("온보딩 번역문")`), 원문·번역문 바이트
+  합 128KiB(`MAX_ONBOARDING_LANG_BYTES`, `Invalid("온보딩 번역 크기")`, 한도를 채워도 본문 한도의 7/8 안). 지금과 같으면
+  `Invalid("이미 그 온보딩 번역")`, 새 언어가 16개(`MAX_ONBOARDING_LANGS`)를 넘으면 `Invalid("온보딩 번역 언어 수")`.
+- 언어마다 이벤트를 따로 두는 까닭: 한도를 채운 원문만 약 145KB라, 언어를 한 이벤트에 모으거나 `Onboarding`에 넣으면 본문 한도를
+  넘습니다. `Onboarding`의 postcard 모양을 바꾸면 이미 저장된 `CrewOnboardingSet`도 풀지 못합니다.
+- `CrewOnboardingSet`은 적용 뒤 `Onboarding::prune_langs`로 사라진 원문의 번역과 새 칸 한도에 맞지 않는 번역을 빼고, 빈 언어를
+  지웁니다. 그래서 번역은 온보딩이 있을 때만 남습니다.
+- 정규 인코딩 꼬리: 번역이 있을 때만 `(해산 여부, ai, 크루 언어 또는 "", onboarding, onboarding_langs)`로 하나 더 붙고, 없으면
+  위와 같은 바이트입니다(읽을 때 끝이 없으면 빈 값).
+- 앱은 멤버의 앱 화면 언어와 같은 코드의 번역을 입혀 보이고(`localizeOnboarding`), 없는 칸·언어는 원문입니다.
+
 ### P2P 전용 채널 (`ChannelTransportSet` 67)
 
 모든 연결이 Tor로 오가는 가운데, 관리자가 고른 텍스트·통화 채널만 그 채널에 참여한 기기끼리 직접 연결로 주고받습니다.

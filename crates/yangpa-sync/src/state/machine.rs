@@ -25,8 +25,9 @@ use yangpa_core::model::{
     BanInfo, ChannelKind, ChannelSettings, ChannelTransport, ChatTtl, CrewAi, CrewAiProfile,
     CrewServers, EditRules, EmojiLimits, HistoryVisibility, InviteState, MAX_AI_ID, MAX_AI_MODEL,
     MAX_AI_NAME, MAX_AI_PROFILES, MAX_AI_ROLES, MAX_AI_URL, MAX_CREW_SERVER_LEN, MAX_CREW_SERVERS,
-    MAX_VOLATILE_CAP, MIN_VOLATILE_CAP, Member, OverwriteTarget, PermissionOverwrite, Permissions,
-    Role, RoleDisplay, SharedMap, SpaceKind, SpaceSettings, SpaceState, valid_attach_limit,
+    MAX_VOLATILE_CAP, MIN_VOLATILE_CAP, Member, Onboarding, OnboardingLangs, OverwriteTarget,
+    PermissionOverwrite, Permissions, Role, RoleDisplay, SharedMap, SpaceKind, SpaceSettings,
+    SpaceState, valid_attach_limit,
 };
 
 pub(super) mod keys;
@@ -371,6 +372,8 @@ impl Machine {
                 emoji_by: Default::default(),
                 disbanded: false,
                 ai: Default::default(),
+                onboarding: Default::default(),
+                onboarding_langs: Default::default(),
             },
             deleted_channels: imbl::OrdSet::new(),
             deleted_roles: imbl::OrdSet::new(),
@@ -576,6 +579,13 @@ impl Machine {
                 self.channel_ai_roles_set(&user, channel, roles.as_deref())
             }
             EventBody::CrewAiAutoSet { lang } => self.crew_ai_auto_set(&user, lang.as_deref()),
+            EventBody::CrewOnboardingSet { onboarding } => {
+                self.crew_onboarding_set(&user, onboarding)
+            }
+            EventBody::OnboardingPick { roles } => self.onboarding_pick(&user, roles),
+            EventBody::CrewOnboardingLangSet { lang, texts } => {
+                self.crew_onboarding_lang_set(&user, lang, texts)
+            }
         };
         self.settle(eff)
     }
@@ -1174,6 +1184,122 @@ impl Machine {
         Ok(Effect::changed())
     }
 
+    /// 크루 온보딩 설정. 크루에서만, `MANAGE_SPACE`, 한도·형식, 선택지 역할은 있는 역할·@everyone 아님·관리자 권한
+    /// 없음, 더하거나 뺀 선택지 역할은 작성자가 줄 수 있어야 하고(`may_assign`), 지금과 달라야 합니다.
+    fn crew_onboarding_set(&mut self, user: &UserId, ob: &Onboarding) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        self.need(user, Permissions::MANAGE_SPACE)?;
+        ob.check_limits().map_err(AuthError::Invalid)?;
+        let new = ob.roles();
+        for id in &new {
+            if *id == RoleId::EVERYONE {
+                return Err(AuthError::EveryoneProtected);
+            }
+            let role = self.st.roles.get(id).ok_or(AuthError::UnknownRole)?;
+            if role.permissions.contains(Permissions::ADMINISTRATOR) {
+                return Err(AuthError::Invalid("온보딩에 관리자 역할"));
+            }
+        }
+        if self.st.onboarding == *ob {
+            return Err(AuthError::Invalid("이미 그 온보딩 설정"));
+        }
+        let changed: Vec<RoleId> = new
+            .symmetric_difference(&self.st.onboarding.roles())
+            .copied()
+            .collect();
+        self.may_assign(user, &changed)?;
+        self.st.onboarding = ob.clone();
+        ob.prune_langs(&mut self.st.onboarding_langs);
+        Ok(Effect::changed())
+    }
+
+    /// 크루 온보딩의 한 언어 번역(빈 목록이면 지우기). 크루에서만, `MANAGE_SPACE`, 언어 코드 형식, 원문은 지금 온보딩에
+    /// 있고 번역문은 그 칸의 한도·형식, 언어 수 한도, 지금과 달라야 합니다.
+    fn crew_onboarding_lang_set(
+        &mut self,
+        user: &UserId,
+        lang: &str,
+        texts: &BTreeMap<String, String>,
+    ) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        self.need(user, Permissions::MANAGE_SPACE)?;
+        if !yangpa_core::model::valid_ai_lang_code(lang) {
+            return Err(AuthError::Invalid("온보딩 언어 코드"));
+        }
+        if texts.is_empty() {
+            return match self.st.onboarding_langs.remove(lang) {
+                Some(_) => Ok(Effect::changed()),
+                None => Err(AuthError::Invalid("없는 온보딩 번역")),
+            };
+        }
+        self.st
+            .onboarding
+            .check_lang(texts)
+            .map_err(AuthError::Invalid)?;
+        match self.st.onboarding_langs.get(lang) {
+            Some(cur) if cur == texts => return Err(AuthError::Invalid("이미 그 온보딩 번역")),
+            None if self.st.onboarding_langs.len() >= yangpa_core::model::MAX_ONBOARDING_LANGS => {
+                return Err(AuthError::Invalid("온보딩 번역 언어 수"));
+            }
+            _ => {}
+        }
+        self.st
+            .onboarding_langs
+            .insert(lang.to_owned(), texts.clone());
+        Ok(Effect::changed())
+    }
+
+    /// 온보딩에서 고른 역할: 작성자의 역할 중 선택지가 주는 역할을 `roles`로 바꿉니다. 동시에 지워진 역할은 조용히 빼고,
+    /// 나머지는 선택지에 있어야 하며 새로 받는 역할은 관리자 권한이 없어야 합니다(설정 뒤에 권한이 바뀌었을 수 있음).
+    fn onboarding_pick(&mut self, user: &UserId, roles: &[RoleId]) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        let offered = self.st.onboarding.roles();
+        let cur = self.st.members.get(user).ok_or(AuthError::UnknownMember)?;
+        let mut picked = Vec::with_capacity(roles.len());
+        for id in roles.iter().filter(|r| self.st.roles.contains_key(r)) {
+            if !offered.contains(id) {
+                return Err(AuthError::Invalid("온보딩에 없는 역할"));
+            }
+            if !cur.roles.contains(id)
+                && self.st.roles[id]
+                    .permissions
+                    .contains(Permissions::ADMINISTRATOR)
+            {
+                return Err(AuthError::Invalid("온보딩에 관리자 역할"));
+            }
+            picked.push(*id);
+        }
+        let mut new_roles: Vec<RoleId> = cur
+            .roles
+            .iter()
+            .filter(|r| !offered.contains(r))
+            .chain(&picked)
+            .copied()
+            .collect();
+        new_roles.sort_unstable();
+        new_roles.dedup();
+        let mut old_roles = cur.roles.clone();
+        old_roles.sort_unstable();
+        old_roles.dedup();
+        if new_roles == old_roles {
+            return Ok(Effect::none());
+        }
+        if new_roles.len() > MAX_ROLES {
+            return Err(AuthError::Limit("역할 수"));
+        }
+        if let Some(m) = self.st.members.get_mut(user) {
+            Arc::make_mut(m).roles = new_roles;
+        }
+        self.rank_changed(user);
+        Ok(Effect::changed())
+    }
+
     /// 채널에서 AI 번역을 쓸 수 있는 역할 정하기(`None`이면 모두). 크루에서만, 그 채널의 `MANAGE_CHANNELS`, 카테고리
     /// 아님, 있는 역할만, 지금과 달라야 합니다.
     fn channel_ai_roles_set(
@@ -1346,6 +1472,15 @@ impl Machine {
             }
         }
         self.st.role_display.remove(id);
+        for o in self
+            .st
+            .onboarding
+            .questions
+            .iter_mut()
+            .flat_map(|q| &mut q.options)
+        {
+            o.roles.retain(|r| r != id);
+        }
         update_where(
             &mut self.st.role_display,
             |d| d.visible_to.as_ref().is_some_and(|l| l.contains(id)),
@@ -2230,6 +2365,8 @@ pub(super) mod synthetic {
                 emoji_by: Default::default(),
                 disbanded: false,
                 ai: Default::default(),
+                onboarding: Default::default(),
+                onboarding_langs: Default::default(),
             },
             deleted_channels: imbl::OrdSet::new(),
             deleted_roles: imbl::OrdSet::new(),

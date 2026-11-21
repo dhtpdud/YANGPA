@@ -1,4 +1,4 @@
-// 크루 설정: 개요(이 크루 신뢰 스위치, 크루 STUN 서버와 그 서버 쓰기 스위치, 엄격한 키 회전 포함), 역할·권한(순위·표시·템플릿), 멤버, 초대, 커스텀 이모지, 시더 커버리지, 모더레이션(한계 안내·신고·밴).
+// 크루 설정: 개요(이 크루 신뢰 스위치, 크루 STUN 서버와 그 서버 쓰기 스위치, 엄격한 키 회전 포함), 역할·권한(순위·표시·템플릿), 멤버, 초대, 온보딩, 커스텀 이모지, 시더 커버리지, 모더레이션(한계 안내·신고·밴).
 // 관리자를 볼 수 없는 사람(`admins_hidden`)에게는 소유자 표시와 확정 기기 후보(소유자·관리자의 기기)를 보이지 않습니다.
 
 import {
@@ -38,12 +38,14 @@ import { PermTemplateBar } from './PermTemplates';
 import { CrewTrustField } from './Trust';
 import { CrewServersSection, CrewServersUseField } from './CrewServers';
 import { CrewAiAutoField, RoleAiProfiles } from './CrewAi';
+import { OnboardingSettings } from './CrewOnboarding';
 
 const TABS: Array<[CrewTab, string]> = [
   ['overview', t('개요')],
   ['roles', t('역할·권한')],
   ['members', t('멤버')],
   ['invites', t('초대')],
+  ['onboarding', t('온보딩')],
   ['emoji', t('이모지')],
   ['seeders', t('시더 커버리지')],
   ['moderation', t('모더레이션')],
@@ -71,6 +73,7 @@ export function CrewSettingsModal({ space, tab, onClose }: { space: string; tab?
           {current === 'roles' && <Roles space={space} />}
           {current === 'members' && <Members space={space} />}
           {current === 'invites' && <Invites space={space} />}
+          {current === 'onboarding' && <OnboardingSettings space={space} />}
           {current === 'emoji' && <Emojis space={space} />}
           {current === 'seeders' && <Seeders space={space} />}
           {current === 'moderation' && <ModerationPanel space={space} />}

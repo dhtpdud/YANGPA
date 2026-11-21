@@ -13,7 +13,8 @@ use yangpa_core::badge::Badge;
 use yangpa_core::device::{DeviceEntry, Profile};
 use yangpa_core::ids::{BlobId, ChannelId, DeviceId, EmojiId, EventId, RoleId, SpaceId, UserId};
 use yangpa_core::model::{
-    AiApi, ChannelSettings, CrewAiProfile, EmojiLimits, Role, RoleDisplay, SpaceKind, SpaceSettings,
+    AiApi, ChannelSettings, CrewAiProfile, EmojiLimits, Onboarding, Role, RoleDisplay, SpaceKind,
+    SpaceSettings,
 };
 use yangpa_core::time::Timestamp;
 
@@ -230,6 +231,12 @@ pub struct SpaceView {
     /// 멤버 자동 번역의 크루 언어(`crew.set_ai_auto`, 앱 화면 언어 코드).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ai_auto_lang: Option<String>,
+    /// 크루 온보딩(`crew.set_onboarding`). 질문이 있으면 새 멤버에게 답할 창을 띄웁니다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub onboarding: Option<Onboarding>,
+    /// 온보딩 번역(`crew.set_onboarding_lang`): 언어 코드 → 원문 → 번역문. 없는 칸은 원문으로 보입니다.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub onboarding_langs: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 /// 채널 보기.

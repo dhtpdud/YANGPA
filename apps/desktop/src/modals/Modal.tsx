@@ -9,6 +9,7 @@ import { ContentViewer } from '../supporter/ContentViewer';
 import { AddFriendModal } from './AddFriend';
 import { ChannelSettingsModal } from './ChannelSettings';
 import { CrewSettingsModal } from './CrewSettings';
+import { CrewOnboardingModal } from './CrewOnboarding';
 import { ConvertCrewModal, CreateCrewModal, JoinCrewModal } from './Crew';
 import { DataMoveModal } from './DataDir';
 import { DeviceLinkApproveModal } from './DeviceLink';
@@ -134,6 +135,8 @@ function ModalView({ modal, close }: { modal: ModalState; close: () => void }) {
       return <ChannelSettingsModal space={modal.space} channel={modal.channel} onClose={close} />;
     case 'crewSettings':
       return <CrewSettingsModal space={modal.space} tab={modal.tab} onClose={close} />;
+    case 'crewOnboarding':
+      return <CrewOnboardingModal space={modal.space} lang={modal.lang} onClose={close} />;
     case 'userSettings':
       return <UserSettingsModal tab={modal.tab} onClose={close} />;
     case 'image':

@@ -625,6 +625,175 @@ pub struct SpaceState {
     /// 비지 않았을 때만 끝에 따로 실어, AI 설정을 쓰지 않은 크루의 저장 행·상태 해시가 이 기능을 모르는 빌드와 같습니다.
     #[serde(skip)]
     pub ai: CrewAi,
+    /// 크루 온보딩(`CrewOnboardingSet`). `ai`처럼 직렬화하지 않고 해소기의 정규 인코딩 꼬리에 비지 않았을 때만 싣습니다.
+    #[serde(skip)]
+    pub onboarding: Onboarding,
+    /// 온보딩 번역(`CrewOnboardingLangSet`). 온보딩 바로 뒤 꼬리에 비지 않았을 때만 싣습니다.
+    #[serde(skip)]
+    pub onboarding_langs: OnboardingLangs,
+}
+
+/// 온보딩 번역: 언어 코드(`valid_ai_lang_code`) → 원문 → 번역문. 질문·선택지 번호가 아니라 원문으로 찾아, 질문을 옮겨도
+/// 번역이 따라가고 원문이 바뀐 칸은 원문으로 보입니다(앱의 `t('원문')`과 같은 방식).
+pub type OnboardingLangs = BTreeMap<String, BTreeMap<String, String>>;
+/// 번역 언어 수 상한(앱 언어 15개에 여유).
+pub const MAX_ONBOARDING_LANGS: usize = 16;
+/// 한 언어 번역의 원문·번역문 바이트 합 상한(이벤트 하나에 들도록).
+/// shortcut: 한도를 다 채운 온보딩(원문만 약 145KB)은 한 언어를 다 번역하지 못합니다. 실제 온보딩은 수 KB라 그대로 두고,
+/// 막히는 크루가 생기면 언어 하나를 여러 이벤트로 나눕니다.
+pub const MAX_ONBOARDING_LANG_BYTES: usize = 128 * 1024;
+
+/// 크루 온보딩(decisions.md "크루 온보딩"): 새 멤버가 답하는 질문과, 고른 선택지가 주는 역할. 질문이 없으면 꺼짐입니다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Onboarding {
+    /// 온보딩 첫머리의 환영 문구.
+    #[serde(default)]
+    pub welcome: String,
+    #[serde(default)]
+    pub questions: Vec<OnboardingQuestion>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OnboardingQuestion {
+    pub title: String,
+    /// 여러 개 고를 수 있음.
+    #[serde(default)]
+    pub multiple: bool,
+    /// 답해야 마칠 수 있음(앱이 지킴: 어겨도 고를 수 있는 역할을 덜 받을 뿐).
+    #[serde(default)]
+    pub required: bool,
+    pub options: Vec<OnboardingOption>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OnboardingOption {
+    pub label: String,
+    #[serde(default)]
+    pub description: String,
+    /// 고르면 받는 역할.
+    pub roles: Vec<RoleId>,
+}
+
+/// 온보딩 질문 수 상한.
+pub const MAX_ONBOARDING_QUESTIONS: usize = 15;
+/// 질문 하나의 선택지 수 상한.
+pub const MAX_ONBOARDING_OPTIONS: usize = 20;
+/// 선택지 하나가 주는 역할 수 상한.
+pub const MAX_ONBOARDING_OPTION_ROLES: usize = 8;
+/// 환영 문구 최대 글자 수.
+pub const MAX_ONBOARDING_WELCOME: usize = 2000;
+/// 질문 제목·선택지 설명 최대 글자 수. 모든 한도를 채워도(3바이트 글자) 패딩까지 본문 한도(256KiB) 안에 듭니다.
+pub const MAX_ONBOARDING_TEXT: usize = 100;
+/// 선택지 이름 최대 글자 수.
+pub const MAX_ONBOARDING_LABEL: usize = 50;
+
+impl Onboarding {
+    pub fn is_empty(&self) -> bool {
+        self.welcome.is_empty() && self.questions.is_empty()
+    }
+
+    /// 선택지가 주는 역할 전부.
+    pub fn roles(&self) -> BTreeSet<RoleId> {
+        self.questions
+            .iter()
+            .flat_map(|q| &q.options)
+            .flat_map(|o| o.roles.iter().copied())
+            .collect()
+    }
+
+    /// 번역할 수 있는 원문(빈 칸 빼고) → 그 칸의 (최대 글자 수, 줄바꿈 허용). 같은 원문이 여러 칸에 있으면 넉넉한 쪽.
+    pub fn texts(&self) -> BTreeMap<&str, (usize, bool)> {
+        fn add<'a>(
+            m: &mut BTreeMap<&'a str, (usize, bool)>,
+            s: &'a str,
+            max: usize,
+            multiline: bool,
+        ) {
+            if !s.is_empty() {
+                let e = m.entry(s).or_insert((max, multiline));
+                *e = (e.0.max(max), e.1 || multiline);
+            }
+        }
+        let mut m = BTreeMap::new();
+        add(&mut m, &self.welcome, MAX_ONBOARDING_WELCOME, true);
+        for q in &self.questions {
+            add(&mut m, &q.title, MAX_ONBOARDING_TEXT, false);
+            for o in &q.options {
+                add(&mut m, &o.label, MAX_ONBOARDING_LABEL, false);
+                add(&mut m, &o.description, MAX_ONBOARDING_TEXT, true);
+            }
+        }
+        m
+    }
+
+    /// 한 언어 번역 검사: 원문이 지금 온보딩에 있고, 번역문은 비지 않았으며 그 칸의 한도·형식을 지키고, 바이트 합이 한도
+    /// 안이어야 합니다(빈 목록은 언어 지우기라 부르는 쪽이 따로 다룸).
+    pub fn check_lang(&self, texts: &BTreeMap<String, String>) -> Result<(), &'static str> {
+        let src = self.texts();
+        let mut bytes = 0;
+        for (k, v) in texts {
+            let &(max, multiline) = src.get(k.as_str()).ok_or("온보딩에 없는 원문")?;
+            if !onboarding_text_ok(v, multiline, max) || v.trim().is_empty() {
+                return Err("온보딩 번역문");
+            }
+            bytes += k.len() + v.len();
+        }
+        if bytes > MAX_ONBOARDING_LANG_BYTES {
+            return Err("온보딩 번역 크기");
+        }
+        Ok(())
+    }
+
+    /// 온보딩이 바뀐 뒤 남길 번역만 남깁니다: 원문이 사라졌거나 새 칸의 한도에 맞지 않는 번역, 그래서 빈 언어를 뺍니다.
+    pub fn prune_langs(&self, langs: &mut OnboardingLangs) {
+        let src = self.texts();
+        langs.retain(|_, m| {
+            m.retain(|k, v| {
+                src.get(k.as_str())
+                    .is_some_and(|&(max, ml)| onboarding_text_ok(v, ml, max))
+            });
+            !m.is_empty()
+        });
+    }
+
+    /// 한도·형식 검사(역할이 있는지·순위·권한은 해소기가 지금 상태로 봄). 어긋난 칸 이름을 돌려줍니다.
+    pub fn check_limits(&self) -> Result<(), &'static str> {
+        let text = onboarding_text_ok;
+        let name = |s: &str, max| text(s, false, max) && !s.trim().is_empty();
+        if !text(&self.welcome, true, MAX_ONBOARDING_WELCOME) {
+            return Err("온보딩 환영 문구");
+        }
+        if self.questions.len() > MAX_ONBOARDING_QUESTIONS {
+            return Err("온보딩 질문 수");
+        }
+        for q in &self.questions {
+            if !name(&q.title, MAX_ONBOARDING_TEXT) {
+                return Err("온보딩 질문 제목");
+            }
+            if q.options.is_empty() || q.options.len() > MAX_ONBOARDING_OPTIONS {
+                return Err("온보딩 선택지 수");
+            }
+            for o in &q.options {
+                if !name(&o.label, MAX_ONBOARDING_LABEL) {
+                    return Err("온보딩 선택지 이름");
+                }
+                if !text(&o.description, true, MAX_ONBOARDING_TEXT) {
+                    return Err("온보딩 선택지 설명");
+                }
+                if o.roles.is_empty() || o.roles.len() > MAX_ONBOARDING_OPTION_ROLES {
+                    return Err("온보딩 선택지 역할 수");
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// 온보딩 글 한 칸의 한도·형식: 글자 수, 그리고 줄바꿈·탭은 환영 문구·설명에만.
+fn onboarding_text_ok(s: &str, multiline: bool, max: usize) -> bool {
+    s.chars().count() <= max
+        && s.chars()
+            .all(|c| !c.is_control() || (multiline && matches!(c, '\n' | '\t')))
 }
 
 /// AI API 요청 형식.
@@ -1240,6 +1409,8 @@ mod tests {
                 emoji_by: BTreeMap::new(),
                 disbanded: false,
                 ai: Default::default(),
+                onboarding: Default::default(),
+                onboarding_langs: Default::default(),
             },
             owner,
             bob,
@@ -1683,6 +1854,8 @@ mod tests {
             emoji_by: BTreeMap::new(),
             disbanded: false,
             ai: Default::default(),
+            onboarding: Default::default(),
+            onboarding_langs: Default::default(),
         }
     }
 

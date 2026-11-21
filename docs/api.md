@@ -292,6 +292,22 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
 - `crew.set_servers({space, stun: string[]}) → {}` (admin, 사람 토큰만) — `manage_space`, 크루만. 크루 STUN 목록 전체를
   바꿉니다(상태 이벤트 `CrewServersSet`). 줄 꼴과 맞추는 규칙은 `net.set_stun_servers`(`host:port`)와 같고(TURN 줄은 `1005`), 8줄,
   줄마다 512바이트까지(`1005`). 지금 목록과 같으면 아무것도 내지 않고 성공
+- `crew.set_onboarding({space, onboarding: {welcome, questions: [{title, multiple, required, options: [{label, description, roles}]}]}}) → {}`
+  (admin, 사람 토큰만) — `manage_space`, 크루만. 크루 온보딩 설정 전체(상태 이벤트 `CrewOnboardingSet`, 질문이 없으면 꺼짐).
+  앞뒤 공백을 지우고 선택지 역할의 겹침을 뺀 뒤, 질문 15개·선택지 20개·선택지 역할 1~8개, 환영 문구 2000자·질문 제목과 선택지 설명
+  100자·선택지 이름 50자, 빈 제목·이름이 있으면 `1005`. 역할은 있는 역할이고 @everyone·관리자 권한 역할이 아니어야 하며(`1005`),
+  선택지에 더하거나 빼는 역할은 `manage_roles`와 내 순위보다 낮은 순위가 필요합니다(`1006`). 지금과 같으면 아무것도 내지 않고 성공.
+  보기: `SpaceView.onboarding?: Onboarding`(비었으면 생략)
+- `crew.set_onboarding_lang({space, lang, texts: {[원문]: 번역문}}) → {}` (admin, 사람 토큰만) — `manage_space`, 크루만. 온보딩 한
+  언어의 번역 전체(상태 이벤트 `CrewOnboardingLangSet`). `lang`은 앱 화면 언어 코드(`en`, `zh-TW`처럼, 아니면 `1005`). 번역문의 앞뒤
+  공백을 지우고 빈 번역문·원문과 같은 번역문은 뺀 뒤, 남은 게 없으면 그 언어를 지웁니다. 원문은 지금 온보딩의 글(환영 문구·질문
+  제목·선택지 이름·설명)이고 번역문은 그 칸의 글자 수 한도를 지켜야 하며(`1005`), 언어는 16개까지(`1005`). 지금과 같으면 아무것도
+  내지 않고 성공. 온보딩을 바꾸면 사라진 원문의 번역은 저절로 빠집니다. 보기: `SpaceView.onboarding_langs?: {[언어]: {[원문]:
+  번역문}}`(없으면 생략). 앱은 앱 화면 언어의 번역을 입혀 보이고 없는 칸은 원문입니다
+- `crew.onboarding_pick({space, answers: number[][]}) → {}` (write) — 크루 멤버가 온보딩에 답합니다. `answers`는 질문 순서대로 고른
+  선택지 번호(0부터)이고 질문 수와 같아야 하며, 단일 선택 질문은 하나까지, 필수 질문은 하나 이상(아니면 `1005`). 고른 선택지의
+  역할을 받고 선택지가 주는 다른 역할은 빠집니다(선택지 밖 역할은 그대로, 상태 이벤트 `OnboardingPick`). 지워진 역할과 새로 받을
+  관리자 권한 역할은 빼고, 바뀌는 게 없으면 아무것도 내지 않고 성공. 이 기기에서 마쳤다는 표시는 앱 설정(`onboarded`)에만 둡니다
 - `crew.use_servers({space, enabled}) → {}` (settings, 사람 토큰만) — 이 기기가 그 크루의 STUN 서버를 쓸지(이 기기에만, 설정
   키는 예전 이름 그대로 `turn.crews`). 크루 멤버만, 1:1 공간은 `1005`. 켜도 역할 권한 `use_crew_stun`이 있을 때만 씁니다. 직접
   스웜의 공인 주소 묻기에는 내 STUN 목록 뒤에 쓰기로 한 모든 크루의 STUN을 붙이고, 통화에는 그 크루의 STUN을 내 것 뒤에

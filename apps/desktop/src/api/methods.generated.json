@@ -466,6 +466,27 @@
     {
       "destructive": "no",
       "human_only": true,
+      "name": "crew.set_onboarding",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.set_onboarding_lang",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
+      "name": "crew.onboarding_pick",
+      "scope": "write",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
       "name": "crew.use_servers",
       "scope": "settings",
       "space": "required"

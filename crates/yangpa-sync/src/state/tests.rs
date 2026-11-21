@@ -1312,6 +1312,279 @@ fn ai_lang_code_format() {
     }
 }
 
+/// 질문 하나(선택지마다 역할 목록)짜리 온보딩.
+fn onboarding(options: &[&[RoleId]]) -> yangpa_core::model::Onboarding {
+    yangpa_core::model::Onboarding {
+        welcome: "어서 오세요".into(),
+        questions: vec![yangpa_core::model::OnboardingQuestion {
+            title: "무엇을 하나요?".into(),
+            multiple: false,
+            required: false,
+            options: options
+                .iter()
+                .enumerate()
+                .map(|(i, roles)| yangpa_core::model::OnboardingOption {
+                    label: format!("선택지{i}"),
+                    description: String::new(),
+                    roles: roles.to_vec(),
+                })
+                .collect(),
+        }],
+    }
+}
+
+/// 크루 온보딩: 설정 권한·검사, 고른 역할만 바뀌고 나머지 역할은 그대로, 역할 삭제 때 선택지에서 뺌.
+#[test]
+fn crew_onboarding_set_and_pick() {
+    let mut cr = crew();
+    let (o, a, b) = (&cr.o, &cr.a, &cr.b);
+    let (r1, r2) = (role(1, 1, Permissions::NONE), role(2, 2, Permissions::NONE));
+    let admin = role(3, 3, Permissions::ADMINISTRATOR);
+    let other = role(4, 4, Permissions::NONE);
+    let mods = role(
+        5,
+        2,
+        Permissions::MANAGE_SPACE.union(Permissions::MANAGE_ROLES),
+    );
+    for r in [&r1, &r2, &admin, &other, &mods] {
+        cr.c.push(o, EventBody::RoleCreate { role: r.clone() });
+    }
+    let set = |ob| EventBody::CrewOnboardingSet { onboarding: ob };
+    let pick = |roles: &[RoleId]| EventBody::OnboardingPick {
+        roles: roles.to_vec(),
+    };
+    let no_perm = cr.c.push(a, set(onboarding(&[&[r1.id]])));
+    let with_admin = cr.c.push(o, set(onboarding(&[&[admin.id]])));
+    let with_everyone = cr.c.push(o, set(onboarding(&[&[RoleId::EVERYONE]])));
+    let mut blank = onboarding(&[&[r1.id]]);
+    blank.questions[0].title = " ".into();
+    let blank = cr.c.push(o, set(blank));
+    let ok = cr.c.push(o, set(onboarding(&[&[r1.id], &[r2.id]])));
+    let same = cr.c.push(o, set(onboarding(&[&[r1.id], &[r2.id]])));
+    // 고른 역할로 바뀌고(앞서 고른 r1은 빠짐) 선택지 밖 역할은 남습니다.
+    cr.c.push(
+        o,
+        EventBody::MemberUpdate {
+            user: a.id(),
+            roles: vec![other.id],
+            nickname: None,
+        },
+    );
+    let pick1 = cr.c.push(a, pick(&[r1.id]));
+    let pick2 = cr.c.push(a, pick(&[r2.id]));
+    let not_offered = cr.c.push(b, pick(&[other.id]));
+    // 순위가 2인 관리자는 순위 2 역할을 선택지에서 빼거나 넣지 못하고, 문구만 바꾸는 건 됩니다.
+    cr.c.push(
+        o,
+        EventBody::MemberUpdate {
+            user: b.id(),
+            roles: vec![mods.id],
+            nickname: None,
+        },
+    );
+    let too_high = cr.c.push(b, set(onboarding(&[&[r1.id]])));
+    let mut text_only = onboarding(&[&[r1.id], &[r2.id]]);
+    text_only.welcome = "환영합니다".into();
+    let lower_ok = cr.c.push(b, set(text_only));
+    let r = cr.c.resolve();
+    assert_rejected(
+        &r,
+        no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_SPACE),
+    );
+    assert_rejected(&r, with_admin, AuthError::Invalid("온보딩에 관리자 역할"));
+    assert_rejected(&r, with_everyone, AuthError::EveryoneProtected);
+    assert_rejected(&r, blank, AuthError::Invalid("온보딩 질문 제목"));
+    assert_applied(&r, ok);
+    assert_rejected(&r, same, AuthError::Invalid("이미 그 온보딩 설정"));
+    assert_applied(&r, pick1);
+    assert_applied(&r, pick2);
+    assert_rejected(&r, not_offered, AuthError::Invalid("온보딩에 없는 역할"));
+    assert_rejected(&r, too_high, AuthError::RankTooLow);
+    assert_applied(&r, lower_ok);
+    let st = state(&r);
+    let mut a_roles = st.members[&a.id()].roles.clone();
+    a_roles.sort_unstable();
+    assert_eq!(a_roles, vec![r2.id, other.id]);
+    assert_eq!(st.onboarding.welcome, "환영합니다");
+
+    // 설정 뒤에 관리자 권한을 얻은 역할은 새로 받지 못하고, 지운 역할은 선택지에서 빠집니다.
+    let mut r1_admin = r1.clone();
+    r1_admin.permissions = Permissions::ADMINISTRATOR;
+    cr.c.push(o, EventBody::RoleUpdate { role: r1_admin });
+    let late_admin = cr.c.push(a, pick(&[r1.id]));
+    cr.c.push(o, EventBody::RoleDelete { role: r2.id });
+    let r = cr.c.resolve();
+    assert_rejected(&r, late_admin, AuthError::Invalid("온보딩에 관리자 역할"));
+    let st = state(&r);
+    assert_eq!(st.onboarding.roles(), [r1.id].into_iter().collect());
+    assert_eq!(st.members[&a.id()].roles, vec![other.id]);
+}
+
+fn lang_set(lang: &str, texts: &[(&str, &str)]) -> EventBody {
+    EventBody::CrewOnboardingLangSet {
+        lang: lang.into(),
+        texts: texts
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect(),
+    }
+}
+
+/// 온보딩 번역: 권한·언어 코드·원문 검사, 바꾸기·지우기, 온보딩을 바꾸면 사라진 원문의 번역(그래서 빈 언어)이 빠짐.
+#[test]
+fn crew_onboarding_langs() {
+    let mut cr = crew();
+    let (o, a) = (&cr.o, &cr.a);
+    let r1 = role(1, 1, Permissions::NONE);
+    cr.c.push(o, EventBody::RoleCreate { role: r1.clone() });
+    let before = cr.c.push(o, lang_set("en", &[("어서 오세요", "Welcome")]));
+    cr.c.push(
+        o,
+        EventBody::CrewOnboardingSet {
+            onboarding: onboarding(&[&[r1.id]]),
+        },
+    );
+    let no_perm = cr.c.push(a, lang_set("en", &[("어서 오세요", "Welcome")]));
+    let bad_lang =
+        cr.c.push(o, lang_set("영어", &[("어서 오세요", "Welcome")]));
+    let unknown = cr.c.push(o, lang_set("en", &[("없는 원문", "Nope")]));
+    let blank = cr.c.push(o, lang_set("en", &[("어서 오세요", " ")]));
+    let newline = cr.c.push(
+        o,
+        lang_set(
+            "en",
+            &[(
+                "선택지0",
+                "A
+B",
+            )],
+        ),
+    );
+    let en = cr.c.push(
+        o,
+        lang_set(
+            "en",
+            &[
+                ("어서 오세요", "Welcome"),
+                ("무엇을 하나요?", "What do you do?"),
+            ],
+        ),
+    );
+    let same = cr.c.push(
+        o,
+        lang_set(
+            "en",
+            &[
+                ("어서 오세요", "Welcome"),
+                ("무엇을 하나요?", "What do you do?"),
+            ],
+        ),
+    );
+    let ja = cr.c.push(o, lang_set("ja", &[("선택지0", "選択肢")]));
+    let remove_ja = cr.c.push(o, lang_set("ja", &[]));
+    let remove_again = cr.c.push(o, lang_set("ja", &[]));
+    let zh = cr.c.push(o, lang_set("zh-TW", &[("선택지0", "選項")]));
+    let r = cr.c.resolve();
+    assert_rejected(&r, before, AuthError::Invalid("온보딩에 없는 원문"));
+    assert_rejected(
+        &r,
+        no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_SPACE),
+    );
+    assert_rejected(&r, bad_lang, AuthError::Invalid("온보딩 언어 코드"));
+    assert_rejected(&r, unknown, AuthError::Invalid("온보딩에 없는 원문"));
+    assert_rejected(&r, blank, AuthError::Invalid("온보딩 번역문"));
+    assert_rejected(&r, newline, AuthError::Invalid("온보딩 번역문"));
+    assert_applied(&r, en);
+    assert_rejected(&r, same, AuthError::Invalid("이미 그 온보딩 번역"));
+    assert_applied(&r, ja);
+    assert_applied(&r, remove_ja);
+    assert_rejected(&r, remove_again, AuthError::Invalid("없는 온보딩 번역"));
+    assert_applied(&r, zh);
+    let st = state(&r);
+    assert_eq!(
+        st.onboarding_langs.keys().collect::<Vec<_>>(),
+        ["en", "zh-TW"]
+    );
+
+    // 질문 제목·선택지 이름이 바뀌면 그 번역은 빠지고, 다 빠진 언어는 사라집니다.
+    let mut changed = onboarding(&[&[r1.id]]);
+    changed.questions[0].title = "무엇이 좋아요?".into();
+    changed.questions[0].options[0].label = "그림".into();
+    cr.c.push(
+        o,
+        EventBody::CrewOnboardingSet {
+            onboarding: changed,
+        },
+    );
+    let r = cr.c.resolve();
+    let st = state(&r);
+    assert_eq!(
+        st.onboarding_langs,
+        [(
+            "en".to_owned(),
+            [("어서 오세요".to_owned(), "Welcome".to_owned())].into()
+        )]
+        .into()
+    );
+}
+
+/// 온보딩의 정규 인코딩 꼬리: 없으면 예전 바이트, 있으면 언어 칸(빈 문자열 포함)과 함께 붙고 그대로 되살아납니다.
+#[test]
+fn crew_onboarding_canonical_tail() {
+    let mut cr = crew();
+    let r1 = role(1, 1, Permissions::NONE);
+    cr.c.push(&cr.o, EventBody::RoleCreate { role: r1.clone() });
+    let mut res = Resolver::with_genesis(cr.genesis);
+    res.insert_events(cr.c.events.clone());
+    let base = res.machine.as_ref().expect("해소기 상태").clone();
+    let plain = base.encode();
+    let ob = onboarding(&[&[r1.id]]);
+    for (lang, profiles) in [
+        (None, false),
+        (Some("ko"), false),
+        (None, true),
+        (Some("ko"), true),
+    ] {
+        let mut m = base.clone();
+        m.st.ai.auto_lang = lang.map(Into::into);
+        if profiles {
+            m.st.ai.profiles = vec![ai_profile("p", vec![r1.id])];
+        }
+        let no_ob = m.encode();
+        m.st.onboarding = ob.clone();
+        let bytes = m.encode();
+        assert!(bytes.len() > no_ob.len() && bytes.starts_with(&plain));
+        let back = Machine::decode(&bytes, Limits::default()).unwrap();
+        assert_eq!(back.st.onboarding, ob);
+        assert_eq!(back.st.ai, m.st.ai);
+        let back = Machine::decode(&no_ob, Limits::default()).unwrap();
+        assert!(back.st.onboarding.is_empty());
+        assert_eq!(back.st.ai, m.st.ai);
+        // 번역은 온보딩 뒤에만 붙고, 없으면 바이트가 그대로입니다.
+        m.st.onboarding_langs = [(
+            "en".into(),
+            [("어서 오세요".into(), "Welcome".into())].into(),
+        )]
+        .into();
+        let with_langs = m.encode();
+        assert!(with_langs.len() > bytes.len() && with_langs.starts_with(&bytes));
+        let back = Machine::decode(&with_langs, Limits::default()).unwrap();
+        assert_eq!(back.st.onboarding, ob);
+        assert_eq!(back.st.onboarding_langs, m.st.onboarding_langs);
+        assert!(
+            Machine::decode(&bytes, Limits::default())
+                .unwrap()
+                .st
+                .onboarding_langs
+                .is_empty()
+        );
+    }
+    let back = Machine::decode(&plain, Limits::default()).unwrap();
+    assert!(back.st.onboarding.is_empty());
+}
+
 fn nest(channel: ChannelId, parent: Option<ChannelId>) -> EventBody {
     EventBody::CategoryParentSet { channel, parent }
 }

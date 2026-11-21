@@ -377,7 +377,7 @@ export function ChannelSettingsModal({
           </div>
           {kind !== 'category' && (
             <Field label={t('주제')}>
-              <input className="input" value={topic} maxLength={1024} onChange={(e) => setTopic(e.target.value)} placeholder={t('채널 위에 표시할 설명')} />
+              <textarea className="input" rows={3} value={topic} maxLength={1024} onChange={(e) => setTopic(e.target.value)} placeholder={t('채널 위에 표시할 설명')} />
             </Field>
           )}
 

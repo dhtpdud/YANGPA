@@ -1250,6 +1250,32 @@ pub struct CrewAiAutoParams {
     pub lang: Option<String>,
 }
 
+/// `crew.set_onboarding`: 크루 온보딩 설정 전체(질문이 없으면 꺼짐). 선택지 역할은 있는 역할이고 관리자 권한이 없으며,
+/// 더하거나 빼는 역할은 내가 줄 수 있어야 합니다(`manage_roles`, 그 역할보다 높은 순위).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewOnboardingParams {
+    pub space: SpaceId,
+    pub onboarding: yangpa_core::model::Onboarding,
+}
+
+/// `crew.set_onboarding_lang`: 온보딩 한 언어의 번역(원문 → 번역문) 전체. 빈 목록이면 그 언어를 지웁니다. 원문은 지금
+/// 온보딩에 있는 글(환영 문구·질문 제목·선택지 이름·설명)이고, 번역문은 그 칸의 한도를 지킵니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewOnboardingLangParams {
+    pub space: SpaceId,
+    /// 앱 화면 언어 코드(`en`, `zh-TW`처럼).
+    pub lang: String,
+    #[serde(default)]
+    pub texts: BTreeMap<String, String>,
+}
+
+/// `crew.onboarding_pick`: 질문 순서대로 고른 선택지 번호(0부터). 단일 선택 질문은 하나까지, 필수 질문은 하나 이상.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewOnboardingPickParams {
+    pub space: SpaceId,
+    pub answers: Vec<Vec<u32>>,
+}
+
 /// [`CrewAiProfilesParams`]의 항목.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrewAiProfileInput {

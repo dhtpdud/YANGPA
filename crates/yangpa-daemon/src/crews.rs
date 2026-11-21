@@ -1659,6 +1659,8 @@ pub(crate) mod tests_support {
             emoji_by: Default::default(),
             disbanded: false,
             ai: Default::default(),
+            onboarding: Default::default(),
+            onboarding_langs: Default::default(),
         }
     }
 }

@@ -1,8 +1,10 @@
 //! `crew.*`: 크루 만들기·설정·1:1→크루 전환·나가기·소유권 이전.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use yangpa_core::body::EventBody;
+use yangpa_core::ids::RoleId;
 use yangpa_core::model::{Member, Permissions, SpaceKind, SpaceSettings};
 use yangpa_rpc::RpcError;
 use yangpa_rpc::api::{CommitterCandidate, SpaceRef, m};
@@ -166,6 +168,161 @@ pub(crate) async fn set_ai_auto(
     }
     let lang = lang.map(str::to_owned);
     publish(node, p.space, EventBody::CrewAiAutoSet { lang }).await?;
+    Ok(empty())
+}
+
+/// `crew.set_onboarding`: 크루 온보딩 설정 전체(`manage_space`). 해소기 규칙과 같게 먼저 확인해 거부될 이벤트를 내지
+/// 않습니다.
+pub(crate) async fn set_onboarding(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::CrewSetOnboarding>,
+) -> R<m::CrewSetOnboarding> {
+    let (state, me) = rpc(crews::crew_state(node, &p.space))?;
+    rpc(crews::need(&state, &me, Permissions::MANAGE_SPACE))?;
+    let mut ob = p.onboarding.clone();
+    ob.welcome = ob.welcome.trim().to_owned();
+    for q in &mut ob.questions {
+        q.title = q.title.trim().to_owned();
+        for o in &mut q.options {
+            o.label = o.label.trim().to_owned();
+            o.description = o.description.trim().to_owned();
+            o.roles.sort_unstable();
+            o.roles.dedup();
+        }
+    }
+    if ob.check_limits().is_err() {
+        return Err(RpcError::invalid_input(
+            "온보딩 질문·선택지가 비었거나 한도를 넘었습니다",
+        ));
+    }
+    let new = ob.roles();
+    for r in &new {
+        let role = state
+            .roles
+            .get(r)
+            .filter(|_| *r != RoleId::EVERYONE)
+            .ok_or_else(|| RpcError::invalid_input("없는 역할입니다"))?;
+        if role.permissions.contains(Permissions::ADMINISTRATOR) {
+            return Err(RpcError::invalid_input(
+                "관리자 권한이 있는 역할은 온보딩 선택지에 넣을 수 없습니다",
+            ));
+        }
+    }
+    if ob == state.onboarding {
+        return Ok(empty());
+    }
+    let old = state.onboarding.roles();
+    let mut changed = new.symmetric_difference(&old).peekable();
+    if changed.peek().is_some() {
+        rpc(crews::need(&state, &me, Permissions::MANAGE_ROLES))?;
+        let my_rank = state.rank_of(&me);
+        if changed.any(|r| state.roles.get(r).is_some_and(|x| x.level() >= my_rank)) {
+            return Err(RpcError::forbidden(
+                "자기보다 순위가 높거나 같은 역할은 주거나 뺄 수 없습니다",
+            ));
+        }
+    }
+    publish(
+        node,
+        p.space,
+        EventBody::CrewOnboardingSet { onboarding: ob },
+    )
+    .await?;
+    Ok(empty())
+}
+
+/// `crew.set_onboarding_lang`: 온보딩 한 언어의 번역 전체(`manage_space`). 앞뒤 공백을 빼고, 비었거나 원문과 같은
+/// 번역문은 뺍니다(원문으로 보임). 해소기 규칙과 같게 먼저 확인해 거부될 이벤트를 내지 않습니다.
+pub(crate) async fn set_onboarding_lang(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::CrewSetOnboardingLang>,
+) -> R<m::CrewSetOnboardingLang> {
+    let (state, me) = rpc(crews::crew_state(node, &p.space))?;
+    rpc(crews::need(&state, &me, Permissions::MANAGE_SPACE))?;
+    if !yangpa_core::model::valid_ai_lang_code(&p.lang) {
+        return Err(RpcError::invalid_input(
+            "온보딩 번역 언어 코드가 올바르지 않습니다",
+        ));
+    }
+    let texts: BTreeMap<String, String> = p
+        .texts
+        .iter()
+        .map(|(k, v)| (k.clone(), v.trim().to_owned()))
+        .filter(|(k, v)| !v.is_empty() && v != k)
+        .collect();
+    let cur = state.onboarding_langs.get(&p.lang);
+    if cur == Some(&texts) || (cur.is_none() && texts.is_empty()) {
+        return Ok(empty());
+    }
+    if !texts.is_empty() {
+        if state.onboarding.check_lang(&texts).is_err() {
+            return Err(RpcError::invalid_input(
+                "온보딩에 없는 글이거나 번역문이 한도를 넘었습니다",
+            ));
+        }
+        if cur.is_none() && state.onboarding_langs.len() >= yangpa_core::model::MAX_ONBOARDING_LANGS
+        {
+            return Err(RpcError::invalid_input("온보딩 번역 언어가 너무 많습니다"));
+        }
+    }
+    publish(
+        node,
+        p.space,
+        EventBody::CrewOnboardingLangSet {
+            lang: p.lang.clone(),
+            texts,
+        },
+    )
+    .await?;
+    Ok(empty())
+}
+
+/// `crew.onboarding_pick`: 온보딩 답(질문 순서대로 고른 선택지 번호)을 내 역할로 바꿔 냅니다. 선택지가 주는 역할 중
+/// 고르지 않은 것은 빠지고, 바뀌는 게 없으면 내지 않습니다.
+pub(crate) async fn onboarding_pick(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::CrewOnboardingPick>,
+) -> R<m::CrewOnboardingPick> {
+    let (state, me) = rpc(crews::crew_state(node, &p.space))?;
+    let ob = &state.onboarding;
+    let bad = || RpcError::invalid_input("온보딩 답이 질문과 맞지 않습니다");
+    if p.answers.len() != ob.questions.len() {
+        return Err(bad());
+    }
+    let cur: BTreeSet<RoleId> = state
+        .members
+        .get(&me)
+        .map(|m| m.roles.iter().copied().collect())
+        .unwrap_or_default();
+    let mut picked = BTreeSet::new();
+    for (q, answer) in ob.questions.iter().zip(&p.answers) {
+        if !q.multiple && answer.len() > 1 {
+            return Err(bad());
+        }
+        if q.required && answer.is_empty() {
+            return Err(RpcError::invalid_input(
+                "답해야 하는 온보딩 질문이 있습니다",
+            ));
+        }
+        for i in answer {
+            let o = q.options.get(*i as usize).ok_or_else(bad)?;
+            // 해소기처럼: 지워진 역할은 빼고, 새로 받는 역할은 관리자 권한이 없어야 합니다.
+            picked.extend(o.roles.iter().copied().filter(|r| {
+                state.roles.get(r).is_some_and(|x| {
+                    cur.contains(r) || !x.permissions.contains(Permissions::ADMINISTRATOR)
+                })
+            }));
+        }
+    }
+    let offered = ob.roles();
+    if cur.intersection(&offered).eq(picked.iter()) {
+        return Ok(empty());
+    }
+    let roles = picked.into_iter().collect();
+    publish(node, p.space, EventBody::OnboardingPick { roles }).await?;
     Ok(empty())
 }
 
