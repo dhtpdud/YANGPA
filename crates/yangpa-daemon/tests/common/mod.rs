@@ -391,7 +391,7 @@ pub async fn meet_by_link(a: &TestNode, b: &TestNode, expires_in_secs: Option<u6
         })
         .await;
     let added = b.ok::<m::FriendAdd>(UrlParams { url: link.url }).await;
-    assert_eq!(added.user, a.user());
+    assert_eq!(added.user, Some(a.user()));
     let (a_user, b_user) = (a.user(), b.user());
     // 링크 주인은 수락 없이 바로 1:1 공간을 만듭니다.
     let space = eventually("링크 주인이 임시 연락처로 기록", || async {

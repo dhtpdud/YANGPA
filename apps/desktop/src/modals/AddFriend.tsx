@@ -74,6 +74,10 @@ export function AddFriendPanel({ url }: { url?: string }) {
     }
   };
 
+  const copy = async (url: string | undefined) => {
+    if (url && (await copyText(url))) toast('success', t('링크를 복사했습니다'));
+  };
+
   // 폐기하면 그 링크로 만난 임시 연락처도 만료되므로 확인받습니다.
   const revoke = (l: FriendLinkView) =>
     openModal({
@@ -120,13 +124,7 @@ export function AddFriendPanel({ url }: { url?: string }) {
         {created && (
           <div className="link-box">
             <code className="mono">{created.url}</code>
-            <button
-              type="button"
-              className="btn small"
-              onClick={async () => {
-                if (await copyText(created.url)) toast('success', t('링크를 복사했습니다'));
-              }}
-            >
+            <button type="button" className="btn small" onClick={() => void copy(created.url)}>
               <Copy size={14} /> {t('복사')}
             </button>
             <span className="muted small">{created.expires_at ? t('{time}까지', { time: formatFull(created.expires_at) }) : t('만료 없음')}</span>
@@ -175,6 +173,16 @@ export function AddFriendPanel({ url }: { url?: string }) {
               {t('{time} 만듦', { time: formatRelative(l.created_at) })} · {l.single_use ? t('1회용') : t('여러 번')} · {t('사용 {n}회', { n: l.uses })} ·{' '}
               {l.expires_at ? t('{time} 만료', { time: formatFull(l.expires_at) }) : t('만료 없음')}
             </span>
+            {l.copyable && (
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('링크 복사')}
+                onClick={async () => client && void copy((await call(client.call('friend.link.url', { token_id: l.token_id })))?.url)}
+              >
+                <Copy size={16} />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn"

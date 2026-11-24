@@ -136,6 +136,8 @@ export class MockBackend {
   friends: FriendView[] = [];
   requests: FriendRequestView[] = [];
   friendLinks: FriendLinkView[] = [];
+  /** 만든 링크의 주소(토큰 ID·해시별, 다시 복사). */
+  private madeUrls = new Map<string, string>();
   spaces = new Map<string, MockSpace>();
   notes = new Map<string, string>();
   safety = new Map<string, { digits: string; verified: boolean }>();
@@ -576,12 +578,14 @@ export class MockBackend {
           uses: 3,
           roles: [roleIds.newbie],
           created_by: u.me,
+          copyable: true,
         },
         {
           token_hash: Array.from({ length: 64 }, () => '0123456789abcdef'[this.rng.int(0, 15)]).join(''),
           uses: 12,
           roles: [],
           created_by: u.minji,
+          copyable: false,
         },
       ];
       sp.unread = 12;
@@ -625,7 +629,7 @@ export class MockBackend {
       },
     ];
     this.friendLinks = [
-      { token_id: 'tok-' + this.rng.id(16).slice(0, 8), created_at: now - 2 * DAY, expires_at: now + DAY, single_use: true, uses: 0 },
+      { token_id: 'tok-' + this.rng.id(16).slice(0, 8), created_at: now - 2 * DAY, expires_at: now + DAY, single_use: true, uses: 0, copyable: true },
     ];
     this.tokens = [
       {
@@ -1163,6 +1167,13 @@ export class MockBackend {
     f.proposed = false;
     this.contactLinks.delete(f.user);
     this.emit({ type: 'friend.accepted', user: f.user, space: f.space });
+  }
+
+  /** 만든 링크의 주소. 데몬처럼 onion 키와 확인값만 담은 짧은 링크 길이(약 99자)입니다. */
+  private madeUrl(kind: 'friend' | 'invite', id: string): string {
+    const url = this.madeUrls.get(id) ?? `${WEB_BASE}#${kind}/${(this.rng.id(32) + this.rng.id(16)).slice(0, 58)}`;
+    this.madeUrls.set(id, url);
+    return url;
   }
 
   /** 1대1 대화 공간(친구·연락처 공통, 채널 하나). */
@@ -1870,11 +1881,14 @@ export class MockBackend {
         const token_id = 'tok-' + this.rng.id(16).slice(0, 8);
         const now = Date.now();
         const expires_at = p.expires_in_secs ? now + p.expires_in_secs * 1000 : undefined;
-        this.friendLinks.push({ token_id, created_at: now, expires_at, single_use: !!p.single_use, uses: 0 });
-        return { url: `${WEB_BASE}#friend/${this.rng.id(32)}${this.rng.id(32)}${this.rng.id(16)}`, token_id, expires_at };
+        this.friendLinks.push({ token_id, created_at: now, expires_at, single_use: !!p.single_use, uses: 0, copyable: true });
+        return { url: this.madeUrl('friend', token_id), token_id, expires_at };
       }
       case 'friend.link.list':
         return this.friendLinks;
+      case 'friend.link.url':
+        if (!this.friendLinks.some((l) => l.token_id === p.token_id && l.copyable)) throw new RpcError(ErrorCode.NotFound, '없는 링크');
+        return { url: this.madeUrl('friend', p.token_id) };
       case 'friend.link.revoke': {
         this.friendLinks = this.friendLinks.filter((l) => l.token_id !== p.token_id);
         // 링크를 폐기하면 그 링크로 만난 임시 연락처도 만료됩니다.
@@ -2967,18 +2981,23 @@ export class MockBackend {
       case 'invite.create': {
         const sp = this.space(p.space);
         const now = Date.now();
+        const token_hash = Array.from({ length: 64 }, () => '0123456789abcdef'[this.rng.int(0, 15)]).join('');
         sp.invites.push({
-          token_hash: Array.from({ length: 64 }, () => '0123456789abcdef'[this.rng.int(0, 15)]).join(''),
+          token_hash,
           expires_at: p.expires_in_secs ? now + p.expires_in_secs * 1000 : undefined,
           max_uses: p.max_uses,
           uses: 0,
           roles: p.roles ?? [],
           created_by: this.me,
+          copyable: true,
         });
-        return { url: `${WEB_BASE}#invite/${this.rng.id(32)}${this.rng.id(32)}` };
+        return { url: this.madeUrl('invite', token_hash) };
       }
       case 'invite.list':
         return this.space(p.space).invites;
+      case 'invite.url':
+        if (!this.space(p.space).invites.some((i) => i.token_hash === p.token_hash && i.copyable)) throw new RpcError(ErrorCode.NotFound, '없는 초대');
+        return { url: this.madeUrl('invite', p.token_hash) };
       case 'invite.revoke': {
         const sp = this.space(p.space);
         sp.invites = sp.invites.filter((i) => i.token_hash !== p.token_hash);

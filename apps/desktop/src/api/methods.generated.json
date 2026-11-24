@@ -319,6 +319,13 @@
     {
       "destructive": "no",
       "human_only": false,
+      "name": "friend.link.url",
+      "scope": "write",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
       "name": "friend.link.revoke",
       "scope": "write",
       "space": "global"
@@ -1014,6 +1021,13 @@
       "human_only": false,
       "name": "invite.list",
       "scope": "read",
+      "space": "required"
+    },
+    {
+      "destructive": "always",
+      "human_only": false,
+      "name": "invite.url",
+      "scope": "admin",
       "space": "required"
     },
     {

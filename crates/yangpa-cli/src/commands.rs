@@ -691,12 +691,17 @@ impl Ctx {
                     .client
                     .request::<m::FriendAdd>(UrlParams { url })
                     .await?;
-                self.emit(&r, |r| match r.status {
-                    FriendAddStatus::Pending => format!(
-                        "연락처 링크를 보냈습니다({}). 상대 기기가 받으면 임시 연락처로 대화가 생깁니다.\n",
-                        r.user
-                    ),
-                    FriendAddStatus::Connected => format!("이미 연결된 연락처입니다: {}\n", r.user),
+                self.emit(&r, |r| {
+                    let who = r.user.map(|u| u.to_string()).unwrap_or_default();
+                    match (r.status, r.user) {
+                        (FriendAddStatus::Pending, None) => "링크를 만든 기기에 아직 닿지 못했습니다. 그 기기가 켜지면 이어서 보냅니다.\n".into(),
+                        (FriendAddStatus::Pending, _) => format!(
+                            "연락처 링크를 보냈습니다({who}). 상대 기기가 받으면 임시 연락처로 대화가 생깁니다.\n"
+                        ),
+                        (FriendAddStatus::Connected, _) => {
+                            format!("이미 연결된 연락처입니다: {who}\n")
+                        }
+                    }
                 })
             }
             FriendCmd::Propose { user } => {

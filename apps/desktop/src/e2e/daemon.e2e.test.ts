@@ -134,7 +134,8 @@ describe.skipIf(!BIN)('실제 데몬 종단 간', () => {
       const link = await a.client.call('friend.link.create', { expires_in_secs: 600, single_use: true });
       expect(link.url.startsWith(`${WEB_BASE}#friend/`)).toBe(true);
       const links = await a.client.call('friend.link.list', {});
-      expect(links.some((l) => l.token_id === link.token_id && l.single_use)).toBe(true);
+      expect(links.some((l) => l.token_id === link.token_id && l.single_use && l.copyable)).toBe(true);
+      expect(await a.client.call('friend.link.url', { token_id: link.token_id })).toEqual({ url: link.url });
       const bUser = (await b.client.call('identity.get', {})).user;
       const aUser = (await a.client.call('identity.get', {})).user;
       const added = await b.client.call('friend.add', { url: link.url });
@@ -213,7 +214,8 @@ describe.skipIf(!BIN)('실제 데몬 종단 간', () => {
       crew = (await a.client.call('crew.create', { name: 'E2E 크루', description: '종단 간 시험' })).space;
       const inv = await a.client.call('invite.create', { space: crew, max_uses: 5 });
       const invites = await a.client.call('invite.list', { space: crew });
-      expectKeys(invites[0], ['token_hash', 'uses', 'roles', 'created_by'], 'InviteView');
+      expectKeys(invites[0], ['token_hash', 'uses', 'roles', 'created_by', 'copyable'], 'InviteView');
+      expect(await a.client.call('invite.url', { space: crew, token_hash: invites[0].token_hash })).toEqual({ url: inv.url });
       for (const d of [b, c]) {
         const j = await eventually(`${d.name} 초대 가입`, async () => d.client.call('invite.join', { url: inv.url }));
         expect(j.space).toBe(crew);

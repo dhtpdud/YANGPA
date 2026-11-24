@@ -323,6 +323,7 @@ describe('MOCK 백엔드', () => {
     const { client, t } = setup();
     const link = await client.call('friend.link.create', { expires_in_secs: 3600, single_use: true });
     expect(link.url.startsWith(`${WEB_BASE}#friend/`)).toBe(true);
+    expect(await client.call('friend.link.url', { token_id: link.token_id })).toEqual({ url: link.url });
     await expect(client.call('friend.add', { url: 'https://example.com/' + 'x'.repeat(40) })).rejects.toMatchObject({ code: ErrorCode.InvalidInput });
     // 웹 초대 페이지가 앱에 넘기는 꼴(yangpa://)도 받습니다.
     const old = await client.call('friend.add', { url: 'yangpa://friend/' + 'A'.repeat(40) });
@@ -333,7 +334,7 @@ describe('MOCK 백엔드', () => {
     expect(friends.some((f) => f.user === old.user)).toBe(true);
     expect((await client.call('space.list', {})).some((s) => s.space === contact.space)).toBe(true);
 
-    expect(await client.call('friend.propose', { user: added.user })).toEqual({ status: 'requested' });
+    expect(await client.call('friend.propose', { user: contact.user })).toEqual({ status: 'requested' });
     expect((await client.call('friend.list', {})).find((f) => f.user === added.user)?.proposed).toBe(true);
 
     // 임시 연락처가 보낸 친구 추가를 수락하면 새 대화 없이 지금 대화가 이어집니다.

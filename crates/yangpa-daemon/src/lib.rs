@@ -59,6 +59,7 @@ pub(crate) mod qr;
 pub(crate) mod ratelimit;
 pub(crate) mod scoped;
 pub(crate) mod sfu;
+pub(crate) mod shortlink;
 pub(crate) mod stun;
 pub(crate) mod supporter;
 pub(crate) mod tor;

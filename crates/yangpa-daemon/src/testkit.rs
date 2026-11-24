@@ -1758,6 +1758,11 @@ pub fn expire_contact_now(node: &Node, user: &UserId) {
     crate::friends::expire_due(node);
 }
 
+/// 만든 기기에 닿지 못해 대기열에 둔 짧은 연락처 링크들.
+pub fn pending_links(node: &Node) -> Vec<String> {
+    crate::friends::pending_links(node)
+}
+
 /// 보낸 요청을 남기지 않고 연락처 링크를 씁니다(요청을 잃은 쪽): 링크 주인이 보낸 수락에 모르는 요청이라고 답합니다.
 pub async fn redeem_unrecorded(node: &Node, url: &str) -> Result<YpResponse> {
     let link = yangpa_core::links::FriendLink::parse(url)

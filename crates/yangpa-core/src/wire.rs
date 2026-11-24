@@ -14,8 +14,8 @@ use crate::device::{DeviceEntry, DeviceKeys, SignedDeviceList, SignedProfile};
 use crate::error::CoreError;
 use crate::event::{SignedEvent, StreamId};
 use crate::ids::{
-    BlobId, CallId, ChannelId, ChannelRootId, DeviceId, EventId, KeyGroupId, LinkToken, SpaceId,
-    StateKeyId, UserId,
+    BlobId, CallId, ChannelId, ChannelRootId, DeviceId, EventId, KeyGroupId, LinkCode, LinkToken,
+    SpaceId, StateKeyId, UserId,
 };
 use crate::sign::{Sig, SignDomain, SigningKeypair, verify};
 use crate::time::Timestamp;
@@ -678,6 +678,12 @@ pub enum YpRequest {
     /// 사용자가 지금 상태에서 그 프로필을 받는 역할이고 채널을 볼 수 있고 AI 번역 권한이 있으면 자기 키로 번역해
     /// [`YpResponse::AiTranslated`]로 결과만 돌려줍니다. 키는 기기 밖으로 나가지 않습니다.
     AiTranslate(Box<AiTranslateAsk>),
+    /// 짧은 연락처·초대 링크(`links::ShortLink`)의 긴 링크를 만든 기기에 묻습니다(인증 전에도 받음). 답은
+    /// [`YpResponse::Link`], 없거나 폐기했으면 `InvalidToken`, 만료했으면 `Expired`. 확인값을 아는 쪽은 링크를 가진
+    /// 쪽이므로 긴 링크를 건네받은 것과 같습니다.
+    GetLink {
+        code: LinkCode,
+    },
 }
 
 /// [`YpRequest::AiTranslate`].
@@ -716,7 +722,8 @@ impl YpRequest {
             | YpRequest::FileLink(_)
             | YpRequest::CheckJoin { .. }
             | YpRequest::DeviceLink(_)
-            | YpRequest::DeviceLinkPoll { .. } => true,
+            | YpRequest::DeviceLinkPoll { .. }
+            | YpRequest::GetLink { .. } => true,
             YpRequest::Archive(a) => matches!(
                 **a,
                 crate::archive::ArchiveRequest::Designate(_)
@@ -1031,6 +1038,8 @@ pub enum YpResponse {
     MemberCards(Vec<MemberCard>),
     /// `AiTranslate`의 답: 보낸 글 순서대로.
     AiTranslated(Vec<Option<AiTranslatedItem>>),
+    /// `GetLink`의 답: 긴 링크에서 주소를 뺀 나머지(`invite/…`·`friend/…`).
+    Link(String),
 }
 
 /// [`SocialRequest`]의 답. 비어 있는 칸은 줄 것이 없다는 뜻입니다.

@@ -688,6 +688,9 @@ function Invites({ space }: { space: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+  const copy = async (link: string | undefined) => {
+    if (link && (await copyText(link))) toast('success', t('링크를 복사했습니다'));
+  };
   return (
     <div className="stack">
       <h3>{t('초대')}</h3>
@@ -744,7 +747,7 @@ function Invites({ space }: { space: string }) {
         {url && (
           <div className="link-box">
             <code className="mono">{url}</code>
-            <button type="button" className="btn small" onClick={async () => (await copyText(url)) && toast('success', t('복사했습니다'))}>
+            <button type="button" className="btn small" onClick={() => void copy(url)}>
               <Copy size={14} /> {t('복사')}
             </button>
           </div>
@@ -764,6 +767,16 @@ function Invites({ space }: { space: string }) {
               {inv.roles.length > 0 &&
                 ' · ' + t('역할 {list}', { n: inv.roles.length, list: inv.roles.map((r) => emojiPlain(view.roles.find((x) => x.id === r)?.name ?? '?')).join(', ') })}
             </span>
+            {inv.copyable && (
+              <button
+                type="button"
+                className="icon-btn"
+                title={t('링크 복사')}
+                onClick={async () => client && void copy((await call(client.call('invite.url', { space, token_hash: inv.token_hash })))?.url)}
+              >
+                <Copy size={16} />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn danger"

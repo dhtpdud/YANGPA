@@ -128,6 +128,8 @@ api_methods! {
     // 친구
     FriendLinkCreate = "friend.link.create" [Write, Global] (FriendLinkCreateParams) -> FriendLinkCreateResult;
     FriendLinkList = "friend.link.list" [Read, Global] (Empty) -> Vec<FriendLinkView>;
+    /// 이 기기에서 만든 연락처 링크 다시 복사. 링크를 가지면 연락할 수 있어 목록(`Read`)에 싣지 않습니다.
+    FriendLinkUrl = "friend.link.url" [Write, Global] (TokenIdParams) -> UrlResult;
     FriendLinkRevoke = "friend.link.revoke" [Write, Global] (TokenIdParams) -> Empty;
     FriendAdd = "friend.add" [Write, Global] (UrlParams) -> FriendAddResult;
     FriendRequests = "friend.requests" [Read, Global] (Empty) -> Vec<FriendRequestView>;
@@ -288,6 +290,8 @@ api_methods! {
     RoleDelete = "role.delete" [Admin, Required, destructive] (RoleParams) -> Empty;
     InviteCreate = "invite.create" [Admin, Required, destructive] (InviteCreateParams) -> UrlResult;
     InviteList = "invite.list" [Read, Required] (SpaceParams) -> Vec<InviteView>;
+    /// 이 기기에서 만든 초대 링크 다시 복사. 링크를 가지면 들어올 수 있어 만들기와 같은 범위입니다.
+    InviteUrl = "invite.url" [Admin, Required, destructive] (InviteRevokeParams) -> UrlResult;
     InviteRevoke = "invite.revoke" [Admin, Required] (InviteRevokeParams) -> Empty;
     InviteJoin = "invite.join" [Write, Global] (UrlParams) -> InviteJoinResult;
 

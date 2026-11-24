@@ -2,7 +2,7 @@
 //!
 //! 인증 전에도 받는 요청: `Auth`, `RedeemFriendLink`, `FriendAccepted`, `RedeemInvite`, `Ping`, `Archive`의 지정·해제
 //! (요청에 기기 증명이 실림), `FileLink`·`CheckJoin`(요청에 기기 증명이 실림), `DeviceLink`·`DeviceLinkPoll`(링크
-//! 토큰을 가진 쪽만, 답은 요청한 기기의 상자 키로 봉인).
+//! 토큰을 가진 쪽만, 답은 요청한 기기의 상자 키로 봉인), `GetLink`(짧은 링크를 가진 쪽만).
 //! 나머지는 각 처리기가 `node.peers.identity_of`로 인증·멤버 여부를 확인합니다. 위 목록은
 //! `YpRequest::before_auth`와 같아야 합니다(그 요청은 압축하지 않고 오가므로, 빠지면 인증 전 상대가 보낸 압축본을 거절함).
 //!
@@ -58,6 +58,7 @@ pub(crate) async fn handle(node: &Arc<Node>, peer: PeerId, req: Incoming) -> YpR
         YpRequest::SupporterShare(s) => crate::supporter::handle_share(node, peer, s),
         YpRequest::Presence(s) => crate::presence::handle(node, peer, s),
         YpRequest::Badges(m) => crate::badges::handle(node, peer, *m),
+        YpRequest::GetLink { code } => crate::shortlink::handle_get(node, &code),
         YpRequest::RedeemFriendLink(r) => friends::handle_redeem(node, peer, *r),
         YpRequest::FriendAccepted {
             token,

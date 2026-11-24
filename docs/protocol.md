@@ -75,7 +75,7 @@ postcard에 겁니다. 평문 본문은 없습니다(형식 3판에서 `KeyRef::
 - 요청·응답 `/yangpa/rpc/5`: 스트림 하나에 `zl(CBOR)`. 한도는 압축 전 CBOR 8MiB(받은 바이트는 그 + 1). 인증 전 상대의 입력은
   OpenZL(C) 해제기에 닿지 않게 합니다.
   - 인증 전에도 받는 요청(`Ping`, `Auth`, `RedeemFriendLink`, `FriendAccepted`, `RedeemInvite`, `FileLink`, `CheckJoin`,
-    `DeviceLink`, `DeviceLinkPoll`, `Archive`의 `Designate`·`Release`, `YpRequest::before_auth`)은 요청도 응답도 `0xF0`(압축
+    `DeviceLink`, `DeviceLinkPoll`, `GetLink`, `Archive`의 `Designate`·`Release`, `YpRequest::before_auth`)은 요청도 응답도 `0xF0`(압축
     없음)으로 보냅니다. 보낸 쪽은 이런 요청에 `0xF1` 응답이 오면 풀지 않고 실패로 봅니다.
   - 받은 `0xF1` 요청은 코덱이 풀지 않고 데몬에 넘깁니다. 데몬은 보낸 노드가 인증된 경우(주 스웜은 `Auth`나 그 기기의 파일
     회로, P2P 스웜은 그 스웜의 `Auth`)에만 풀고, 아니면 `Unauthenticated`로 답합니다.
@@ -1481,14 +1481,32 @@ envelope = postcard({ v = 2, wraps: [(device_id, kem_ct, wrap)], ct = XChaCha20-
 링크는 모두 `<웹 초대 페이지>#<종류>/<base58(postcard(본문))>`이고(`friend`·`invite`·`archive`), `#` 뒤는 브라우저가 서버로
 보내지 않습니다. 읽을 때는 `yangpa://<종류>/…`와 어느 호스트든 `https://…#` 뒤를 받습니다(본문이 스스로 검증되므로).
 
+**짧은 링크.** 사람에게 주는 연락처·초대 링크는 본문이 43바이트인 짧은 링크(약 99자)입니다: 판 3(1B), 만든 기기의 onion
+공개키(32B, 포트는 4001로 정함), 확인값(`LinkCode`, 10B). 확인값은 긴 링크(아래에서 말하는 `FriendLink`·`InviteLink`)의
+`<종류>/<base58>` 글자를 `blake3::derive_key("yangpa/v1/short-link")`로 해시한 앞 10바이트입니다.
+
+- 만든 기기는 긴 링크를 자기 암호화된 저장소(`link.made.<확인값>`)에만 두고 `GetLink{code}`(인증 전에도 받음)에
+  `Link(긴 링크의 <종류>/<base58>)`로 답합니다. 폐기하면 지웁니다(`InvalidToken`). 만료했으면 `Expired`입니다. 상태 이벤트와 내 다른
+  기기에는 싣지 않습니다(토큰 원문이 들어 있음).
+- 여는 기기는 onion에 걸어(`NetHandle::dial_addr`) 물은 뒤, 해시가 확인값과 맞는 긴 링크만 쓰고 그 뒤는 긴 링크를 붙여 넣은 것과
+  같습니다. onion 주소가 만든 기기임을, 확인값이 내용(토큰·`genesis`·고정 체크포인트)을 고정하므로 만든 기기가 나중에 다른 크루나
+  다른 사람으로 바꿔 줄 수 없습니다. 긴 링크에 128비트 토큰이 들어 있어 확인값은 미리 계산할 수 없고, 추측은 만든 기기에 하나씩
+  물어야 합니다(80비트).
+- 짧은 링크만 새면 onion 주소가 드러나고, 링크가 살아 있는 동안 물어 온 사람에게는 긴 링크의 내용(사용자·크루 ID)도 드러납니다.
+  폐기·만료 뒤에는 onion 주소만 남습니다.
+- onion이 없는 노드(직접 연결)는 긴 링크를 그대로 줍니다. 긴 링크도 계속 읽습니다.
+
 1. A가 연락처 링크를 만듭니다(`FriendLink`: A의 신원 공개키, 토큰, 만료(없을 수 있음), 1회용 여부, 이름 힌트, A 노드의
    PeerId·onion `xxxx.onion:port`, 직접 연결 노드면 릴레이 경유 주소). onion 주소는 서비스 키에서 정해지므로 Tor 부트스트랩
-   전에도 넣습니다. A의 데몬은 토큰 해시만 `friend_links`에 저장합니다(원문은 링크에만).
+   전에도 넣습니다. A의 데몬은 토큰 해시를 `friend_links`에, 긴 링크를 위 "짧은 링크"의 자리에 저장합니다.
 2. B가 링크를 쓰면(`friend.add`) B의 데몬이 A 노드에 닿게 하고 `RedeemFriendLink{token, auth(B 기기 증명), profile, key_package}`를
    보냅니다(인증 전에도 받음). 닿게 하는 순서: 이미 연결됨 → 링크의 주소와 전에 연결했던 주소(없으면 DHT) → 그래도 닿지 않으면
    PeerId 없이 링크의 onion에 걸어(`NetHandle::dial_addr`) 답한 노드에게 보냅니다(onion은 서비스 키가 곧 주소라 그 노드가 A의
    기기입니다. 링크를 만든 뒤 A의 PeerId가 바뀐 경우). B가 이미 A의 친구이거나 이 링크로 이미 임시 연락처면 보내지 않고
    `connected`입니다.
+   - 짧은 링크면 먼저 A에게서 긴 링크를 받습니다. 닿지 않으면 아직 A가 누구인지 모르므로 링크를 따로 대기열
+     (`friend.pending_link.<확인값>`)에 두고 `friend.add`는 사용자 없이 `pending`으로 끝나며, 같은 백오프로 7일까지 다시
+     묻습니다. 긴 링크를 받으면 이어서 아래로 갑니다. 거절(`InvalidToken`·`Expired`, 확인값이 다름)이면 지웁니다.
    - 닿지 않으면(A가 꺼짐, onion 서비스를 아직 게시하는 중) B는 요청을 대기열에 두고 `friend.add`는 `pending`으로 끝납니다(첫
      시도 30초, Tor 120초). A 노드와 연결될 때와 백오프마다(재연결 간격에서 두 배씩 최대 30분, 7일 또는 링크 만료까지) 다시
      보냅니다. 인증은 매번 새로 서명합니다(시각 허용 오차 5분). 같은 요청은 한 번에
@@ -1835,8 +1853,9 @@ envelope = postcard({ v = 2, wraps: [(device_id, kem_ct, wrap)], ct = XChaCha20-
     전환 전 기록 키를 받지 못합니다.
   - 전환한 두 사람의 1:1 대화는 새 1:1 공간으로 이어집니다(위 "크루로 바꾼 뒤 다시 1:1").
 - 초대: `InviteCreate{token_hash, verify_key, expires_at, max_uses, roles}` 상태 이벤트. `verify_key`는 토큰에서 만든 Ed25519
-  공개키(`blake3::derive_key("yangpa/v1/invite-key", 토큰)`를 씨앗으로 한 키쌍)입니다. 토큰 자체는 링크에만 있고 상태 레인
-  (멤버 전원이 읽음)에는 실리지 않습니다. 초대 링크에는 공간의 첫 이벤트 ID(`genesis`)가 들어가고,
+  공개키(`blake3::derive_key("yangpa/v1/invite-key", 토큰)`를 씨앗으로 한 키쌍)입니다. 토큰 자체는 긴 링크(만든 기기)에만 있고
+  상태 레인(멤버 전원이 읽음)에는 실리지 않습니다. 그래서 초대 목록은 멤버 누구나 보지만 링크를 다시 복사하는 것은 만든 기기뿐입니다.
+  초대 링크에는 공간의 첫 이벤트 ID(`genesis`)가 들어가고,
   가입자는 해소기를 그 ID로 고정합니다(`Resolver::with_genesis`). 초대를 받아 준 멤버가 가짜 첫 이벤트를 보내도 통하지 않습니다.
   링크에는 크루 이름을 넣지 않습니다(`name_hint` 빈 값: 링크가 새도 어느 크루인지 드러나지 않게).
 - 가입 흐름(데몬 `crews`):

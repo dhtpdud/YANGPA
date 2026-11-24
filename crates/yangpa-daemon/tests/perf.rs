@@ -399,7 +399,7 @@ async fn idle_daemon_resources() {
             .ok()
     })
     .await;
-    assert_eq!(added.user, b.user());
+    assert_eq!(added.user, Some(b.user()));
     // 링크 주인은 수락 없이 바로 임시 연락처로 기록하고 1:1 공간을 만듭니다.
     let space = eventually("B가 임시 연락처로 기록", || async {
         b.ok::<m::FriendList>(Empty)

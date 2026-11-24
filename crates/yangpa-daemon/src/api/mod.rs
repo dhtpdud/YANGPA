@@ -207,6 +207,7 @@ routes! {
     // 친구(코어)
     FriendLinkCreate => friend::link_create,
     FriendLinkList => friend::link_list,
+    FriendLinkUrl => friend::link_url,
     FriendLinkRevoke => friend::link_revoke,
     FriendAdd => friend::add,
     FriendRequests => friend::requests,
@@ -273,6 +274,7 @@ routes! {
     RoleDelete => role::delete,
     InviteCreate => invite::create,
     InviteList => invite::list,
+    InviteUrl => invite::url,
     InviteRevoke => invite::revoke,
     InviteJoin => invite::join,
     EmojiList => emoji::list,

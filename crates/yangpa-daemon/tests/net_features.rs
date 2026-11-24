@@ -906,7 +906,7 @@ async fn befriend_inbound(a: &TestNode, b: &TestNode) -> SpaceId {
         })
         .await;
     let added = a.ok::<m::FriendAdd>(UrlParams { url: link.url }).await;
-    assert_eq!(added.user, b.user());
+    assert_eq!(added.user, Some(b.user()));
     let (a_user, b_user) = (a.user(), b.user());
     let space = eventually("링크 주인이 임시 연락처로 기록", || async {
         b.ok::<m::FriendList>(Empty)
@@ -1790,7 +1790,7 @@ async fn contact_link_delivered_when_owner_comes_online() {
     b.shutdown().await;
     let started = std::time::Instant::now();
     let added = a.ok::<m::FriendAdd>(UrlParams { url: link.url }).await;
-    assert_eq!(added.user, b.user());
+    assert_eq!(added.user, Some(b.user()));
     assert!(started.elapsed() < std::time::Duration::from_secs(40));
     assert_eq!(testkit::pending_redeems(&a.node), 1);
 
@@ -2001,7 +2001,7 @@ async fn mutual_link_redeems_leave_one_space() {
         a.ok::<m::FriendAdd>(UrlParams { url: lb.url }),
         b.ok::<m::FriendAdd>(UrlParams { url: la.url })
     );
-    assert_eq!((ra.user, rb.user), (b.user(), a.user()));
+    assert_eq!((ra.user, rb.user), (Some(b.user()), Some(a.user())));
     let (a_user, b_user) = (a.user(), b.user());
     let settled = |n: &TestNode, other: UserId| {
         let node = n.node.clone();
@@ -2061,7 +2061,7 @@ async fn repeated_accepts_for_a_discarded_duplicate_are_ok() {
         a.ok::<m::FriendAdd>(UrlParams { url: lb.url }),
         b.ok::<m::FriendAdd>(UrlParams { url: la.url })
     );
-    assert_eq!((ra.user, rb.user), (b.user(), a.user()));
+    assert_eq!((ra.user, rb.user), (Some(b.user()), Some(a.user())));
     let (a_user, b_user) = (a.user(), b.user());
     let own_space = |n: &TestNode, other: UserId| {
         let node = n.node.clone();

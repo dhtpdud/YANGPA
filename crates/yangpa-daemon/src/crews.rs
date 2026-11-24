@@ -704,7 +704,18 @@ pub(crate) async fn my_contact(node: &Node) -> ContactInfo {
 /// 초대 링크로 가입합니다. 반환: (공간, 가입이 끝났는지). 끝나지 않았으면 확정 기기가 내 기기를 넣은 크루 키 갱신
 /// (`KeyUpdate`)을 내기를 기다리는 중입니다.
 pub(crate) async fn join(node: &Arc<Node>, url: &str) -> Result<(SpaceId, bool)> {
-    let link = InviteLink::parse(url).map_err(|e| match e {
+    let long = match InviteLink::parse_short(url) {
+        Some(short) => crate::shortlink::open(node, &short)
+            .await
+            .map_err(|e| match e {
+                Error::Network(e) => Error::Network(format!(
+                    "초대한 노드에 닿지 못했습니다(같은 링크로 다시 시도할 수 있음): {e}"
+                )),
+                e => e,
+            })?,
+        None => url.to_owned(),
+    };
+    let link = InviteLink::parse(&long).map_err(|e| match e {
         CoreError::Expired => Error::invalid("만료된 초대 링크입니다"),
         e => Error::invalid(format!("초대 링크: {e}")),
     })?;
@@ -930,6 +941,7 @@ pub(crate) async fn purge_local(node: &Arc<Node>, space: &SpaceId) -> Result<()>
     crate::flair::forget(node, space);
     crate::cards::forget(node, space);
     forget_relays(node, space);
+    crate::shortlink::forget_space(node, space);
     if let Ok(rows) = node.store.settings_with_prefix(&forum_meta_prefix(space)) {
         for (k, _) in rows {
             let _ = node.store.delete_setting(&k);

@@ -276,6 +276,7 @@ mod tests {
             "role.delete",
             "member.set_roles",
             "invite.create",
+            "invite.url",
             "crew.transfer_ownership",
             "crew.convert_request",
             "crew.convert_accept",

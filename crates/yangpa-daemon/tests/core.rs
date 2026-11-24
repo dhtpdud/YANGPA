@@ -17,10 +17,10 @@ use yangpa_core::model::SpaceKind;
 use yangpa_core::wire::{LamportRange, WireErrorCode, YpRequest, YpResponse};
 use yangpa_daemon::testkit;
 use yangpa_rpc::api::{
-    ContactKind, Empty, FriendLinkCreateParams, IdentityCreateParams, MarkReadParams,
-    MessageEditParams, MessageListParams, MessageRefParams, Notification, ProfileGetParams,
-    ProfileSetParams, ReactParams, ReactionView, Scope, SpaceParams, TokenIdParams, UrlParams,
-    UserParams, m,
+    ContactKind, Empty, FriendAddStatus, FriendLinkCreateParams, IdentityCreateParams,
+    MarkReadParams, MessageEditParams, MessageListParams, MessageRefParams, Notification,
+    ProfileGetParams, ProfileSetParams, ReactParams, ReactionView, Scope, SpaceParams,
+    TokenIdParams, UrlParams, UserParams, m,
 };
 use yangpa_rpc::jsonrpc::{
     ERR_AUTH_REQUIRED, ERR_FORBIDDEN, ERR_INVALID_INPUT, ERR_NO_IDENTITY, ERR_NOT_FOUND,
@@ -1742,6 +1742,31 @@ async fn invite_joins_from_an_accepting_member_get_a_larger_burst() {
 }
 
 // ───────────── 15. 친구 흐름의 경쟁·유실 ─────────────
+
+/// 짧은 연락처 링크: 만든 기기에 닿지 못하면 오류 대신 대기열에 두고, 이 기기에서 만든 것이면 바로 압니다.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn short_contact_link_waits_for_its_maker() {
+    use yangpa_core::links::ShortLink;
+
+    let cl = Cluster::new();
+    let a = cl.node("a").await;
+    let b = cl.node("b").await;
+    let link = a
+        .ok::<m::FriendLinkCreate>(FriendLinkCreateParams {
+            expires_in_secs: Some(3600),
+            single_use: None,
+        })
+        .await;
+    // 시험 스웜에는 Tor가 없어 onion에 닿지 않습니다.
+    let url = ShortLink::url_of(&link.url, [1; 32]).unwrap();
+    let r = b.ok::<m::FriendAdd>(UrlParams { url: url.clone() }).await;
+    assert_eq!((r.status, r.user), (FriendAddStatus::Pending, None));
+    assert_eq!(testkit::pending_links(&b.node), vec![url.clone()]);
+
+    let r = a.call::<m::FriendAdd>(UrlParams { url }).await;
+    assert_eq!(r.unwrap_err().code, ERR_INVALID_INPUT, "내 링크");
+    assert!(testkit::pending_links(&a.node).is_empty());
+}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn friend_flow_survives_lost_responses_duplicates_and_forgeries() {

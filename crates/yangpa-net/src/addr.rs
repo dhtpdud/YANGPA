@@ -200,6 +200,37 @@ pub fn onion_multiaddr(onion_host: &str, port: u16) -> Option<Multiaddr> {
     format!("/onion3/{b32}:{port}").parse().ok()
 }
 
+/// onion 주소(`xxxx.onion`)의 공개키(짧은 링크에 담음). 체크섬이 맞지 않으면 `None`.
+pub fn onion_key(host: &str) -> Option<[u8; 32]> {
+    #[cfg(feature = "tor")]
+    return host
+        .parse::<tor_hsservice::HsId>()
+        .ok()
+        .map(|id| *id.as_ref());
+    #[cfg(not(feature = "tor"))]
+    {
+        let _ = host;
+        None
+    }
+}
+
+/// 공개키의 onion 주소([`onion_key`]의 반대).
+pub fn onion_from_key(key: [u8; 32], port: u16) -> Option<Multiaddr> {
+    #[cfg(feature = "tor")]
+    {
+        use safelog::DisplayRedacted;
+        let host = tor_hsservice::HsId::from(key)
+            .display_unredacted()
+            .to_string();
+        onion_multiaddr(&host, port)
+    }
+    #[cfg(not(feature = "tor"))]
+    {
+        let _ = (key, port);
+        None
+    }
+}
+
 /// Tor 스웜의 onion 수신 요청을 뜻하는 표식 주소(해시가 모두 0인 onion3). 실제 onion 주소는
 /// 서비스가 뜬 뒤 전송 계층이 새 수신 주소로 알려 줍니다.
 pub fn onion_listen_marker(port: u16) -> Multiaddr {
@@ -228,6 +259,19 @@ mod tests {
     use super::*;
 
     const ONION: &str = "duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad";
+
+    #[cfg(feature = "tor")]
+    #[test]
+    fn onion_key_roundtrip() {
+        let host = format!("{ONION}.onion");
+        let key = onion_key(&host).unwrap();
+        assert_eq!(
+            onion_from_key(key, 4001),
+            Some(format!("/onion3/{ONION}:4001").parse().unwrap())
+        );
+        assert_eq!(onion_key(&host.replace("duck", "dust")), None);
+        assert_eq!(onion_key("example.com"), None);
+    }
 
     #[test]
     fn relay_addr_safety() {

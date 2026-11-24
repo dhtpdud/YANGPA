@@ -8,12 +8,15 @@
 //! 만드는 링크는 웹 초대 페이지 주소(`{WEB_BASE}#invite/…`)입니다. 앱이 없는 사람도 눌러서 내려받기로 가고, 있는
 //! 사람은 페이지가 `yangpa://invite/…`로 앱을 엽니다. `#` 뒤는 브라우저가 서버로 보내지 않으므로 페이지 서버는
 //! 링크 내용을 모릅니다. 읽을 때는 두 형식을 다 받습니다.
+//!
+//! 사람에게 주는 연락처·초대 링크는 짧은 링크([`ShortLink`])입니다. 여기서 만드는 긴 링크는 만든 기기가 갖고 있다가
+//! 짧은 링크로 온 기기에 내줍니다(`YpRequest::GetLink`). onion이 없는 노드(직접 연결)는 긴 링크를 그대로 줍니다.
 
 use serde::{Deserialize, Serialize};
 
 use crate::checkpoint::CheckpointPin;
 use crate::error::CoreError;
-use crate::ids::{DeviceId, EventId, LinkToken, SpaceId, UserId};
+use crate::ids::{DeviceId, EventId, LinkCode, LinkToken, SpaceId, UserId};
 use crate::sign::SigningKeypair;
 use crate::time::Timestamp;
 
@@ -29,6 +32,14 @@ const LINK_VERSION: u8 = 1;
 pub const MAX_DIRECT_ADDRS: usize = 6;
 /// 초대 링크 판. 2판: 끝에 고정 체크포인트([`InviteLink::checkpoint`])가 붙습니다.
 const INVITE_LINK_VERSION: u8 = 2;
+/// 짧은 링크 판(긴 링크의 판과 겹치지 않게 둠).
+const SHORT_LINK_VERSION: u8 = 3;
+/// 짧은 링크의 바이트 수: 판, onion 공개키, 확인값.
+const SHORT_LINK_LEN: usize = 1 + 32 + LinkCode::LEN;
+/// 긴 링크 바이트 상한.
+const MAX_LINK_BYTES: usize = 4096;
+/// `GetLink`의 답으로 받는 긴 링크 글자 상한([`MAX_LINK_BYTES`]의 base58에 넉넉히).
+pub const MAX_LINK_CHARS: usize = 6000;
 
 /// 링크 만든 노드에 닿는 방법.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -173,24 +184,76 @@ fn encode<T: Serialize>(path: &str, v: &T) -> Result<String, CoreError> {
     ))
 }
 
-fn decode<T: for<'de> Deserialize<'de>>(path: &str, s: &str) -> Result<T, CoreError> {
+/// 링크에서 스킴·웹 주소를 뗀 나머지(`invite/…`).
+fn fragment(s: &str) -> Option<&str> {
     let s = s.trim();
     // 웹 주소는 호스트를 따지지 않습니다. 내용이 스스로 검증되므로(서명·첫 이벤트 고정), 페이지를 옮겨도 예전 링크가 통합니다.
-    let link = s.strip_prefix(SCHEME).or_else(|| {
+    s.strip_prefix(SCHEME).or_else(|| {
         s.split_once('#')
             .filter(|(base, _)| base.starts_with("https://"))
             .map(|(_, frag)| frag)
-    });
-    let rest = link
+    })
+}
+
+fn decode_bytes(path: &str, s: &str) -> Result<Vec<u8>, CoreError> {
+    let rest = fragment(s)
         .and_then(|r| r.strip_prefix(path))
         .ok_or_else(|| CoreError::InvalidLink("링크 형식이 아님".into()))?;
     let bytes = bs58::decode(rest)
         .into_vec()
         .map_err(|_| CoreError::InvalidLink("base58 오류".into()))?;
-    if bytes.len() > 4096 {
+    if bytes.len() > MAX_LINK_BYTES {
         return Err(CoreError::LimitExceeded("링크 길이"));
     }
-    postcard::from_bytes(&bytes).map_err(|e| CoreError::InvalidLink(e.to_string()))
+    Ok(bytes)
+}
+
+fn decode<T: for<'de> Deserialize<'de>>(path: &str, s: &str) -> Result<T, CoreError> {
+    postcard::from_bytes(&decode_bytes(path, s)?).map_err(|e| CoreError::InvalidLink(e.to_string()))
+}
+
+/// 긴 링크의 확인값. 주소의 호스트는 빼고 내용(`invite/…`)만 셉니다.
+pub fn link_code(long: &str) -> LinkCode {
+    let mut h = blake3::Hasher::new_derive_key("yangpa/v1/short-link");
+    h.update(fragment(long).unwrap_or(long).as_bytes());
+    let mut out = [0u8; LinkCode::LEN];
+    out.copy_from_slice(&h.finalize().as_bytes()[..LinkCode::LEN]);
+    LinkCode(out)
+}
+
+/// 짧은 연락처·초대 링크: 만든 기기의 onion 공개키와 긴 링크의 확인값([`link_code`])만 담습니다. 받는 쪽은 그 onion에서
+/// 긴 링크를 받아 확인값과 맞는 것만 씁니다. onion 주소가 만든 기기임을, 확인값이 긴 링크의 내용(토큰·시작 이벤트·
+/// 체크포인트)을 고정하므로 긴 링크를 그대로 건네받은 것과 같습니다.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShortLink {
+    pub onion: [u8; 32],
+    pub code: LinkCode,
+}
+
+impl ShortLink {
+    /// 긴 링크를 줄인 주소. 종류(`friend/`·`invite/`)는 그대로입니다.
+    pub fn url_of(long: &str, onion: [u8; 32]) -> Option<String> {
+        let (path, _) = fragment(long)?.split_once('/')?;
+        let mut bytes = vec![SHORT_LINK_VERSION];
+        bytes.extend_from_slice(&onion);
+        bytes.extend_from_slice(link_code(long).as_bytes());
+        Some(format!(
+            "{WEB_BASE}#{path}/{}",
+            bs58::encode(bytes).into_string()
+        ))
+    }
+
+    /// 짧은 링크면 읽습니다. 긴 링크거나 다른 종류면 `None`.
+    fn parse(path: &str, s: &str) -> Option<Self> {
+        let b = decode_bytes(path, s).ok()?;
+        if b.len() != SHORT_LINK_LEN || b[0] != SHORT_LINK_VERSION {
+            return None;
+        }
+        Some(ShortLink {
+            onion: b[1..33].try_into().ok()?,
+            code: LinkCode::from_slice(&b[33..]).ok()?,
+        })
+    }
 }
 
 /// URL의 `#` 뒤가 친구·초대·보관 노드 링크인지(링크 미리보기에서 뺄 때).
@@ -254,6 +317,11 @@ impl FriendLink {
         encode(FRIEND_PATH, self)
     }
 
+    /// 짧은 연락처 링크면 읽습니다.
+    pub fn parse_short(s: &str) -> Option<ShortLink> {
+        ShortLink::parse(FRIEND_PATH, s)
+    }
+
     pub fn parse(s: &str) -> Result<Self, CoreError> {
         let l: FriendLink = decode(FRIEND_PATH, s)?;
         if l.v != LINK_VERSION {
@@ -271,6 +339,11 @@ impl InviteLink {
     pub fn to_url(&self) -> Result<String, CoreError> {
         self.contact.check_no_own_ip()?;
         encode(INVITE_PATH, self)
+    }
+
+    /// 짧은 초대 링크면 읽습니다.
+    pub fn parse_short(s: &str) -> Option<ShortLink> {
+        ShortLink::parse(INVITE_PATH, s)
     }
 
     pub fn parse(s: &str) -> Result<Self, CoreError> {
@@ -350,6 +423,53 @@ mod tests {
         assert!(url.starts_with("yangpa://device/"));
         assert_eq!(DeviceLink::parse(&url).unwrap(), link);
         assert!(FriendLink::parse(&url).is_err());
+    }
+
+    #[test]
+    fn short_link_pins_the_long_link() {
+        let onion = [0xff; 32];
+        let invite = || {
+            let l = InviteLink::new(
+                SpaceId::random(),
+                EventId::random(),
+                ContactInfo::default(),
+                None,
+                Some(10),
+            );
+            l.to_url().unwrap()
+        };
+        let frag = |u: &str| u.split_once('#').unwrap().1.to_owned();
+
+        let long = invite();
+        let url = ShortLink::url_of(&long, onion).unwrap();
+        assert!(url.starts_with(&format!("{WEB_BASE}#invite/")));
+        assert!(url.len() <= 100, "{}자: {url}", url.len());
+        let short = InviteLink::parse_short(&url).unwrap();
+        assert_eq!((short.onion, short.code), (onion, link_code(&long)));
+        // 웹 페이지가 앱에 넘기는 형식도 같은 링크이고, 확인값은 주소의 호스트와 상관없습니다.
+        assert_eq!(
+            InviteLink::parse_short(&format!("{SCHEME}{}", frag(&url))),
+            Some(short)
+        );
+        assert_eq!(link_code(&frag(&long)), short.code);
+        // 긴 링크와 짧은 링크, 초대와 연락처를 서로 다른 것으로 읽지 않습니다.
+        assert!(InviteLink::parse_short(&long).is_none());
+        assert!(InviteLink::parse(&url).is_err());
+        assert!(FriendLink::parse_short(&url).is_none());
+        // 잘린 링크, 다른 긴 링크.
+        assert!(InviteLink::parse_short(&url[..url.len() - 1]).is_none());
+        assert_ne!(link_code(&invite()), short.code);
+
+        let friend = FriendLink::new(UserId::random(), ContactInfo::default(), None, true)
+            .to_url()
+            .unwrap();
+        let url = ShortLink::url_of(&friend, onion).unwrap();
+        assert!(url.starts_with(&format!("{WEB_BASE}#friend/")));
+        assert_eq!(
+            FriendLink::parse_short(&url).unwrap().code,
+            link_code(&friend)
+        );
+        assert!(InviteLink::parse_short(&url).is_none());
     }
 
     #[test]

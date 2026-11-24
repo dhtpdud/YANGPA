@@ -505,6 +505,8 @@ export interface InviteView {
   uses: number;
   roles: RoleId[];
   created_by: UserId;
+  /** 이 기기에서 만들었고 횟수가 남아 `invite.url`로 다시 복사할 수 있음 */
+  copyable: boolean;
 }
 
 export type ForumSort = 'activity' | 'created';
@@ -870,6 +872,8 @@ export interface FriendLinkView {
   expires_at?: Timestamp;
   single_use: boolean;
   uses: number;
+  /** `friend.link.url`로 다시 복사할 수 있음 */
+  copyable: boolean;
 }
 
 export interface PeerView {
@@ -1137,7 +1141,8 @@ export interface FriendLinkCreateResult {
 }
 export interface FriendAddResult {
   status: 'pending' | 'connected';
-  user: UserId;
+  /** 링크를 만든 기기에 아직 닿지 못해 누구인지 모르면 없음 */
+  user?: UserId;
 }
 export interface SafetyNumberView {
   digits: string;
@@ -1345,6 +1350,7 @@ export interface Methods {
 
   'friend.link.create': [FriendLinkCreateParams, FriendLinkCreateResult];
   'friend.link.list': [Empty, FriendLinkView[]];
+  'friend.link.url': [{ token_id: string }, { url: string }];
   'friend.link.revoke': [{ token_id: string }, Empty];
   'friend.add': [{ url: string }, FriendAddResult];
   'friend.requests': [Empty, FriendRequestView[]];
@@ -1501,6 +1507,7 @@ export interface Methods {
   'role.delete': [{ space: SpaceId; role: RoleId }, Empty];
   'invite.create': [{ space: SpaceId; expires_in_secs?: number; max_uses?: number; roles?: RoleId[] }, { url: string }];
   'invite.list': [SpaceParams, InviteView[]];
+  'invite.url': [{ space: SpaceId; token_hash: string }, { url: string }];
   'invite.revoke': [{ space: SpaceId; token_hash: string }, Empty];
   'invite.join': [{ url: string }, { space: SpaceId; status: 'pending' | 'joined' }];
 

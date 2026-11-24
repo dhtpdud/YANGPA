@@ -392,6 +392,9 @@ pub struct InviteView {
     #[serde(default)]
     pub roles: Vec<RoleId>,
     pub created_by: UserId,
+    /// 이 기기에서 만들었고 횟수가 남아 `invite.url`로 다시 복사할 수 있음.
+    #[serde(default)]
+    pub copyable: bool,
 }
 
 /// 포럼 게시글 정렬.
@@ -1062,6 +1065,9 @@ pub struct FriendLinkView {
     pub single_use: bool,
     #[serde(default)]
     pub uses: u32,
+    /// `friend.link.url`로 다시 복사할 수 있음(다 쓴 1회용 링크와 원문을 남기기 전 판에서 만든 링크는 아님).
+    #[serde(default)]
+    pub copyable: bool,
 }
 
 /// 연결된 노드.

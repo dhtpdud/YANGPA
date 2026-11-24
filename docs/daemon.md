@@ -450,7 +450,7 @@ publish_locked = author_event → ingest_locked(Source::Local) (받는 것과 �
   인증되면 지움), 상태가 바뀌어(`crews::on_state_applied` → `peers::on_state_applied`) 그 기기를 멤버로 알게 되면 이쪽에서
   `ensure_auth`·따라잡기를 합니다. 거절과 기록 사이에 상태가 먼저 따라잡혔으면 기록 직후 다시 보고 바로 겁니다.
 - 인증 전에도 받는 요청: `Auth`, `RedeemFriendLink`, `FriendAccepted`, `RedeemInvite`, `Ping`, `DeviceLink`·`DeviceLinkPoll`(링크
-  토큰을 가진 쪽만, 답은 요청한 기기의 상자 키로 봉인)(`inbound.rs`).
+  토큰을 가진 쪽만, 답은 요청한 기기의 상자 키로 봉인), `GetLink`(짧은 링크의 확인값을 가진 쪽만)(`inbound.rs`).
   `P2pHello`는 Tor로 인증된 피어에게서만 받습니다. P2P 스웜에서 들어온 요청은 따로 거릅니다("P2P 전용 채널" 절).
 - 연결에 성공한 주소는 `peer_cache`에 남기고 재시작 때 최근 64개 노드에 다시 연결합니다. 그중 친구·내 기기 노드(`close_contact`)는
   인증까지 기다리는 동안 그 사용자를 `net.status`의 `connecting`에 두고, 하나 끝날 때마다 `net.status`를 알립니다(앱이 '연결 중'으로 보임).
@@ -476,9 +476,10 @@ publish_locked = author_event → ingest_locked(Source::Local) (받는 것과 �
 연락처 링크를 쓰면 사람의 수락 없이 둘이 **임시 연락처**가 되고, 둘 다 `friend.propose`로 친구 추가를 요청하면 친구가 됩니다.
 친구 기록의 `kind`는 `Friend`·`Temporary`·`Expired`(protocol.md "연락처 링크와 친구").
 
-1. `friend.link.create`: 토큰 해시만 저장, 링크에는 이 기기의 onion(`tor::device_onion`, Tor 부트스트랩 전에도 키에서 나옴)과
-   릴레이 경유 주소(직접 연결 스웜만)·PeerId만(자기 IP 없음).
-2. `friend.add`: 내 링크는 거절합니다. 이미 친구이거나 이 링크로 이미 임시 연락처면 `connected`. 아니면 보낸 요청과 보낼 대기열
+1. `friend.link.create`: 긴 링크에는 이 기기의 onion(`tor::device_onion`, Tor 부트스트랩 전에도 키에서 나옴)과 릴레이 경유
+   주소(직접 연결 스웜만)·PeerId만(자기 IP 없음). 토큰 해시와 긴 링크를 저장하고 짧은 링크를 줍니다(`shortlink::save`).
+2. `friend.add`: 짧은 링크면 먼저 긴 링크를 받고(`shortlink::open`), 닿지 않으면 `friend.pending_link.<확인값>`에 두고
+   `pending`(사용자 모름). 내 링크는 거절합니다. 이미 친구이거나 이 링크로 이미 임시 연락처면 `connected`. 아니면 보낸 요청과 보낼 대기열
    (`friend.pending_redeem.<요청>`: 링크의 연락처·토큰·만료·시도 수·다음 시각)을 먼저 저장한 뒤 첫
    시도(30초, Tor로 도는 기기는 120초): 링크 주인 노드에 닿게 하고(이미 연결 → 링크의 onion·릴레이 경유·전에 연결했던 주소 →
    DHT, 그래도 닿지 않으면 PeerId 없이 onion으로 걸어 답한 노드: 예전 빌드에서 PeerId를 바꾼 링크 주인) `RedeemFriendLink`(인증은

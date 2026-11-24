@@ -1,7 +1,8 @@
 //! 연락처 링크·임시 연락처·친구 추가, 1:1 공간 만들기(protocol.md "연락처 링크").
 //!
-//! 1. A가 연락처 링크를 만듭니다(토큰 원문은 링크에만, 저장소에는 해시). 링크에는 A의 PeerId와 onion 주소(직접 연결
-//!    주 스웜이면 릴레이 경유 주소)가 실립니다.
+//! 1. A가 연락처 링크를 만듭니다. 긴 링크에는 토큰과 A의 PeerId·onion 주소(직접 연결 주 스웜이면 릴레이 경유 주소)가
+//!    실리고, A의 저장소에 남습니다(다시 복사, `shortlink`). 사람에게는 onion과 긴 링크의 확인값만 담은 짧은 링크를
+//!    줍니다. B는 먼저 A에게서 긴 링크를 받고, A가 꺼져 있으면 대기열(`friend.pending_link.`)에 두고 다시 묻습니다.
 //! 2. B가 링크를 쓰면 A 노드에 `RedeemFriendLink{token, auth, profile}`(인증 전에도 받음). 링크의
 //!    PeerId로 닿지 않으면(예전 빌드가 만든 링크라 A의 PeerId가 바뀜) PeerId 없이 onion으로 걸어 답한 노드에게
 //!    보냅니다. B는 A의 수락(3)을 받을 때까지 요청을 대기열에 두고 A와 연결될 때·백오프마다 다시 보냅니다(A는 같은
@@ -24,8 +25,8 @@ use tracing::debug;
 use yangpa_core::body::{EventBody, SharedKey, state_key_id};
 use yangpa_core::device::{SignedDeviceList, SignedProfile};
 use yangpa_core::event::{EventKind, KeyRef, Lane, SignedEvent, StreamId};
-use yangpa_core::ids::{DeviceId, EventId, LinkToken, SpaceId, UserId};
-use yangpa_core::links::{ContactInfo, FriendLink, token_hash};
+use yangpa_core::ids::{DeviceId, EventId, LinkCode, LinkToken, SpaceId, UserId};
+use yangpa_core::links::{ContactInfo, FriendLink, ShortLink, token_hash};
 use yangpa_core::model::{Member, SpaceKind, SpaceSettings};
 use yangpa_core::time::Timestamp;
 use yangpa_core::wire::{
@@ -48,11 +49,12 @@ use crate::identity::Me;
 use crate::ingest::{self, Source};
 use crate::node::Node;
 use crate::spaces::{self, NewSpace};
-use crate::{identity, peers, sync_service};
+use crate::{identity, peers, shortlink, sync_service};
 
 const MAX_AUTH_SKEW_MS: u64 = 5 * 60 * 1000;
 const PENDING_ACCEPT_PREFIX: &str = "friend.pending_accept.";
 const PENDING_REDEEM_PREFIX: &str = "friend.pending_redeem.";
+const PENDING_LINK_PREFIX: &str = "friend.pending_link.";
 const DM_OFFER_PREFIX: &str = "friend.dm_offer.";
 /// 이 기간 안에 전하지 못한 친구 요청은 다시 보내지 않습니다(보낸 요청 기록은 남김). 그 전에 멈추려면 상대를 차단합니다.
 const REDEEM_RETRY_FOR_MS: u64 = 7 * 24 * 60 * 60 * 1000;
@@ -96,6 +98,15 @@ struct PendingRedeem {
     contact: ContactInfo,
     token: LinkToken,
     expires_at: Option<Timestamp>,
+    created_at: Timestamp,
+    attempts: u32,
+    next_at: Timestamp,
+}
+
+/// 아직 긴 링크를 받지 못한 짧은 연락처 링크(만든 기기가 꺼져 있음).
+#[derive(Serialize, Deserialize)]
+struct PendingLink {
+    url: String,
     created_at: Timestamp,
     attempts: u32,
     next_at: Timestamp,
@@ -267,7 +278,7 @@ pub(crate) async fn create_link(
     let contact = my_contact(node).await;
     let mut link = FriendLink::new(me.user(), contact, expires_at, single_use);
     link.name_hint = me.profile.profile.name.chars().take(32).collect();
-    let url = link.to_url()?;
+    let long = link.to_url()?;
     let hash = token_hash(&link.token);
     node.store.create_friend_link(&FriendLinkRecord {
         token_hash: hash,
@@ -277,11 +288,18 @@ pub(crate) async fn create_link(
         uses: 0,
         revoked: false,
     })?;
+    let url = shortlink::save(node, &long, &link.contact, &link.token, None, expires_at)?;
     Ok(CreatedLink {
         url,
         token_id: token_id(&hash),
         expires_at,
     })
+}
+
+/// 이 기기에서 만든 링크를 다시 돌려줍니다.
+pub(crate) fn link_url(node: &Node, id: &str) -> Result<String> {
+    shortlink::url_of(node, &parse_token_id(id)?)
+        .ok_or_else(|| Error::not_found("다시 복사할 수 없는 링크"))
 }
 
 /// 링크를 폐기하고 그 링크로 생긴 임시 연락처를 바로 만료합니다.
@@ -290,6 +308,7 @@ pub(crate) fn revoke_link(node: &Node, id: &str) -> Result<()> {
     if !node.store.revoke_friend_link(&hash)? {
         return Err(Error::not_found("없는 링크"));
     }
+    shortlink::forget(node, &hash);
     for user in node.store.expire_link_contacts(&hash)? {
         on_contact_expired(node, &user, true);
     }
@@ -299,7 +318,8 @@ pub(crate) fn revoke_link(node: &Node, id: &str) -> Result<()> {
 // ───────────── 요청 보내기(B) ─────────────
 
 pub(crate) enum AddOutcome {
-    Pending(UserId),
+    /// 사용자를 모르면(링크를 만든 기기에 아직 닿지 못함) `None`.
+    Pending(Option<UserId>),
     AlreadyFriend(UserId),
 }
 
@@ -384,6 +404,102 @@ pub(crate) async fn reach_peer(
 }
 
 pub(crate) async fn add(node: &Arc<Node>, url: &str) -> Result<AddOutcome> {
+    let deadline = tokio::time::Instant::now() + first_try_limit(node);
+    let Some(short) = FriendLink::parse_short(url) else {
+        return add_long(node, url, deadline).await;
+    };
+    let now = Timestamp::now();
+    let key = format!("{PENDING_LINK_PREFIX}{}", short.code);
+    let pending = PendingLink {
+        url: url.trim().to_owned(),
+        created_at: now,
+        attempts: 0,
+        next_at: now,
+    };
+    node.store.put_setting(&key, &pending)?;
+    Ok(add_short(node, &key, &short, pending, deadline)
+        .await?
+        .unwrap_or(AddOutcome::Pending(None)))
+}
+
+/// 대기열의 짧은 링크를 엽니다. 만든 기기에 닿지 못했으면 `None`(대기열에 남김).
+async fn add_short(
+    node: &Arc<Node>,
+    key: &str,
+    short: &ShortLink,
+    mut p: PendingLink,
+    deadline: tokio::time::Instant,
+) -> Result<Option<AddOutcome>> {
+    // 같은 링크를 겹쳐 열지 않게 확인값으로 표식을 쥡니다(요청 ID와 겹칠 일이 없는 무작위 값).
+    let mut id = [0u8; 16];
+    id[..LinkCode::LEN].copy_from_slice(short.code.as_bytes());
+    let Some(_sending) = Sending::claim(node, id) else {
+        return Ok(None);
+    };
+    p.attempts = p.attempts.saturating_add(1);
+    p.next_at = retry_at(node, p.attempts);
+    node.store.put_setting(key, &p)?;
+    let opened = tokio::time::timeout_at(deadline, shortlink::open(node, short)).await;
+    let long = match opened {
+        Ok(Ok(long)) => long,
+        Ok(Err(Error::Network(e))) => {
+            debug!(error = %e, "연락처 링크를 만든 기기에 닿지 못함(다시 물음)");
+            return Ok(None);
+        }
+        Err(_) => return Ok(None),
+        Ok(Err(e)) => {
+            let _ = node.store.delete_setting(key);
+            return Err(e);
+        }
+    };
+    let added = add_long(node, &long, deadline).await;
+    let _ = node.store.delete_setting(key);
+    added.map(Some)
+}
+
+/// 시험용: 대기열의 짧은 링크들(`testkit::pending_links`).
+pub(crate) fn pending_links(node: &Node) -> Vec<String> {
+    node.store
+        .settings_with_prefix(PENDING_LINK_PREFIX)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(_, v)| Some(serde_json::from_value::<PendingLink>(v).ok()?.url))
+        .collect()
+}
+
+/// 시각이 된 대기열의 짧은 링크를 다시 엽니다.
+fn retry_pending_links(node: &Arc<Node>) {
+    let now = Timestamp::now();
+    for (key, v) in node
+        .store
+        .settings_with_prefix(PENDING_LINK_PREFIX)
+        .unwrap_or_default()
+    {
+        let Some((p, short)) = serde_json::from_value::<PendingLink>(v)
+            .ok()
+            .filter(|p| p.created_at.0.saturating_add(REDEEM_RETRY_FOR_MS) >= now.0)
+            .and_then(|p| FriendLink::parse_short(&p.url).map(|s| (p, s)))
+        else {
+            let _ = node.store.delete_setting(&key);
+            continue;
+        };
+        if p.next_at.0 > now.0 {
+            continue;
+        }
+        node.spawn_detached(move |node| async move {
+            let deadline = tokio::time::Instant::now() + first_try_limit(&node);
+            if let Err(e) = add_short(&node, &key, &short, p, deadline).await {
+                debug!(error = %e, "대기열의 연락처 링크를 쓸 수 없음");
+            }
+        });
+    }
+}
+
+async fn add_long(
+    node: &Arc<Node>,
+    url: &str,
+    deadline: tokio::time::Instant,
+) -> Result<AddOutcome> {
     let link = FriendLink::parse(url).map_err(|e| Error::invalid(format!("링크: {e}")))?;
     let me = node.me()?;
     if link.user == me.user() {
@@ -433,16 +549,13 @@ pub(crate) async fn add(node: &Arc<Node>, url: &str) -> Result<AddOutcome> {
     };
     node.store
         .put_setting(&pending_redeem_key(&request_id), &pending)?;
-    match tokio::time::timeout(
-        first_try_limit(node),
-        deliver_redeem(node, peer, pending, true),
-    )
-    .await
-    {
+    match tokio::time::timeout_at(deadline, deliver_redeem(node, peer, pending, true)).await {
         Ok(Delivery::Refused(e)) => Err(e),
         // 닿았거나, 닿지 않아 대기열에 남김(요청은 닿았는데 응답만 잃었을 수도 있음. 보낸 요청을 지우면 상대가 수락해도
         // 받지 못해 한쪽만 친구가 되므로 남겨 둡니다).
-        Ok(Delivery::Delivered | Delivery::Later) | Err(_) => Ok(AddOutcome::Pending(link.user)),
+        Ok(Delivery::Delivered | Delivery::Later) | Err(_) => {
+            Ok(AddOutcome::Pending(Some(link.user)))
+        }
     }
 }
 
@@ -452,6 +565,15 @@ enum Delivery {
     Later,
     /// 상대가 받지 않음(대기열을 지우고, 첫 시도면 보낸 요청도 지움).
     Refused(Error),
+}
+
+/// `attempts`번째 시도 뒤 다음 시도 시각.
+fn retry_at(node: &Node, attempts: u32) -> Timestamp {
+    let start = (node.cfg.redial_interval.as_millis() as u64).max(1);
+    let wait = start
+        .saturating_mul(1u64 << attempts.saturating_sub(1).min(10))
+        .min(REDEEM_RETRY_MAX_MS);
+    Timestamp(Timestamp::now().0.saturating_add(wait))
 }
 
 /// 대기열의 친구 요청 하나를 보냅니다(부르는 쪽이 [`Sending`]을 쥠). 인증은 매번 새로 서명합니다(시각 허용 오차가
@@ -467,11 +589,7 @@ async fn deliver_redeem(
     // 보내기 전에 다음 시도 시각을 미뤄 둡니다(Tor 연결은 주기보다 오래 걸릴 수 있어, 그사이 같은 요청을 또 보내지 않게).
     // 그사이 취소(`friend.reject`)·전달됐으면 되살리지 않습니다.
     p.attempts = p.attempts.saturating_add(1);
-    let start = (node.cfg.redial_interval.as_millis() as u64).max(1);
-    let wait = start
-        .saturating_mul(1u64 << (p.attempts - 1).min(10))
-        .min(REDEEM_RETRY_MAX_MS);
-    p.next_at = Timestamp(Timestamp::now().0.saturating_add(wait));
+    p.next_at = retry_at(node, p.attempts);
     if node
         .store
         .get_setting::<serde_json::Value>(&key)
@@ -655,6 +773,7 @@ fn still_wanted(node: &Node, p: &PendingRedeem) -> bool {
 
 /// 시각이 된 대기열의 친구 요청을 다시 보냅니다(`peers::spawn_redial`의 주기).
 pub(crate) fn retry_pending_redeems(node: &Arc<Node>) {
+    retry_pending_links(node);
     let now = Timestamp::now();
     for (_, p) in pending_redeems(node) {
         if p.next_at.0 > now.0 || !still_wanted(node, &p) {

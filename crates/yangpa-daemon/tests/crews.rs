@@ -2648,6 +2648,99 @@ async fn forum_pin_is_undone_when_a_concurrent_role_removal_wins() {
 
 // ───────────── 10. 초대 만료·횟수·폐기 ─────────────
 
+/// 만든 링크는 만든 기기에서만 다시 복사되고, 짧은 링크의 긴 링크는 그 기기가 인증 전에도 내줍니다. 폐기하면 둘 다 멈춥니다.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn made_links_are_copied_again_and_handed_out_until_revoked() {
+    use yangpa_core::links::{FriendLink, link_code};
+    use yangpa_core::wire::{WireErrorCode, YpRequest, YpResponse};
+    use yangpa_rpc::api::serde_util::TokenHash;
+    use yangpa_rpc::api::{FriendLinkCreateParams, InviteRevokeParams, TokenIdParams};
+
+    let cl = Cluster::new();
+    let a = cl.node("a").await;
+    let b = cl.node("b").await;
+    let space = create_crew(&a, "링크 크루").await;
+    connect_both(&a, &b).await;
+    let get = async |code| {
+        testkit::net_request(&b.node, a.peer(), YpRequest::GetLink { code })
+            .await
+            .unwrap()
+    };
+    let gone = |r: &YpResponse| {
+        matches!(
+            r,
+            YpResponse::Error {
+                code: WireErrorCode::InvalidToken,
+                ..
+            }
+        )
+    };
+
+    // 초대: B는 아직 모르는 사람이지만 확인값을 알면 긴 링크를 받아 들어옵니다.
+    let url = invite(&a, space, Some(1), Some(3600)).await;
+    let hash = yangpa_core::links::token_hash(&InviteLink::parse(&url).unwrap().token);
+    let p = || InviteRevokeParams {
+        space,
+        token_hash: TokenHash(hash),
+    };
+    let views = a.ok::<m::InviteList>(SpaceParams { space }).await;
+    assert!(views[0].copyable);
+    assert_eq!(a.ok::<m::InviteUrl>(p()).await.url, url);
+    let YpResponse::Link(long) = get(link_code(&url)).await else {
+        panic!("긴 링크를 받지 못함");
+    };
+    let r = b
+        .ok::<m::InviteJoin>(UrlParams {
+            url: format!("yangpa://{long}"),
+        })
+        .await;
+    assert_eq!(r.status, InviteJoinStatus::Joined);
+    eventually("횟수를 다 쓴 초대는 복사할 수 없음", || async {
+        let v = a.ok::<m::InviteList>(SpaceParams { space }).await;
+        (v[0].uses == 1 && !v[0].copyable).then_some(())
+    })
+    .await;
+
+    // 다른 멤버는 상태에서 그 초대를 보지만 링크는 얻지 못합니다(상태에는 토큰 해시만).
+    let mine = a.ok::<m::InviteList>(SpaceParams { space }).await.len();
+    eventually("B가 초대를 앎", || async {
+        (testkit::space_state(&b.node, &space)?.invites.len() == mine).then_some(())
+    })
+    .await;
+    assert!(
+        b.ok::<m::InviteList>(SpaceParams { space })
+            .await
+            .iter()
+            .all(|v| !v.copyable)
+    );
+    assert_eq!(code(b.call::<m::InviteUrl>(p()).await), ERR_NOT_FOUND);
+
+    a.ok::<m::InviteRevoke>(p()).await;
+    assert_eq!(code(a.call::<m::InviteUrl>(p()).await), ERR_NOT_FOUND);
+    assert!(gone(&get(link_code(&url)).await));
+
+    // 연락처 링크.
+    let link = a
+        .ok::<m::FriendLinkCreate>(FriendLinkCreateParams {
+            expires_in_secs: Some(3600),
+            single_use: None,
+        })
+        .await;
+    let p = || TokenIdParams {
+        token_id: link.token_id.clone(),
+    };
+    assert!(a.ok::<m::FriendLinkList>(Empty).await[0].copyable);
+    assert_eq!(a.ok::<m::FriendLinkUrl>(p()).await.url, link.url);
+    let YpResponse::Link(long) = get(link_code(&link.url)).await else {
+        panic!("긴 링크를 받지 못함");
+    };
+    let long = FriendLink::parse(&format!("yangpa://{long}")).unwrap();
+    assert_eq!(long, FriendLink::parse(&link.url).unwrap());
+    a.ok::<m::FriendLinkRevoke>(p()).await;
+    assert_eq!(code(a.call::<m::FriendLinkUrl>(p()).await), ERR_NOT_FOUND);
+    assert!(gone(&get(link_code(&link.url)).await));
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn invite_expiry_max_uses_and_revoke_are_enforced() {
     let cl = Cluster::new();

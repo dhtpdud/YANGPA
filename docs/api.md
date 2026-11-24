@@ -219,9 +219,14 @@ GUI·CLI·MCP 서버가 모두 이 API를 씁니다. 원격 접근은 기본 비
 (보내기·동기화 안 함, 지난 대화는 읽기만. 그 공간에 쓰는 호출은 `1003`). 흐름은 protocol.md "연락처 링크와 친구".
 - `friend.link.create({expires_in_secs?, single_use?}) → {url, token_id, expires_at?}` — 연락처 링크. 만료가 곧 이 링크로 생긴
   임시 연락처의 만료입니다(없으면 만료 없음)
-- `friend.link.list() → {token_id, created_at, expires_at?, single_use, uses}[]`
+  `url`은 약 99자의 짧은 링크입니다(protocol.md "짧은 링크")
+- `friend.link.list() → {token_id, created_at, expires_at?, single_use, uses, copyable}[]` — `copyable`이면 아래로 다시 복사할 수
+  있습니다(링크 원문을 남기기 전 판에서 만든 링크는 아님)
+- `friend.link.url({token_id}) → {url}` (write) — 이 기기에서 만든 링크를 다시 돌려줍니다. 링크를 가지면 연락할 수 있으므로 목록
+  (read)에 싣지 않습니다. 폐기·만료했거나 원문이 없으면 `1004`
 - `friend.link.revoke({token_id}) → {}` — 그 링크로 생긴 임시 연락처도 바로 만료합니다(상대 기기에 알림). 없는 링크면 `1004`
-- `friend.add({url}) → {status: "pending" | "connected", user}` — 링크를 씁니다. 링크 주인이 받아 1:1 공간을 만들어 보내면
+- `friend.add({url}) → {status: "pending" | "connected", user?}` — 링크를 씁니다. 짧은 링크를 만든 기기에 닿지 못해 누구인지
+  모르면 `user`가 없습니다(닿으면 이어서 보냄). 링크 주인이 받아 1:1 공간을 만들어 보내면
   임시 연락처가 되고 `friend.accepted`가 옵니다. 닿지 않아도(꺼져 있음, Tor 링크를 막 만듦) `pending`으로 끝나고 데몬이
   백그라운드로 다시 보냅니다(연결될 때·백오프마다, 7일 또는 링크 만료까지). 이미 친구이거나 이 링크로 이미 임시 연락처면
   보내지 않고 `connected`. 만료된 연락처가 새 링크를 쓰면 같은 1:1 공간으로 다시 임시 연락처가 됩니다. 거절(만료·폐기된 링크,
@@ -656,8 +661,11 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
   검증 공개키만 남음(가입 이벤트에도 토큰 대신 그 키로 한 서명만 실림). 링크(`https://dhtpdud.github.io/YANGPA/#invite/…`, 읽을 때는 `yangpa://invite/…`도 받음, decisions.md "링크 형식·웹 초대 페이지")는 2판이고, 크루에 상태
   체크포인트가 있으면 만들 때의 최신 체크포인트(순번, ID)를 고정해 약 40B 길어집니다(protocol.md "상태 체크포인트"). 1판 링크는
   `invite.join`이 `1005`로 거절하므로 이 판 이전에 만든 링크는 다시 만들어야 합니다
+  사람에게 주는 `url`은 약 99자의 짧은 링크이고 위 2판 링크는 만든 기기에 남습니다(protocol.md "짧은 링크")
 - `invite.list({space}) → InviteView[]` / `invite.revoke({space, token_hash}) → {}` — `create_invite`가 없으면 자기가 만든
-  초대만 보이고 그것만 폐기
+  초대만 보이고 그것만 폐기. `InviteView.copyable`은 이 기기에서 만들었고 횟수가 남아 아래로 다시 복사할 수 있음
+- `invite.url({space, token_hash}) → {url}` (admin, AI면 사람 확인) — 이 기기에서 만든 초대 링크를 다시 돌려줍니다. 링크를 가지면
+  들어올 수 있으므로 만들기와 같은 범위입니다. 다른 기기·다른 멤버가 만든 초대는 `1004`(상태에는 토큰 해시만 있음)
 - `invite.join({url}) → {space, status: "pending" | "joined"}` — 링크 주인 노드에 `RedeemInvite`. `joined`는 멤버가 되고
   크루 키 그룹 키를 받은 것, `pending`은 확정 기기의 가입 키 갱신(받은편지함 키 묶음)을 기다리는 중(데몬이 다시 따라잡음, 그동안
   `space.list`에 없을 수 있음). 가입 묶음에는 체크포인트로 가입했으면 그 체크포인트에서 유효한 상태 키(`valid_state_keys`)와 그 뒤

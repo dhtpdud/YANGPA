@@ -1,6 +1,6 @@
-//! `invite.*`: 초대 링크 만들기·목록·폐기·참가.
+//! `invite.*`: 초대 링크 만들기·목록·다시 복사·폐기·참가.
 //!
-//! 링크에는 공간 ID, 시작 이벤트(가입자가 고정), 토큰, 만료·사용 횟수, 이 노드에 닿는 방법(PeerId·릴레이 경유 주소,
+//! 사람에게는 짧은 링크를 주고(`shortlink`), 그 링크가 가리키는 긴 링크는 만든 기기에만 둡니다. 긴 링크에는 공간 ID, 시작 이벤트(가입자가 고정), 토큰, 만료·사용 횟수, 이 노드에 닿는 방법(PeerId·릴레이 경유 주소,
 //! 자기 IP 없음)만 들어갑니다. 크루 이름 힌트는 넣지 않습니다(링크가 새도 어느 크루인지 드러나지 않게).
 //! 상태에는 토큰 원문 대신 해시(식별)와 토큰에서 만든 서명 키의 공개 키(가입 증명 확인)만 기록합니다. 가입자는
 //! 토큰을 보내지 않고 그 키로 서명한 증명을 보내므로, 상태를 읽는 멤버도 남을 그 초대로 들이지 못합니다.
@@ -24,7 +24,7 @@ const DEFAULT_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 use crate::author::{self, KeyChoice};
 use crate::error::Error;
 use crate::node::Node;
-use crate::{crews, spaces};
+use crate::{crews, friends, shortlink, spaces};
 
 pub(crate) async fn create(
     node: &Arc<Node>,
@@ -69,11 +69,12 @@ pub(crate) async fn create(
     let expires_at = Some(Timestamp::now().saturating_add(ttl));
     let genesis = rpc(spaces::load_genesis(node, &p.space))?
         .ok_or_else(|| RpcError::conflict("이 공간의 시작 이벤트를 아직 모릅니다"))?;
-    let contact = crews::my_contact(node).await;
+    // 짧은 링크에는 onion이 있어야 하므로, Tor 부트스트랩 전에도 키에서 나오는 onion을 씁니다.
+    let contact = friends::my_contact(node).await;
     let mut link = InviteLink::new(p.space, genesis, contact, expires_at, p.max_uses);
     // 지금 바탕 체크포인트를 고정해, 가입자가 받아 준 노드의 체크포인트 사슬을 그 고정에서 확인하게 합니다.
     link.checkpoint = crate::checkpoint::saved_base(node, &p.space).map(|b| b.pin);
-    let url = link.to_url().map_err(|e| RpcError::from(Error::from(e)))?;
+    let long = link.to_url().map_err(|e| RpcError::from(Error::from(e)))?;
     let invite = InviteInfo {
         token_hash: token_hash(&link.token),
         verify_key: invite_verify_key(&link.token),
@@ -89,6 +90,28 @@ pub(crate) async fn create(
         KeyChoice::State,
     )
     .await)?;
+    let url = rpc(shortlink::save(
+        node,
+        &long,
+        &link.contact,
+        &link.token,
+        Some(p.space),
+        expires_at,
+    ))?;
+    Ok(UrlResult { url })
+}
+
+/// 이 기기에서 만든 초대 링크를 다시 돌려줍니다. 링크를 가지면 들어올 수 있으므로 목록(`Read`)에 싣지 않고 만들기와 같은
+/// 범위로 따로 둡니다.
+pub(crate) async fn url(node: &Arc<Node>, _ctx: &CallCtx, p: P<m::InviteUrl>) -> R<m::InviteUrl> {
+    let (state, _) = rpc(crews::crew_state(node, &p.space))?;
+    let url = state
+        .invites
+        .iter()
+        .any(|i| i.info.token_hash == p.token_hash.0)
+        .then(|| shortlink::url_of(node, &p.token_hash.0))
+        .flatten()
+        .ok_or_else(|| RpcError::not_found("없는 초대"))?;
     Ok(UrlResult { url })
 }
 
@@ -102,6 +125,7 @@ pub(crate) async fn list(
     let all = state
         .base_permissions(&me)
         .contains(Permissions::CREATE_INVITE);
+    let made = shortlink::made(node);
     Ok(state
         .invites
         .iter()
@@ -113,6 +137,8 @@ pub(crate) async fn list(
             uses: i.uses,
             roles: i.info.roles.clone(),
             created_by: i.created_by,
+            copyable: made.contains(&i.info.token_hash)
+                && i.info.max_uses.is_none_or(|max| i.uses < max),
         })
         .collect())
 }
@@ -141,6 +167,7 @@ pub(crate) async fn revoke(
         KeyChoice::State,
     )
     .await)?;
+    shortlink::forget(node, &p.token_hash.0);
     Ok(empty())
 }
 

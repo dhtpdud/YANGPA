@@ -375,7 +375,9 @@ pub enum FriendAddStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FriendAddResult {
     pub status: FriendAddStatus,
-    pub user: UserId,
+    /// 링크를 만든 기기에 아직 닿지 못해 누구인지 모르면 없음.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user: Option<UserId>,
 }
 
 /// `friend.propose` 결과.

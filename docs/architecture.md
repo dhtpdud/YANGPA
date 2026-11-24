@@ -115,11 +115,11 @@ yangpa-mcp (AI 연동, MCP stdio) ─┘                                        
   `ChannelTransportSet{channel, transport}`(67), Tor로 주고받는 참여 안내
   `YpRequest::P2pHello(P2pHello{peer_id, addrs, channels})`/`YpResponse::P2pHello`(주소 `MAX_P2P_ADDRS` 16개·채널
   `MAX_P2P_CHANNELS` 1024개까지)(protocol.md "P2P 전용 채널"). 새 노드 간 요청·응답은 열거형 뒤에 붙입니다(postcard 변형 번호):
-  지금 `YpRequest`의 마지막은 크루 AI 프로필 번역 부탁 `AiTranslate(AiTranslateAsk)`(그 앞은 예전 키 묻기 `GetAiKey`(늘 거절), 멤버 프로필·카드 묻기 `GetMemberCards{space, users}`, 새 기기 연결 `DeviceLink`·`DeviceLinkPoll`, 뱃지 `Badges`, 표시 상태 `Presence`, 후원자 확인 `SupporterShare`, 키 그룹 중계 `GetChannelRoots`·`GetGroupKeys`·
+  지금 `YpRequest`의 마지막은 짧은 링크의 긴 링크 묻기 `GetLink{code}`(그 앞은 크루 AI 프로필 번역 부탁 `AiTranslate(AiTranslateAsk)`, 예전 키 묻기 `GetAiKey`(늘 거절), 멤버 프로필·카드 묻기 `GetMemberCards{space, users}`, 새 기기 연결 `DeviceLink`·`DeviceLinkPoll`, 뱃지 `Badges`, 표시 상태 `Presence`, 후원자 확인 `SupporterShare`, 키 그룹 중계 `GetChannelRoots`·`GetGroupKeys`·
   `KeyTableHandover`·`GetStateKeys`·`GetKeyShard`, 체크포인트 `GetDeviceKeys`·`GetCheckpoint`, `GetGroupMembers`,
   `VolatileKeyWrap`, 채널 끝 묻기 `GetChannelTips`, 멤버 소개 `FindDevice{space, user, device}`, 멤버 노드 목록
   `GetMemberNodes{space}`, 놓친 가입 확인 `CheckJoin{spaces, auth}` 다음), `YpResponse`의
-  마지막은 `AiTranslated(Vec<Option<AiTranslatedItem>>)`(`MemberCards(Vec<MemberCard>)`, `DeviceLinkOpened{nonce}`·`DeviceLinkGrant(봉인)`, `SealedKeys`·`DeviceKeys`·`Checkpoint`·`ChannelTips`·`DeviceNode{peer_id, addrs}`·
+  마지막은 `Link(String)`(`AiTranslated(Vec<Option<AiTranslatedItem>>)`, `MemberCards(Vec<MemberCard>)`, `DeviceLinkOpened{nonce}`·`DeviceLinkGrant(봉인)`, `SealedKeys`·`DeviceKeys`·`Checkpoint`·`ChannelTips`·`DeviceNode{peer_id, addrs}`·
   `MemberNodes(Vec<MemberNode>)` 다음, protocol.md "피어 찾기와 위치 기록"·"새 기기 연결").
 - 역할 표시 설정: `model::RoleDisplay{visible_to, see_admins}`, `SpaceState::role_display`·`visible_roles`·`sees_admins`·`is_admin`,
   상태 이벤트 `RoleDisplaySet{role, display}`(68). 데몬 보기(`space.get`·`member.list`·`role.list`)만
@@ -524,6 +524,7 @@ src/
   identity.rs    — DB 키(OS 키 저장소 또는 0600 파일), 신원·기기 생성, 서명된 기기 목록·프로필, 승인한 새 기기 더하기(`add_device`),
                    연결한 기기의 첫 동기화(`spawn_first_sync`), 인증 거절(Revoked), 폐기된 기기 지우기
   devlink.rs     — 새 기기 연결: 링크·QR 띄우기(`device.link.*`), 인증 전 요청(`DeviceLink`·`DeviceLinkPoll`), 6자리 번호, 승인한 묶음 봉인·설치
+  shortlink.rs   — 짧은 연락처·초대 링크: 만든 긴 링크 남기기(다시 복사)·내주기(`GetLink`)·받아 오기
   qr.rs          — 화면에 띄울 QR 코드(기기 연결 링크, 브리지 공유)
   supporter/     — 후원 모듈(별도 라이선스, LICENSE-SUPPORTER.md). mod.rs·api.rs(`supporter.*`·`flair.*` RPC)·flair.rs
   supporter/mod.rs — 후원자 확인(앱의 라이브러리 탭·콘텐츠 뷰어): GitHub 기기 로그인·Patreon PKCE 로그인(둘 다 비밀키 없음, Patreon은

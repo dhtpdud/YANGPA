@@ -374,6 +374,7 @@ fn summarize(node: &Node, method: &str, params: &Value) -> String {
         "role.update" => "역할 바꾸기".to_owned(),
         "role.delete" => "역할 삭제".to_owned(),
         "invite.create" => "초대 링크 만들기".to_owned(),
+        "invite.url" => "초대 링크 복사".to_owned(),
         "token.create" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             format!(

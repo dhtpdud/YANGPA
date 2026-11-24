@@ -6,7 +6,7 @@ use yangpa_rpc::RpcError;
 use yangpa_rpc::api::{
     ContactKind, FriendAddResult, FriendAddStatus, FriendLinkCreateResult, FriendLinkView,
     FriendProposeResult, FriendProposeStatus, FriendRequestView, FriendView, SafetyNumberView,
-    SpaceRef, m,
+    SpaceRef, UrlResult, m,
 };
 use yangpa_store::RequestDirection;
 
@@ -15,6 +15,7 @@ use crate::error::Error;
 use crate::friends::{self, AddOutcome};
 use crate::identity;
 use crate::node::Node;
+use crate::shortlink;
 
 fn store_err(e: yangpa_store::StoreError) -> RpcError {
     Error::from(e).into()
@@ -40,6 +41,7 @@ pub(crate) async fn link_list(
     _ctx: &CallCtx,
     _p: P<m::FriendLinkList>,
 ) -> R<m::FriendLinkList> {
+    let made = shortlink::made(node);
     Ok(node
         .store
         .list_friend_links()
@@ -52,8 +54,18 @@ pub(crate) async fn link_list(
             expires_at: l.expires_at,
             single_use: l.single_use,
             uses: l.uses,
+            copyable: made.contains(&l.token_hash) && !(l.single_use && l.uses > 0),
         })
         .collect())
+}
+
+pub(crate) async fn link_url(
+    node: &Arc<Node>,
+    _ctx: &CallCtx,
+    p: P<m::FriendLinkUrl>,
+) -> R<m::FriendLinkUrl> {
+    let url = rpc(friends::link_url(node, &p.token_id))?;
+    Ok(UrlResult { url })
 }
 
 pub(crate) async fn link_revoke(
@@ -73,7 +85,7 @@ pub(crate) async fn add(node: &Arc<Node>, _ctx: &CallCtx, p: P<m::FriendAdd>) ->
         }),
         AddOutcome::AlreadyFriend(user) => Ok(FriendAddResult {
             status: FriendAddStatus::Connected,
-            user,
+            user: Some(user),
         }),
     }
 }
