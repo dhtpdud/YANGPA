@@ -1,6 +1,7 @@
 //! 앱 업데이트(`update.*`): 공개 저장소(`yangpa_core::release::REPO`)의 최신 릴리스를 확인하고 릴리스 파일을 받습니다.
 //!
-//! Tor로 도는 기기는 Arti로만(받기 한 번마다 새 회로) 보내 GitHub가 이 기기의 IP를 보지 못하게 합니다. 오프라인 모드에서는
+//! Tor로 도는 기기는 Arti로만(받기 한 번마다 새 회로) 보내 GitHub가 이 기기의 IP를 보지 못하게 합니다. 사용자가 일반 인터넷으로
+//! 받기(`direct`)를 고른 때만 받기를 직접 연결로 하고, Tor가 실패해도 저절로 직접 연결로 바꾸지 않습니다. 오프라인 모드에서는
 //! 막습니다(`presence::OFFLINE_BLOCKED`). 최신 판은 API(출구 IP마다 시간당 60번이라 Tor에서 자주 막힘) 대신
 //! `releases/latest`가 넘겨주는 `…/releases/tag/v<판>` 주소에서 읽습니다(정식 판만, 시험판·초안은 빠짐).
 //!
@@ -31,6 +32,9 @@ const MAX_ASSET: u64 = 1 << 30;
 const MAX_SUMS: u64 = 64 * 1024;
 /// 읽기마다 기다리는 시간. Tor 회로가 멈추면 그 연결을 버리고 새 회로로 이어 받습니다(전체 시간은 제한하지 않음).
 const IDLE: Duration = Duration::from_secs(60);
+/// 일반 인터넷으로 연결해 응답 머리까지 기다리는 시간. GitHub를 막은 망이면 OS 시간 제한(길면 십여 분)까지 붙들려
+/// Tor로 다시 받지 못하므로 짧게 끊습니다.
+const DIRECT_OPEN: Duration = Duration::from_secs(30);
 /// 받은 양이 늘지 않은 시도가 이만큼 이어지면 그만둡니다.
 const TRIES: u32 = 6;
 /// 목록·서명을 받아 볼 횟수.
@@ -72,8 +76,8 @@ pub(crate) fn start(node: &Node) {
     }
 }
 
-fn route(node: &Node) -> Route {
-    if crate::tor::tor_active(node) {
+fn route(node: &Node, direct: bool) -> Route {
+    if !direct && crate::tor::tor_active(node) {
         Route::Tor {
             net: node.net.clone(),
             isolation: TorIsolation::new(),
@@ -88,10 +92,13 @@ fn latest_url() -> Url {
 }
 
 pub(crate) async fn check(node: &Arc<Node>) -> Result<UpdateInfo, RpcError> {
-    let found = tokio::time::timeout(CHECK_TIMEOUT, http_location(&route(node), &latest_url()))
-        .await
-        .ok()
-        .flatten();
+    let found = tokio::time::timeout(
+        CHECK_TIMEOUT,
+        http_location(&route(node, false), &latest_url()),
+    )
+    .await
+    .ok()
+    .flatten();
     let latest = found
         .filter(|(status, _)| (300..400).contains(status))
         .and_then(|(_, loc)| tag_version(&loc?))
@@ -163,11 +170,11 @@ async fn fetch(node: &Arc<Node>, p: &UpdateDownloadParams) -> Result<u64, &'stat
         "https://github.com/{REPO}/releases/download/v{}/",
         p.version
     );
-    let sums = fetch_small(node, &format!("{base}{SUMS}"))
+    let sums = fetch_small(node, p.direct, &format!("{base}{SUMS}"))
         .await
         .ok_or("network")?;
     // 목록은 받았는데 서명이 없으면 서명하지 않은 릴리스입니다(서명 키가 생기기 전 판).
-    let sig = fetch_small(node, &format!("{base}{SUMS_SIG}"))
+    let sig = fetch_small(node, p.direct, &format!("{base}{SUMS_SIG}"))
         .await
         .ok_or("unsigned")?;
     let want = release::signed_sum(&sums, &sig, &p.asset).ok_or("unsigned")?;
@@ -181,9 +188,9 @@ async fn fetch(node: &Arc<Node>, p: &UpdateDownloadParams) -> Result<u64, &'stat
     let url = Url::parse(&format!("{base}{}", p.asset)).map_err(|_| "failed")?;
     // 시도마다 새 회로: 멈춘 회로나 느린 출구를 다시 쓰지 않게.
     let open = |from| {
-        let route = route(node);
+        let route = route(node, p.direct);
         let url = url.clone();
-        async move { http_open(&route, url, allowed, MAX_ASSET, from).await }
+        async move { open_body(&route, url, MAX_ASSET, from).await }
     };
     let (got, total) = stream(open, &part, |done, total| {
         publish(node, &p.version, done, total, false, None)
@@ -206,18 +213,26 @@ async fn fetch(node: &Arc<Node>, p: &UpdateDownloadParams) -> Result<u64, &'stat
 }
 
 /// 목록·서명처럼 작은 파일. 회로가 나쁠 수 있어 새 회로로 몇 번 더 해 봅니다.
-async fn fetch_small(node: &Node, url: &str) -> Option<Vec<u8>> {
+async fn fetch_small(node: &Node, direct: bool, url: &str) -> Option<Vec<u8>> {
     let url = Url::parse(url).ok()?;
     for _ in 0..SMALL_TRIES {
-        if let Some(b) = small_once(&route(node), url.clone()).await {
+        if let Some(b) = small_once(&route(node, direct), url.clone()).await {
             return Some(b);
         }
     }
     None
 }
 
+async fn open_body(route: &Route, url: Url, max: u64, from: u64) -> Option<Body> {
+    let body = http_open(route, url, allowed, max, from);
+    match route {
+        Route::Direct => tokio::time::timeout(DIRECT_OPEN, body).await.ok()?,
+        Route::Tor { .. } => body.await,
+    }
+}
+
 async fn small_once(route: &Route, url: Url) -> Option<Vec<u8>> {
-    let body = http_open(route, url, allowed, MAX_SUMS, 0).await?;
+    let body = open_body(route, url, MAX_SUMS, 0).await?;
     let mut out = body.rest;
     let more = body.len.saturating_sub(out.len() as u64);
     tokio::time::timeout(IDLE, body.io.take(more).read_to_end(&mut out))
@@ -360,6 +375,14 @@ mod tests {
     }
 
     #[test]
+    fn direct_only_when_asked() {
+        let p: UpdateDownloadParams =
+            serde_json::from_str(r#"{"version":"1.2.0","asset":"YANGPA_1.2.0_x64-setup.exe"}"#)
+                .unwrap();
+        assert!(!p.direct);
+    }
+
+    #[test]
     fn only_github_hosts() {
         assert!(allowed(&Url::parse("https://github.com/x").unwrap()));
         assert!(allowed(
@@ -398,7 +421,7 @@ mod tests {
             let url = url.clone();
             let cut = std::mem::take(&mut first);
             async move {
-                let mut b = http_open(&Route::Direct, url, allowed, MAX_ASSET, from).await?;
+                let mut b = open_body(&Route::Direct, url, MAX_ASSET, from).await?;
                 if cut {
                     b.io = Box::new(cut_after(b.io, 1 << 20));
                 } else {

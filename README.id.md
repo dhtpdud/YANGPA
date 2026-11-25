@@ -219,7 +219,7 @@ Tiga keputusan desain yang layak dilihat pakar lebih dulu.
 
 ### Ke mana saja aplikasi berkomunikasi
 
-Aplikasi tidak memiliki kode statistik penggunaan, pelaporan kesalahan, maupun pemeriksaan pembaruan otomatis. Tempat aplikasi
+Aplikasi tidak memiliki kode statistik penggunaan maupun pelaporan kesalahan. Tempat aplikasi
 berkomunikasi ke luar hanyalah yang berikut. [CSP](apps/desktop/src-tauri/tauri.conf.json) layar aplikasi (webview) hanya membuka
 `connect-src` ke bagian dalam aplikasi. Komunikasi bawaan sistem operasi dan mesin webview (WebView2, dll.) tidak dikendalikan
 aplikasi.
@@ -235,6 +235,8 @@ aplikasi.
 | Saat mengirim pesan berisi tautan | Situs tersebut | IP node keluar Tor. Penerima tidak melakukan pencarian. Pada saluran efemeral, default-nya mati. |
 | Saat memeriksa dukungan lewat GitHub | github.com | IP node keluar Tor dan akun GitHub saya |
 | **Saat memeriksa dukungan lewat Patreon** | patreon.com | **IP asli saya** dan akun Patreon saya. Patreon memblokir keluar Tor sehingga terhubung langsung. |
+| Saat memeriksa pembaruan (otomatis, bisa dimatikan di pengaturan) atau mengunduh dengan **Unduh pembaruan (Tor)** | github.com | IP node keluar Tor |
+| **Saat menekan Unduh pembaruan (tanpa Tor)** | github.com | **IP asli saya**. Diunduh langsung lewat internet biasa. |
 
 Pemeriksaan dukungan hanya berjalan setelah saya menekan tombol untuk menyalakannya, lalu diperiksa ulang sehari sekali. Identitas
 YANGPA tidak dikirim.

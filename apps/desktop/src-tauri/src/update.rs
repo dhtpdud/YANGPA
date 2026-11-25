@@ -1,4 +1,4 @@
-//! 앱 업데이트 설치. 확인·내려받기는 데몬이 Tor로 합니다(`update.check`·`update.download`, yangpa-daemon `update.rs`).
+//! 앱 업데이트 설치. 확인·내려받기는 데몬이 합니다(`update.check`·`update.download`, yangpa-daemon `update.rs`).
 //! 여기서는 이 앱이 어떤 묶음인지 보고 받을 파일을 정하고([`update_target`]), 데몬이 받은 파일의 서명·SHA-256을 다시
 //! 확인한 뒤 설치합니다([`update_install`]). 웹뷰는 판 번호만 넘기고 경로는 넘기지 못합니다(웹뷰가 아무 파일이나
 //! 실행시키지 못하게). 더 새 판이 아니면 설치하지 않습니다(서명된 옛 판으로 되돌리기 막기).

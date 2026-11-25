@@ -25,6 +25,8 @@ export interface AiTrPrefs extends AiTrLang {
   always: Record<SpaceId, boolean>;
   /** 번역이 켜진 크루에서 채널·크루 이름도 번역. */
   names: boolean;
+  /** ‘내가 쓴 글도 번역’(비용이 들어 처음엔 끔). */
+  mine: boolean;
 }
 
 export const DEFAULT_AI_TR: AiTrPrefs = {
@@ -36,6 +38,7 @@ export const DEFAULT_AI_TR: AiTrPrefs = {
   crewLang: {},
   always: {},
   names: false,
+  mine: false,
 };
 
 /** 언어 입력 길이(데몬 MAX_LANG와 같음). */
@@ -92,6 +95,7 @@ export function sanitizeAiTr(raw: unknown): AiTrPrefs {
     crewLang: sanitizeMap(x.crewLang, sanitizeLang),
     always,
     names: x.names === true,
+    mine: x.mine === true,
   };
 }
 

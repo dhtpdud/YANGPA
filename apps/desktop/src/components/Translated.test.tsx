@@ -13,7 +13,7 @@ import { MessageBody, TrText, useTrText } from './Translated';
 
 const members = new Map();
 
-function setup(on: boolean, names = false) {
+function setup(on: boolean, names = false, mine = false) {
   const call = vi.fn(async (_method: string, p: AiTranslateParams & { texts: string[] }) => ({
     items: p.texts.map((t) => (t === 'already' ? { text: t, source: '영어' } : { text: `번역:${t}`, source: '영어' })),
   }));
@@ -22,7 +22,7 @@ function setup(on: boolean, names = false) {
   useStore.setState({
     client: { call } as unknown as ApiClient,
     views: { s1: view },
-    prefs: { ...useStore.getState().prefs, aiTr: { ...DEFAULT_AI_TR, profile: 'own:a', target: '한국어', always: on ? { s1: true } : {}, names } },
+    prefs: { ...useStore.getState().prefs, aiTr: { ...DEFAULT_AI_TR, profile: 'own:a', target: '한국어', always: on ? { s1: true } : {}, names, mine } },
   });
   return call;
 }
@@ -42,7 +42,7 @@ describe('MessageBody', () => {
         <MessageBody text="hello" space="s1" channel="c1" members={members} me={null} />
         <MessageBody text="world" space="s1" channel="c1" members={members} me={null} />
         <MessageBody text="already" space="s1" channel="c1" members={members} me={null} />
-        <MessageBody text="mine" space="s1" channel="c1" members={members} me={null} skip />
+        <MessageBody text="mine" space="s1" channel="c1" members={members} me={null} mine />
       </>,
     );
     await wait();
@@ -57,6 +57,15 @@ describe('MessageBody', () => {
     await click(marks[0]);
     expect(el.textContent).toContain('hello');
     expect(el.textContent).not.toContain('번역:hello');
+  });
+
+  it('‘내가 쓴 글도 번역’을 켜면 내 글도 번역한다', async () => {
+    const call = setup(true, false, true);
+    const { el } = await render(<MessageBody text="my-post" space="s1" channel="c1" members={members} me={null} mine />);
+    await wait();
+    expect(call.mock.calls[0][1].texts).toEqual(['my-post']);
+    expect(el.textContent).toContain('번역:my-post');
+    expect(el.querySelectorAll('.tr-mark').length).toBe(1);
   });
 
   it('번역을 켜지 않은 크루는 보내지 않는다', async () => {

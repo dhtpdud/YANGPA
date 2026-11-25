@@ -1322,7 +1322,7 @@ export interface Methods {
   'supporter.refresh': [Empty, SupporterStatus];
   'supporter.unlink': [{ provider: SupporterProvider }, Empty];
   'update.check': [Empty, UpdateInfo];
-  'update.download': [{ version: string; asset: string }, Empty];
+  'update.download': [{ version: string; asset: string; direct?: boolean }, Empty];
   'presence.get': [Empty, PresenceView];
   'ai.profiles': [Empty, AiProfileView[]];
   /** 내 AI 프로필 만들기(`id` 없음)·고치기. `key`가 없으면 저장된 키를 그대로 둠. */

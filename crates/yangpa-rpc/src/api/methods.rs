@@ -91,7 +91,7 @@ api_methods! {
 
     // 앱 업데이트(공개 저장소의 GitHub 릴리스, Tor로 도는 기기는 Arti로만). 받은 파일은 앱이 서명을 다시 확인하고 설치합니다.
     UpdateCheck = "update.check" [Owner, Global] (Empty) -> UpdateInfo;
-    /// 받기를 시작합니다. 진행과 끝은 `update.progress` 알림.
+    /// 받기를 시작합니다(`direct`면 Tor 대신 일반 인터넷). 진행과 끝은 `update.progress` 알림.
     UpdateDownload = "update.download" [Owner, Global, human_only] (UpdateDownloadParams) -> Empty;
 
     // AI 번역. 내 API 키로 비용이 나가므로 앱(소유자 토큰)만 씁니다.

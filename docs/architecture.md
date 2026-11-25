@@ -538,8 +538,8 @@ src/
   cards.rs       — 프로필·뱃지 카드를 빠뜨리지 않기: 공간마다 실린 판 기억하고 빠진 공간에 내기(`cards.sent.<공간>`, `MemberProfile`·`MemberBadges`),
                    체크포인트로 들어온 뒤 묻힌 프로필·카드 물어 받기(`GetMemberCards`, `cards.pull.<공간>`)
   update.rs      — 앱 업데이트(`update.*`): `releases/latest` 넘겨주기로 최신 판 확인, 배포자 서명(`yangpa_core::release`)을 확인한
-                   `SHA256SUMS.txt`에 있는 릴리스 파일만 데이터 폴더 `updates/`에 받기(`update.progress`). Tor로 도는 기기는 Arti로만
-                   (`blobs::preview::http_location`·`http_open`), 설치는 앱 셸(`src-tauri/src/update.rs`)
+                   `SHA256SUMS.txt`에 있는 릴리스 파일만 데이터 폴더 `updates/`에 받기(`update.progress`). Tor로 도는 기기는 Arti로만,
+                   사용자가 고른 `direct` 받기만 직접 연결(`blobs::preview::http_location`·`http_open`), 설치는 앱 셸(`src-tauri/src/update.rs`)
   ai.rs          — AI 번역(`ai.*`): 내 AI API 프로필(키는 DB 설정 `ai.profiles`), 크루 프로필 목록 만들기(`crew.set_ai_profiles`,
                    키는 내준 기기의 `ai.crew_keys`에만), 내준 기기에게 번역 부탁하기·멤버 요청 대신 번역하기(`AiTranslate`), OpenAI 호환·Anthropic·Gemini
                    요청(`blobs::preview::http_request`, Tor로 도는 기기는 Arti)과 JSON 응답 풀기

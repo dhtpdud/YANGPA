@@ -218,7 +218,7 @@ Trois choix de conception que les experts voudront examiner en premier.
 
 ### Où l'application communique avec l'extérieur
 
-L'application n'a aucun code de statistiques d'usage, de rapport d'erreurs ni de vérification de mise à jour automatique. Les lieux
+L'application n'a aucun code de statistiques d'usage ni de rapport d'erreurs. Les lieux
 suivants sont les seuls où elle communique avec l'extérieur. La [CSP](apps/desktop/src-tauri/tauri.conf.json) de l'interface (la
 webview) n'ouvre `connect-src` que vers l'intérieur de l'application. Les communications propres au système d'exploitation et au moteur
 de la webview (WebView2, etc.) ne sont pas contrôlées par l'application.
@@ -234,6 +234,8 @@ de la webview (WebView2, etc.) ne sont pas contrôlées par l'application.
 | À l'envoi d'un message contenant un lien | Ce site | L'IP du nœud de sortie Tor. Le destinataire ne le consulte pas. Désactivé par défaut dans les salons éphémères. |
 | Pour vérifier un soutien via GitHub | github.com | L'IP du nœud de sortie Tor et mon compte GitHub |
 | **Pour vérifier un soutien via Patreon** | patreon.com | **Mon IP réelle** et mon compte Patreon. Patreon bloque les sorties Tor, la connexion est donc directe. |
+| Pour vérifier les mises à jour (automatique, désactivable dans les réglages) ou les télécharger avec **Télécharger la mise à jour (Tor)** | github.com | L'IP du nœud de sortie Tor |
+| **En cliquant sur Télécharger la mise à jour (sans Tor)** | github.com | **Mon IP réelle**. Le téléchargement passe directement par l'internet ordinaire. |
 
 La vérification du soutien ne tourne qu'après activation par un clic de ma part, puis se refait une fois par jour. L'identité YANGPA n'est pas envoyée.
 

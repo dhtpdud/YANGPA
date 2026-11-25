@@ -205,7 +205,7 @@ flowchart LR
 
 ### 應用程式對外連線的地方
 
-應用程式沒有使用統計、錯誤回報、自動檢查更新的程式碼。應用程式對外連線的地方僅有以下這些。應用程式畫面（WebView）的 [CSP](apps/desktop/src-tauri/tauri.conf.json) 只把 `connect-src` 開放給應用程式內部。作業系統與 WebView 引擎（WebView2 等）自己的連線不受應用程式控制。
+應用程式沒有使用統計、錯誤回報的程式碼。應用程式對外連線的地方僅有以下這些。應用程式畫面（WebView）的 [CSP](apps/desktop/src-tauri/tauri.conf.json) 只把 `connect-src` 開放給應用程式內部。作業系統與 WebView 引擎（WebView2 等）自己的連線不受應用程式控制。
 
 | 何時 | 連到哪裡 | 暴露的事 |
 | --- | --- | --- |
@@ -218,6 +218,8 @@ flowchart LR
 | 傳送含連結的訊息時 | 該網站 | Tor 出口節點的 IP。收訊者不會查詢。無痕頻道預設關閉。 |
 | 以 GitHub 確認贊助時 | github.com | Tor 出口節點的 IP 與我的 GitHub 帳號 |
 | **以 Patreon 確認贊助時** | patreon.com | **我的真實 IP** 與我的 Patreon 帳號。Patreon 封鎖 Tor 出口，因此直接連線。 |
+| 檢查更新時（自動，可在設定中關閉）或用 **下載更新(Tor)** 下載時 | github.com | Tor 出口節點的 IP |
+| **按下「下載更新」（不經 Tor）時** | github.com | **我的真實 IP**。透過一般網路直接下載。 |
 
 贊助確認只有在我按下按鈕開啟之後才會執行，之後每天重新確認一次。不會傳送 YANGPA 身分。
 

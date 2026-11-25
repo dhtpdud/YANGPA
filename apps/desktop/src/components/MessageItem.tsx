@@ -294,7 +294,7 @@ export const MessageItem = memo(function MessageItem(p: MessageItemProps) {
             <>
               {m.text && (
                 <div className="msg-body">
-                  <MessageBody text={m.text} space={space} channel={channel} members={members} me={me} skip={mine} />
+                  <MessageBody text={m.text} space={space} channel={channel} members={members} me={me} mine={mine} />
                   {/* 게시글은 제목 아래(ForumPostHeader)에 고친 일시를 따로 보입니다. */}
                   {m.edited_at && !p.post && (
                     <span className="edited" title={t('{time}에 수정', { time: formatFull(m.edited_at) })}>

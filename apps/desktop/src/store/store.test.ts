@@ -696,9 +696,12 @@ describe('앱 업데이트', () => {
     useStore.setState({ client: { call, transport: { update: { target, install: vi.fn() }, openExternal } } as unknown as ApiClient, update: null });
     await useStore.getState().checkUpdate();
     expect(useStore.getState().update).toEqual({ latest: '1.2.0' });
-    await useStore.getState().downloadUpdate();
-    expect(call).toHaveBeenCalledWith('update.download', { version: '1.2.0', asset: 'YANGPA_1.2.0_x64_portable.zip' });
-    expect(useStore.getState().update?.progress).toEqual({ done: 0, total: 0 });
+    for (const direct of [false, true]) {
+      useStore.setState({ update: { latest: '1.2.0' } });
+      await useStore.getState().downloadUpdate(direct);
+      expect(call).toHaveBeenLastCalledWith('update.download', { version: '1.2.0', asset: 'YANGPA_1.2.0_x64_portable.zip', direct });
+      expect(useStore.getState().update?.progress).toEqual({ done: 0, total: 0 });
+    }
     expect(openExternal).not.toHaveBeenCalled();
   });
 
@@ -706,7 +709,7 @@ describe('앱 업데이트', () => {
     const call = vi.fn(async () => ({}));
     const openExternal = vi.fn(async () => undefined);
     useStore.setState({ client: { call, transport: { openExternal } } as unknown as ApiClient, update: { latest: '1.2.0' } });
-    await useStore.getState().downloadUpdate();
+    await useStore.getState().downloadUpdate(true);
     expect(openExternal).toHaveBeenCalledWith('https://github.com/dhtpdud/YANGPA/releases/tag/v1.2.0');
     expect(call).not.toHaveBeenCalled();
   });

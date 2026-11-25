@@ -222,6 +222,9 @@ pub struct UpdateInfo {
 pub struct UpdateDownloadParams {
     pub version: String,
     pub asset: String,
+    /// Tor 대신 일반 인터넷으로 받습니다(GitHub가 이 기기의 IP를 봄). 사용자가 고른 때만, 빠지면 Tor.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub direct: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -205,7 +205,7 @@ flowchart LR
 
 ### 应用与外界通信的位置
 
-应用中没有使用统计、错误报告、自动检查更新的代码。应用与外界的通信仅限于以下几处。应用界面（WebView）的 [CSP](apps/desktop/src-tauri/tauri.conf.json) 将 `connect-src` 仅向应用内部开放。操作系统和 WebView 引擎（WebView2 等）自身的通信不受应用控制。
+应用中没有使用统计、错误报告的代码。应用与外界的通信仅限于以下几处。应用界面（WebView）的 [CSP](apps/desktop/src-tauri/tauri.conf.json) 将 `connect-src` 仅向应用内部开放。操作系统和 WebView 引擎（WebView2 等）自身的通信不受应用控制。
 
 | 何时 | 去向 | 暴露的内容 |
 | --- | --- | --- |
@@ -218,6 +218,8 @@ flowchart LR
 | 发送含链接的消息时 | 该网站 | Tor 出口节点的 IP。接收者不会去查询。无痕频道默认关闭。 |
 | 通过 GitHub 确认赞助时 | github.com | Tor 出口节点的 IP 和我的 GitHub 账号 |
 | **通过 Patreon 确认赞助时** | patreon.com | **我的真实 IP** 和我的 Patreon 账号。Patreon 封锁 Tor 出口，因此直接连接。 |
+| 检查更新时（自动，可在设置中关闭）或用 **下载更新(Tor)** 下载时 | github.com | Tor 出口节点的 IP |
+| **点击“下载更新”（不经 Tor）时** | github.com | **我的真实 IP**。通过普通网络直接下载。 |
 
 赞助确认只会在我点击按钮开启之后运行，之后每天重新确认一次。不会发送 YANGPA 身份。
 

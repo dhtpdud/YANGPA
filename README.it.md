@@ -211,7 +211,7 @@ Tre scelte di progetto che gli esperti vorranno guardare per prime.
 
 ### Dove l'app comunica con l'esterno
 
-L'app non ha codice per statistiche d'uso, segnalazione degli errori o controllo degli aggiornamenti automatici. I punti in cui l'app comunica con l'esterno sono solo i seguenti. La [CSP](apps/desktop/src-tauri/tauri.conf.json) della schermata dell'app (la webview) apre `connect-src` solo verso l'interno dell'app. La comunicazione propria del sistema operativo e del motore webview (WebView2 e simili) non è sotto il controllo dell'app.
+L'app non ha codice per statistiche d'uso o segnalazione degli errori. I punti in cui l'app comunica con l'esterno sono solo i seguenti. La [CSP](apps/desktop/src-tauri/tauri.conf.json) della schermata dell'app (la webview) apre `connect-src` solo verso l'interno dell'app. La comunicazione propria del sistema operativo e del motore webview (WebView2 e simili) non è sotto il controllo dell'app.
 
 | Quando | Dove | Cosa si rivela |
 | --- | --- | --- |
@@ -224,6 +224,8 @@ L'app non ha codice per statistiche d'uso, segnalazione degli errori o controllo
 | Quando invii un messaggio con un link | Quel sito | L'IP del nodo di uscita Tor. Chi riceve non lo consulta. Nei canali effimeri è disattivato per impostazione predefinita. |
 | Quando si verifica il sostegno tramite GitHub | github.com | L'IP del nodo di uscita Tor e il mio account GitHub |
 | **Quando si verifica il sostegno tramite Patreon** | patreon.com | **Il mio IP reale** e il mio account Patreon. Patreon blocca le uscite Tor, quindi ci si collega direttamente. |
+| Quando si controllano gli aggiornamenti (automatico, disattivabile nelle impostazioni) o si scaricano con **Scarica aggiornamento (Tor)** | github.com | L'IP del nodo di uscita Tor |
+| **Quando si preme Scarica aggiornamento (senza Tor)** | github.com | **Il mio IP reale**. Si scarica direttamente dalla normale rete internet. |
 
 La verifica del sostegno gira solo dopo che l'hai attivata premendo il pulsante, e poi si ripete una volta al giorno. L'identità YANGPA non viene inviata.
 

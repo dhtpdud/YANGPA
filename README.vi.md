@@ -212,7 +212,7 @@ Ba quyết định thiết kế mà chuyên gia nên xem trước.
 
 ### Ứng dụng liên lạc ra bên ngoài ở đâu
 
-Ứng dụng không có mã thống kê sử dụng, báo cáo lỗi hay kiểm tra cập nhật tự động. Những nơi ứng dụng liên lạc ra bên ngoài chỉ có như sau. [CSP](apps/desktop/src-tauri/tauri.conf.json)
+Ứng dụng không có mã thống kê sử dụng hay báo cáo lỗi. Những nơi ứng dụng liên lạc ra bên ngoài chỉ có như sau. [CSP](apps/desktop/src-tauri/tauri.conf.json)
 của giao diện (webview) chỉ mở `connect-src` vào bên trong ứng dụng. Liên lạc riêng của hệ điều hành và engine webview (WebView2, v.v.)
 không nằm trong tầm kiểm soát của ứng dụng.
 
@@ -227,6 +227,8 @@ không nằm trong tầm kiểm soát của ứng dụng.
 | Khi gửi tin nhắn có liên kết | Trang web đó | IP của nút thoát Tor. Người nhận không tra cứu. Ở kênh tự hủy mặc định là tắt. |
 | Khi xác nhận ủng hộ qua GitHub | github.com | IP của nút thoát Tor và tài khoản GitHub của bạn |
 | **Khi xác nhận ủng hộ qua Patreon** | patreon.com | **IP thật của bạn** và tài khoản Patreon của bạn. Patreon chặn nút thoát Tor nên kết nối trực tiếp. |
+| Khi kiểm tra cập nhật (tự động, có thể tắt trong cài đặt) hoặc tải bằng **Tải bản cập nhật (Tor)** | github.com | IP của nút thoát Tor |
+| **Khi nhấn Tải bản cập nhật (không qua Tor)** | github.com | **IP thật của bạn**. Tải trực tiếp qua internet thông thường. |
 
 Việc xác nhận ủng hộ chỉ chạy sau khi bạn bấm nút bật, rồi sau đó kiểm tra lại mỗi ngày một lần. Danh tính YANGPA không được gửi đi.
 

@@ -205,7 +205,7 @@ Uzmanların önce bakmak isteyebileceği üç tasarım kararı:
 
 ### Uygulamanın dışarıyla iletişim kurduğu yerler
 
-Uygulamada kullanım istatistiği, hata raporu ya da otomatik güncelleme denetimi kodu yoktur. Uygulamanın dışarıyla iletişim kurduğu yerlerin tamamı şunlardır. Uygulama ekranının (web görünümü) [CSP](apps/desktop/src-tauri/tauri.conf.json)'si `connect-src`'yi yalnızca uygulamanın içine açar. İşletim sisteminin ve web görünümü motorunun (WebView2 vb.) kendi iletişimini uygulama denetlemez.
+Uygulamada kullanım istatistiği ya da hata raporu kodu yoktur. Uygulamanın dışarıyla iletişim kurduğu yerlerin tamamı şunlardır. Uygulama ekranının (web görünümü) [CSP](apps/desktop/src-tauri/tauri.conf.json)'si `connect-src`'yi yalnızca uygulamanın içine açar. İşletim sisteminin ve web görünümü motorunun (WebView2 vb.) kendi iletişimini uygulama denetlemez.
 
 | Ne zaman | Nereye | Açığa çıkan |
 | --- | --- | --- |
@@ -218,6 +218,8 @@ Uygulamada kullanım istatistiği, hata raporu ya da otomatik güncelleme deneti
 | Bağlantı içeren bir mesaj gönderdiğimde | O site | Tor çıkış düğümünün IP adresi. Alıcı sorgulama yapmaz. Uçucu kanallarda varsayılan olarak kapalıdır. |
 | GitHub ile destek doğrulanırken | github.com | Tor çıkış düğümünün IP adresi ve GitHub hesabım |
 | **Patreon ile destek doğrulanırken** | patreon.com | **Gerçek IP adresim** ve Patreon hesabım. Patreon Tor çıkışlarını engellediği için doğrudan bağlanılır. |
+| Güncelleme denetlenirken (otomatik, ayarlardan kapatılabilir) veya **Güncellemeyi indir (Tor)** ile indirirken | github.com | Tor çıkış düğümünün IP adresi |
+| **Güncellemeyi indir (Tor olmadan) düğmesine basınca** | github.com | **Gerçek IP adresim**. Normal internet üzerinden doğrudan indirilir. |
 
 Destek doğrulaması yalnızca düğmeye basıp açtıktan sonra çalışır, sonrasında günde bir kez yeniden doğrulanır. YANGPA kimliği gönderilmez.
 

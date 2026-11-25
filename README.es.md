@@ -212,7 +212,7 @@ Tres decisiones de diseño que un especialista querrá revisar primero.
 
 ### Dónde se comunica la app con el exterior
 
-La app no tiene código de estadísticas de uso, informes de errores ni comprobación de actualizaciones automáticas. Estos son todos los lugares con los que la app se comunica con el exterior. El
+La app no tiene código de estadísticas de uso ni de informes de errores. Estos son todos los lugares con los que la app se comunica con el exterior. El
 [CSP](apps/desktop/src-tauri/tauri.conf.json) de la pantalla de la app (webview) abre `connect-src` solo al interior de la app. La comunicación propia del sistema operativo y del motor del webview
 (WebView2, etc.) no la controla la app.
 
@@ -227,6 +227,8 @@ La app no tiene código de estadísticas de uso, informes de errores ni comproba
 | Al enviar un mensaje que contiene un enlace | Ese sitio | La IP del nodo de salida de Tor. El destinatario no lo consulta. En los canales efímeros está desactivado por defecto. |
 | Al comprobar el patrocinio con GitHub | github.com | La IP del nodo de salida de Tor y mi cuenta de GitHub |
 | **Al comprobar el patrocinio con Patreon** | patreon.com | **Mi IP real** y mi cuenta de Patreon. Patreon bloquea las salidas de Tor, así que se conecta directamente. |
+| Al comprobar actualizaciones (automático, se puede desactivar en los ajustes) o descargarlas con **Descargar actualización (Tor)** | github.com | La IP del nodo de salida de Tor |
+| **Al pulsar Descargar actualización (sin Tor)** | github.com | **Mi IP real**. Se descarga directamente por internet normal. |
 
 La comprobación del patrocinio solo se ejecuta después de que yo pulse el botón para activarla, y luego se repite una vez al día. No se envía la identidad de YANGPA.
 

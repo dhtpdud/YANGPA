@@ -212,7 +212,7 @@ Here are three design decisions experts may want to look at first.
 
 ### Where the app talks to the outside
 
-The app has no usage statistics, error reporting or automatic update check code. The places where the app talks to the outside are the following, and nothing else. The
+The app has no usage statistics or error reporting code. The places where the app talks to the outside are the following, and nothing else. The
 [CSP](apps/desktop/src-tauri/tauri.conf.json) of the app's UI (the webview) opens `connect-src` only to the app itself. The operating system's and the webview engine's (WebView2 and so on) own
 traffic is not controlled by the app.
 
@@ -227,6 +227,8 @@ traffic is not controlled by the app.
 | When you send a message containing a link | That site | The IP of a Tor exit node. Recipients don't look it up. Off by default in ephemeral channels. |
 | When checking sponsorship through GitHub | github.com | The IP of a Tor exit node and your GitHub account |
 | **When checking sponsorship through Patreon** | patreon.com | **Your real IP** and your Patreon account. Patreon blocks Tor exits, so it connects directly. |
+| When checking for updates (automatic, can be turned off in settings) or downloading with **Download update (Tor)** | github.com | The IP of a Tor exit node |
+| **When you press Download update (without Tor)** | github.com | **Your real IP**. It downloads straight over the regular internet. |
 
 Sponsorship checking runs only after you press a button to turn it on, and after that it re-checks once a day. Your YANGPA identity is not sent.
 

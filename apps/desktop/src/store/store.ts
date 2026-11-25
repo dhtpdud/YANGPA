@@ -370,8 +370,8 @@ export interface Actions {
   refreshSupporter(): Promise<void>;
   /** 새 판을 확인합니다(`update.check`). `manual`이면 결과·실패를 알림으로 보입니다. */
   checkUpdate(manual?: boolean): Promise<void>;
-  /** 새 판 파일을 받습니다. 앱 안에서 설치할 수 없는 설치본이면 릴리스 페이지를 엽니다. */
-  downloadUpdate(): Promise<void>;
+  /** 새 판 파일을 받습니다(`direct`면 Tor 대신 일반 인터넷). 앱 안에서 설치할 수 없는 설치본이면 릴리스 페이지를 엽니다. */
+  downloadUpdate(direct: boolean): Promise<void>;
   /** 받은 새 판을 설치합니다(앱이 끝나거나 다시 시작할 수 있음). */
   installUpdate(): Promise<void>;
   dismissUpdate(): void;
@@ -1088,7 +1088,7 @@ export const useStore = create<Store>()((set, get) => {
       if (cur?.latest !== r.latest) set({ update: { latest: r.latest } });
       else if (manual && cur.dismissed) set({ update: { ...cur, dismissed: false } });
     },
-    async downloadUpdate() {
+    async downloadUpdate(direct) {
       const { client: c, update: u } = get();
       if (!c || !u || (u.progress && !u.ready && !u.error)) return;
       const target = await c.transport.update?.target().catch(() => null);
@@ -1097,7 +1097,7 @@ export const useStore = create<Store>()((set, get) => {
         return;
       }
       set({ update: { latest: u.latest, progress: { done: 0, total: 0 } } });
-      const ok = await get().call(c.call('update.download', { version: u.latest, asset: `YANGPA_${u.latest}_${target.suffix}` }));
+      const ok = await get().call(c.call('update.download', { version: u.latest, asset: `YANGPA_${u.latest}_${target.suffix}`, direct }));
       if (ok === undefined) set({ update: { latest: u.latest } });
     },
     async installUpdate() {

@@ -165,6 +165,10 @@ function AiTranslatePanel({ space, channel }: { space: SpaceView; channel?: Chan
         />
         {isCrew ? t('이 크루에서만 쓰는 언어로 저장') : t('이 대화에서만 쓰는 언어로 저장')}
       </label>
+      <label className="row gap-s small">
+        <input type="checkbox" checked={prefs.mine} onChange={(e) => patch({ mine: e.target.checked })} />
+        {t('내가 쓴 글도 번역')}
+      </label>
 
       {blocked && (
         <div className="warn-box small">

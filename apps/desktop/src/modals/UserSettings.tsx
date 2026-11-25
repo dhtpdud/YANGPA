@@ -1283,7 +1283,7 @@ function AboutTab() {
   );
 }
 
-/** 새 판 확인·받기·설치. 확인과 받기는 데몬이 Tor로 하고, 설치는 앱이 서명을 다시 확인한 뒤 합니다. */
+/** 새 판 확인·받기·설치. 확인은 데몬이 Tor로, 받기는 고른 길(일반 인터넷·Tor)로 하고, 설치는 앱이 서명을 다시 확인한 뒤 합니다. */
 function UpdateSection() {
   const client = useStore((s) => s.client);
   const update = useStore((s) => s.update);
@@ -1293,6 +1293,14 @@ function UpdateSection() {
   const downloadUpdate = useStore((s) => s.downloadUpdate);
   const installUpdate = useStore((s) => s.installUpdate);
   const [busy, setBusy] = useState(false);
+  // 앱 안에서 받지 못하는 설치본(Android 등)은 시스템 브라우저로 릴리스 페이지를 열 뿐이라 Tor 받기를 보이지 않습니다.
+  const [inApp, setInApp] = useState(false);
+  useEffect(() => {
+    void client?.transport.update
+      ?.target()
+      .then((x) => setInApp(!!x))
+      .catch(() => undefined);
+  }, [client]);
   const run = (f: () => Promise<void>) => async () => {
     setBusy(true);
     await f();
@@ -1341,9 +1349,16 @@ function UpdateSection() {
                 {t('업데이트 설치')}
               </button>
             ) : (
-              <button type="button" className="btn primary" disabled={busy || downloading} onClick={run(downloadUpdate)}>
-                {t('업데이트 받기')}
-              </button>
+              <>
+                <button type="button" className="btn primary" disabled={busy || downloading} onClick={run(() => downloadUpdate(true))}>
+                  {t('업데이트 받기')}
+                </button>
+                {inApp && (
+                  <button type="button" className="btn" disabled={busy || downloading} onClick={run(() => downloadUpdate(false))}>
+                    {t('업데이트 받기(Tor)')}
+                  </button>
+                )}
+              </>
             )}
             <button type="button" className="btn" onClick={() => void client?.transport.openExternal(`${RELEASES_URL}/tag/v${update.latest}`)}>
               {t('릴리스 페이지')}

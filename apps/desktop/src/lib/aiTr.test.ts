@@ -152,6 +152,8 @@ describe('AI 번역 조건', () => {
     expect(s.always).toEqual({ s1: true, s3: false });
     expect(s.target.length).toBe(100);
     expect(s.auto).toBe(true);
+    expect(s.mine).toBe(false);
+    expect(sanitizeAiTr({ mine: true }).mine).toBe(true);
     // 예전 채널별 번역은 그 크루 전체 번역으로 옮깁니다.
     expect(sanitizeAiTr({ channels: { 's3/c1': true, 's3/c2': true } }).always).toEqual({ s3: true });
   });

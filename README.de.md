@@ -212,7 +212,7 @@ Drei Designentscheidungen, die Fachleute sich zuerst ansehen sollten:
 
 ### Wohin die App nach außen kommuniziert
 
-Die App enthält keinen Code für Nutzungsstatistiken, Fehlerberichte oder automatische Update-Prüfungen. Die folgende Liste umfasst alles, womit die App nach außen kommuniziert. Die
+Die App enthält keinen Code für Nutzungsstatistiken oder Fehlerberichte. Die folgende Liste umfasst alles, womit die App nach außen kommuniziert. Die
 [CSP](apps/desktop/src-tauri/tauri.conf.json) der App-Oberfläche (WebView) öffnet `connect-src` nur nach innen in die App. Die eigene Kommunikation des Betriebssystems und der
 WebView-Engine (z. B. WebView2) kontrolliert die App nicht.
 
@@ -227,6 +227,8 @@ WebView-Engine (z. B. WebView2) kontrolliert die App nicht.
 | Beim Senden einer Nachricht mit Link | Die jeweilige Website | IP des Tor-Exit-Knotens. Die empfangende Person ruft nichts ab. In flüchtigen Kanälen standardmäßig aus. |
 | Beim Prüfen der Unterstützung über GitHub | github.com | IP des Tor-Exit-Knotens und mein GitHub-Konto |
 | **Beim Prüfen der Unterstützung über Patreon** | patreon.com | **Meine echte IP** und mein Patreon-Konto. Patreon sperrt Tor-Exits, daher wird direkt verbunden. |
+| Beim Prüfen auf Updates (automatisch, in den Einstellungen abschaltbar) oder beim Laden mit **Update herunterladen (Tor)** | github.com | IP des Tor-Exit-Knotens |
+| **Beim Drücken von Update herunterladen (ohne Tor)** | github.com | **Meine echte IP**. Wird direkt über das normale Internet geladen. |
 
 Die Prüfung der Unterstützung läuft erst, nachdem ich sie per Schaltfläche eingeschaltet habe, und wird danach einmal täglich wiederholt. Die YANGPA-Identität wird nicht übermittelt.
 

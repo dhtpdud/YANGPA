@@ -38,10 +38,11 @@ import { TrText, useTrText } from './Translated';
 /** 지금 보는 포럼(제목·미리보기·태그를 그 채널 내용으로 번역하려고). 목록 부품마다 공간·채널을 넘기지 않게 둡니다. */
 const ForumAt = createContext<{ space?: string; channel?: string }>({});
 
-/** 포럼 글의 짧은 글(제목·미리보기·태그). AI 번역을 켠 크루면 번역합니다(내 글은 본문처럼 그대로). */
+/** 포럼 글의 짧은 글(제목·미리보기·태그). AI 번역을 켠 크루면 번역합니다(내 글은 본문처럼 ‘내가 쓴 글도 번역’을 켰을 때만). */
 function Tr({ text, mine }: { text: string; mine?: boolean }) {
   const at = useContext(ForumAt);
-  return mine ? <>{text}</> : <TrText text={text} space={at.space} channel={at.channel} />;
+  const trMine = useStore((s) => s.prefs.aiTr.mine);
+  return mine && !trMine ? <>{text}</> : <TrText text={text} space={at.space} channel={at.channel} />;
 }
 
 function PostTags({ ids, tags }: { ids: number[]; tags: ForumTag[] }) {
@@ -487,7 +488,8 @@ function ForumBody({ space, channel }: { space: SpaceView; channel: ChannelView 
     if (!loaded) void loadLatest(space.space, channel.channel, openPost.id);
   }, [openPost, loadLatest, space.space, channel.channel]);
   const replyPost = openPost ? freshest(openPost, posts) : null;
-  const replyTitle = useTrText(replyPost && !replyPost.mine ? replyPost.title : '', space.space, channel.channel);
+  const trMine = useStore((s) => s.prefs.aiTr.mine);
+  const replyTitle = useTrText(replyPost && (trMine || !replyPost.mine) ? replyPost.title : '', space.space, channel.channel);
 
   const setFeatured = async (post: EventId | null) => {
     if (!client) return;
@@ -582,7 +584,7 @@ function ForumBody({ space, channel }: { space: SpaceView; channel: ChannelView 
             <Lock size={14} /> {t('잠긴 글입니다')}
           </div>
         ) : (
-          <Composer space={space.space} channel={channel.channel} thread={post.id} channelView={channel} placeholder={t('「{title}」에 답글', { title: post.mine ? post.title : replyTitle })} />
+          <Composer space={space.space} channel={channel.channel} thread={post.id} channelView={channel} placeholder={t('「{title}」에 답글', { title: replyTitle || post.title })} />
         )}
       </div>
     );

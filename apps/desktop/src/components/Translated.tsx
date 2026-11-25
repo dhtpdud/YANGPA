@@ -17,13 +17,13 @@ interface BodyProps {
   channel: ChannelId;
   members: Map<string, MemberView>;
   me: string | null;
-  /** 내가 쓴 글은 번역하지 않습니다. */
-  skip?: boolean;
+  /** 내가 쓴 글은 ‘내가 쓴 글도 번역’을 켰을 때만 번역합니다. */
+  mine?: boolean;
 }
 
 /** 메시지 본문. 번역이 꺼져 있으면 MessageText 그대로(공간 보기를 구독하지 않게 나눔). */
 export function MessageBody(p: BodyProps) {
-  const on = useStore((s) => !p.skip && trOn(s.prefs.aiTr, s.views[p.space], s.identity?.user));
+  const on = useStore((s) => (!p.mine || s.prefs.aiTr.mine) && trOn(s.prefs.aiTr, s.views[p.space], s.identity?.user));
   return on ? <TranslatedBody {...p} /> : <MessageText text={p.text} members={p.members} me={p.me} space={p.space} />;
 }
 
