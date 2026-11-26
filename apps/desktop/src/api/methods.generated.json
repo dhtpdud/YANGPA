@@ -165,6 +165,62 @@
     {
       "destructive": "no",
       "human_only": false,
+      "name": "subrole.creator_status",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.creator_github_begin",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.creator_patreon_begin",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.creator_sellapp",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.creator_unlink",
+      "scope": "owner",
+      "space": "global"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.github_begin",
+      "scope": "owner",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.patreon_begin",
+      "scope": "owner",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "subrole.sellapp",
+      "scope": "owner",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": false,
       "name": "update.check",
       "scope": "owner",
       "space": "global"
@@ -481,6 +537,20 @@
       "destructive": "no",
       "human_only": true,
       "name": "crew.set_onboarding_lang",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.set_subscriber_roles",
+      "scope": "admin",
+      "space": "required"
+    },
+    {
+      "destructive": "no",
+      "human_only": true,
+      "name": "crew.sync_subscriber_roles",
       "scope": "admin",
       "space": "required"
     },
@@ -1332,6 +1402,7 @@
     "device.link_result",
     "device.synced",
     "supporter.updated",
+    "subrole.updated",
     "update.progress",
     "device.wiped",
     "channel.typing",

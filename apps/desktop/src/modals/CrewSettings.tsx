@@ -38,6 +38,7 @@ import { PermTemplateBar } from './PermTemplates';
 import { CrewTrustField } from './Trust';
 import { CrewServersSection, CrewServersUseField } from './CrewServers';
 import { CrewAiAutoField, RoleAiProfiles } from './CrewAi';
+import { RoleSubscriberSection } from '../supporter/SubscriberRoles';
 import { OnboardingSettings } from './CrewOnboarding';
 
 const TABS: Array<[CrewTab, string]> = [
@@ -479,6 +480,7 @@ function RoleEditor({ space, role, canManage, onDelete }: { space: string; role:
         </div>
       )}
       <RoleAiProfiles space={space} role={role} />
+      {!everyone && <RoleSubscriberSection space={space} role={role} canManage={canManage} />}
       {canManage && (
         <PermTemplateBar
           scope={t('역할')}

@@ -227,6 +227,8 @@ traffic is not controlled by the app.
 | When you send a message containing a link | That site | The IP of a Tor exit node. Recipients don't look it up. Off by default in ephemeral channels. |
 | When checking sponsorship through GitHub | github.com | The IP of a Tor exit node and your GitHub account |
 | **When checking sponsorship through Patreon** | patreon.com | **Your real IP** and your Patreon account. Patreon blocks Tor exits, so it connects directly. |
+| **When you verify a subscription in a crew through GitHub or Patreon** | github.com or patreon.com, in your web browser and once from the app | **Your browser's IP** and your account. The admin device that grants the role learns which account is yours. The app connects to Patreon directly, so Patreon also sees **your real IP**. |
+| **When your device grants crew roles to subscribers (you connected a creator account)** | github.com, patreon.com, sell.app | Your creator account, and **your real IP** to Patreon and SellApp. GitHub sees the IP of a Tor exit node. |
 | When checking for updates (automatic, can be turned off in settings) or downloading with **Download update (Tor)** | github.com | The IP of a Tor exit node |
 | **When you press Download update (without Tor)** | github.com | **Your real IP**. It downloads straight over the regular internet. |
 

@@ -1821,6 +1821,9 @@ export class MockBackend {
         this.supporter = { ...this.supporter, links: this.supporter.links.filter((l) => l.provider !== p.provider) };
         this.emit({ type: 'supporter.updated' });
         return ok;
+      // 크루 구독자 역할: 화면만 열리게 크리에이터 계정 없는 상태만 흉내 냅니다.
+      case 'subrole.creator_status':
+        return { providers: ['github', 'patreon', 'sellapp'], links: [] };
 
       // 프로필·메모
       case 'profile.get': {

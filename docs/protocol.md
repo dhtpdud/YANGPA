@@ -2213,6 +2213,64 @@ Tor로 도는 기기는 Arti로만(요청마다 새 격리 토큰), https이고 
   위와 같은 바이트입니다(읽을 때 끝이 없으면 빈 값).
 - 앱은 멤버의 앱 화면 언어와 같은 코드의 번역을 입혀 보이고(`localizeOnboarding`), 없는 칸·언어는 원문입니다.
 
+### 크루 구독자 역할 (`CrewSubscriberRolesSet` 110, `SubRole`)
+
+크루 관리자가 자기 GitHub Sponsors·Patreon·SellApp 크리에이터 계정을 이 기기에 연결하고, 그 정기 구독자에게 고른 역할을 자동으로
+줍니다(decisions.md "크루 구독자 역할"). 크리에이터 토큰·키는 확인하는 기기(`holder`)에만 있고 상태에는 설정만 있습니다.
+
+**상태.**
+- `SpaceState.subscriber_roles: [SubscriberRole{role, providers: [github|patreon|sellapp], holder: 기기}]`(데몬은 역할 순으로 냄).
+- `CrewSubscriberRolesSet{roles}`(상태 레인, 공간 스트림, `EventBody` 변형 59): 크루만(`WrongSpaceKind`), `MANAGE_ROLES`, 목록을
+  통째로 바꿉니다. 16개까지(`MAX_SUBSCRIBER_ROLES`, `Limit("구독자 역할 수")`), @everyone은 `EveryoneProtected`, 없는 역할은
+  `UnknownRole`, 관리자 권한 역할은 `Invalid("구독자 역할에 관리자 역할")`, 역할이 겹치거나 경로가 비었거나 경로가 겹침 없는
+  오름차순이 아니면 `Invalid("구독자 역할 형식")`, 지금과 같으면 `Invalid("이미 그 구독자 역할 목록")`. 더하거나 빼거나 바뀐 항목의 역할은 작성자가
+  줄 수 있어야 하고(`may_assign`, 아니면 `RankTooLow`), 바뀐 항목의 `holder`는 작성자 사용자의 활성 기기여야 합니다
+  (`Invalid("구독자 역할 확인 기기")`). 그대로 둔 항목은 다른 관리자의 기기를 가리켜도 됩니다.
+- 역할을 지우면(`RoleDelete`) 그 항목도 빠집니다.
+- 기존 데이터 호환: `subscriber_roles`는 직렬화하지 않고(`serde(skip)`), 정규 인코딩 꼬리는 목록이 있을 때만
+  `(해산 여부, ai, 크루 언어 또는 "", onboarding, onboarding_langs, subscriber_roles)`로 하나 더 붙습니다. 쓰지 않는 크루의 바이트·상태
+  해시는 그대로입니다. 옛 빌드는 110을 모르는 종류로 저장·전달만 하고, 쓴 크루의 체크포인트는 따르지 못합니다.
+
+**멤버 증명.** 멤버 기기는 그 경로를 맡은 `holder` 기기마다 증명을 하나씩 만들어 `YpRequest::SubRole(SubRoleAsk{space, proof})`로
+보냅니다(찾는 순서는 AI 번역의 `reach_holder`와 같음, 자기가 `holder`면 바로 처리). 증명은
+`bound(공간, 사용자, 비밀) = SHA-256("yangpa-subrole-v1" ‖ 공간 32바이트 ‖ 사용자 32바이트 ‖ 비밀)`로 그 크루·그 사용자에 묶입니다.
+`holder`는 요청에 적힌 값이 아니라 **인증된 연결의 사용자**로 다시 계산하므로, 받은 증명을 다른 크루나 다른 사용자 이름으로 내면 맞지
+않습니다.
+- `Github{code, nonce, port}`: 멤버 기기가 무작위 32바이트 `nonce`를 뽑아 `code_verifier = base64url(bound(공간, 사용자, nonce))`(43자)로
+  두고, 그 S256을 `code_challenge`로 실어 멤버 확인 전용 OAuth 앱(범위 없음, 아무 빈 포트 `port`)으로 브라우저 로그인을 합니다(`state`
+  확인, 루프백으로 돌아옴). 받은 한 번 쓰는 `code`와 `nonce`를 보내면 `holder`가 verifier를 다시 계산해 같은 `redirect_uri`로 토큰을 받고
+  GraphQL `viewer{databaseId}`를 읽은 뒤 버립니다. 로그인은 멤버 기기 몫 하나와 `holder`마다 하나를 이어서 합니다: 첫 로그인의 코드는 멤버
+  기기가 스스로 토큰으로 바꿔 `scope`가 정확히 빈 값인지 보고, 그럴 때만 돌아온 브라우저를 다음 승인 주소로 302로 이어 보냅니다(아니면
+  `holder`에 줄 코드 없이 `too_wide`로 끝). `holder`도 같은 검사를 하고 넓은 토큰이면 `BadRequest`입니다.
+- `Patreon{tags}`: 멤버 기기가 자기 토큰으로 `GET /api/oauth2/v2/identity?include=memberships&fields[member]=patron_status`의
+  `data.relationships.memberships.data[].id`(멤버 번호, UUID만 소문자로)를 읽고 번호마다 `bound(공간, 사용자, 번호)`를 만들어,
+  무작위 32바이트로 늘 200개를 채우고 정렬해 보냅니다(개수·순서로 후원 수를 알리지 않게. `holder`는 1~200개를 받음).
+  토큰·번호는 보내지 않습니다. 토큰은 이 기기에 크루용 Patreon 크리에이터 연결이 있으면 그 토큰(범위에 `identity.memberships`가 없거나
+  갱신이 거절되면 로그인하지 않고 `relink`), 없거나 사용자가 다른 계정을 고르면(`login`) 크루용 클라이언트(포트 47901) PKCE
+  로그인(`identity identity.memberships`)으로 받아 쓰고 버립니다. 멤버 번호가 없으면 보내지
+  않고 `not_subscribed`. `holder`는 캠페인 멤버 목록(맞추기와 같은 요청)의 멤버 번호마다 같은 값을 계산해, 정확히 한 멤버가 맞으면 그
+  `relationships.user.data.id`를 계정으로 씁니다. 맞는 멤버가 없으면 `Forbidden`, 둘 이상이면 `BadRequest`, 200개를 넘거나 비면
+  `BadRequest`.
+- `Sellapp{tag, hint}`: `tag = bound(공간, 사용자, 키)`, `hint`는 키 앞 8자(16진수). 키는 라이선스 키 끝의 UUID 36자(소문자, 상점 접두어를
+  뗌)이고 보내지 않습니다. `holder`는 `GET /v2/license-keys?key=<hint>&limit=100&page=n`(10쪽까지)으로 자기 상점의 키를 훑어 같은 `tag`가
+  나오는 키의 `subscription_id`를 계정으로 씁니다(1회 구매 키는 거절).
+- 증명은 메모리에서 지우고(zeroize) 저장·기록하지 않습니다. `holder`는 보낸 기기가 그 크루 멤버의 기기이고 자기가 그 경로를 맡을
+  때만 받고(아니면 `NotMember`·`NotFound`), (공간, 사용자)마다 한 시간에 10번까지(넘으면 `Busy`). 20초 안에 끝나지 않으면 `Busy`로
+  먼저 답하고 확인은 이어 합니다(요청한 쪽의 망 요청 상한보다 짧게). 답: 구독 중이면 역할을 준 뒤 `Ok`, 구독 중이 아니면 `Forbidden`,
+  증명이 틀리면 `BadRequest`. 멤버 앱에는 결과 코드(`subrole.updated`)로 갑니다.
+- `holder`는 계정을 사용자에게 묶어 둡니다(DB 설정 `subrole.bind.<공간>`: 사용자·경로·계정, 같은 계정은 한 사용자에게만). 이것으로
+  구독 확인을 되풀이합니다.
+
+**맞추기.** `holder`는 하루 한 번(실패하면 한 시간 뒤), 설정을 바꾼 직후, 증명을 받은 직후 자기가 맡은 항목을 맞춥니다. 경로마다
+구독 중인 계정 목록을 크리에이터 자격으로 읽습니다.
+- GitHub: `viewer.sponsorshipsAsMaintainer(activeOnly, includePrivate)`의 정기 후원(1회 후원 제외), Tor로 도는 기기는 Arti로.
+- Patreon: 캠페인 멤버 중 `active_patron`이고 결제 중인 사람(체험·선물 제외).
+- SellApp: 묶인 구독마다 `GET /v2/subscriptions/{id}`가 `ACTIVE`이고 멈추지 않았을 때(분당 60번 한도라 1.1초 간격).
+
+경로 하나라도 구독 중이면 역할을 주고, 묶인 모든 경로가 확실히 구독 중이 아닐 때만 뺍니다(닿지 못한 경로가 있으면 그대로). 빼는
+것은 이 기기가 준 역할만입니다(준 기록 `granted`, 손으로 준 역할은 두기). 주고 빼기는 `member.set_roles`와 같은 검사를 거친
+`MemberUpdate`입니다.
+
 ### P2P 전용 채널 (`ChannelTransportSet` 67)
 
 모든 연결이 Tor로 오가는 가운데, 관리자가 고른 텍스트·통화 채널만 그 채널에 참여한 기기끼리 직접 연결로 주고받습니다.

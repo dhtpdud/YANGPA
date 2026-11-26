@@ -224,6 +224,8 @@ L'app non ha codice per statistiche d'uso o segnalazione degli errori. I punti i
 | Quando invii un messaggio con un link | Quel sito | L'IP del nodo di uscita Tor. Chi riceve non lo consulta. Nei canali effimeri è disattivato per impostazione predefinita. |
 | Quando si verifica il sostegno tramite GitHub | github.com | L'IP del nodo di uscita Tor e il mio account GitHub |
 | **Quando si verifica il sostegno tramite Patreon** | patreon.com | **Il mio IP reale** e il mio account Patreon. Patreon blocca le uscite Tor, quindi ci si collega direttamente. |
+| **Quando verifico il mio abbonamento in una crew tramite GitHub o Patreon** | github.com o patreon.com, nel browser web e una volta dall'app | **L'IP del mio browser** e il mio account. Il dispositivo dell'amministratore che assegna il ruolo saprà qual è il mio account. L'app si collega direttamente a Patreon, che vede quindi anche **il mio IP reale**. |
+| **Quando il mio dispositivo assegna ruoli della crew agli abbonati (account creator collegato)** | github.com, patreon.com, sell.app | Il mio account creator. Patreon e SellApp vedono **il mio IP reale**, GitHub vede l'IP del nodo di uscita Tor. |
 | Quando si controllano gli aggiornamenti (automatico, disattivabile nelle impostazioni) o si scaricano con **Scarica aggiornamento (Tor)** | github.com | L'IP del nodo di uscita Tor |
 | **Quando si preme Scarica aggiornamento (senza Tor)** | github.com | **Il mio IP reale**. Si scarica direttamente dalla normale rete internet. |
 

@@ -89,6 +89,19 @@ api_methods! {
     SupporterRefresh = "supporter.refresh" [Owner, Global] (Empty) -> SupporterStatus;
     SupporterUnlink = "supporter.unlink" [Owner, Global, human_only] (SupporterUnlinkParams) -> Empty;
 
+    // 크루 구독자 역할(decisions.md "크루 구독자 역할"). 크리에이터 계정(토큰·API 키)은 이 기기에만 두고 돌려주지 않습니다.
+    SubroleCreatorStatus = "subrole.creator_status" [Owner, Global] (Empty) -> CreatorStatus;
+    SubroleCreatorGithubBegin = "subrole.creator_github_begin" [Owner, Global, human_only] (Empty) -> SupporterDeviceCode;
+    SubroleCreatorPatreonBegin = "subrole.creator_patreon_begin" [Owner, Global, human_only] (Empty) -> SupporterAuthUrl;
+    SubroleCreatorSellapp = "subrole.creator_sellapp" [Owner, Global, human_only] (SellappCreatorParams) -> Empty;
+    SubroleCreatorUnlink = "subrole.creator_unlink" [Owner, Global, human_only] (SubscriptionProviderParams) -> Empty;
+    /// 그 크루의 GitHub 구독자 역할 받기: 브라우저로 열 승인 주소. 끝나면 `subrole.updated`.
+    SubroleGithubBegin = "subrole.github_begin" [Owner, Required, human_only] (SpaceParams) -> SupporterAuthUrl;
+    /// 그 크루의 Patreon 구독자 역할 받기: 브라우저로 열 승인 주소. 끝나면 `subrole.updated`.
+    SubrolePatreonBegin = "subrole.patreon_begin" [Owner, Required, human_only] (SubrolePatreonParams) -> SubroleBegin;
+    /// 그 크루의 SellApp 구독자 역할 받기(라이선스 키). 끝나면 `subrole.updated`.
+    SubroleSellapp = "subrole.sellapp" [Owner, Required, human_only] (SubroleSellappParams) -> Empty;
+
     // 앱 업데이트(공개 저장소의 GitHub 릴리스, Tor로 도는 기기는 Arti로만). 받은 파일은 앱이 서명을 다시 확인하고 설치합니다.
     UpdateCheck = "update.check" [Owner, Global] (Empty) -> UpdateInfo;
     /// 받기를 시작합니다(`direct`면 Tor 대신 일반 인터넷). 진행과 끝은 `update.progress` 알림.
@@ -169,6 +182,10 @@ api_methods! {
     CrewSetOnboarding = "crew.set_onboarding" [Admin, Required, human_only] (CrewOnboardingParams) -> Empty;
     /// 온보딩 한 언어의 번역(원문 → 번역문, 빈 목록이면 그 언어 지우기). 멤버는 앱 화면 언어의 번역을 봅니다.
     CrewSetOnboardingLang = "crew.set_onboarding_lang" [Admin, Required, human_only] (CrewOnboardingLangParams) -> Empty;
+    /// 크루 구독자 역할 목록 전체(`manage_roles`, 내가 줄 수 있는 역할만). 바뀐 항목은 이 기기가 확인합니다.
+    CrewSetSubscriberRoles = "crew.set_subscriber_roles" [Admin, Required, human_only] (CrewSubscriberRolesParams) -> Empty;
+    /// 이 기기가 확인하는 그 크루의 구독자 역할을 하루 주기를 기다리지 않고 지금 맞춥니다(`manage_roles`). 증명한 멤버만.
+    CrewSyncSubscriberRoles = "crew.sync_subscriber_roles" [Admin, Required, human_only] (SpaceParams) -> Empty;
     /// 온보딩 답하기: 고른 선택지의 역할을 내가 받습니다(선택지가 주는 다른 역할은 뺌).
     CrewOnboardingPick = "crew.onboarding_pick" [Write, Required] (CrewOnboardingPickParams) -> Empty;
     /// 이 기기가 그 크루의 서버를 쓸지. 크루 서버가 이 기기의 공인 IP를 보게 되므로 사람만.

@@ -47,24 +47,32 @@ struct Tail<'a> {
     ai: &'a CrewAi,
     onboarding: &'a Onboarding,
     langs: &'a OnboardingLangs,
+    subs: &'a [SubscriberRole],
 }
 
 impl Tail<'_> {
     fn is_default(&self) -> bool {
-        !self.disbanded && self.ai.is_empty() && self.onboarding.is_empty() && self.langs.is_empty()
+        !self.disbanded
+            && self.ai.is_empty()
+            && self.onboarding.is_empty()
+            && self.langs.is_empty()
+            && self.subs.is_empty()
     }
 }
 
 impl Serialize for Tail<'_> {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeTuple;
-        let langs = (!self.langs.is_empty()).then_some(self.langs);
+        let subs = (!self.subs.is_empty()).then_some(self.subs);
+        let langs = (!self.langs.is_empty() || subs.is_some()).then_some(self.langs);
         let ob = (!self.onboarding.is_empty() || langs.is_some()).then_some(self.onboarding);
         if self.ai.is_empty() && ob.is_none() {
             return s.serialize_bool(self.disbanded);
         }
         let auto = self.ai.auto_lang.as_deref();
-        let n = if langs.is_some() {
+        let n = if subs.is_some() {
+            6
+        } else if langs.is_some() {
             5
         } else if ob.is_some() {
             4
@@ -82,6 +90,9 @@ impl Serialize for Tail<'_> {
         }
         if let Some(langs) = langs {
             t.serialize_element(langs)?;
+        }
+        if let Some(subs) = subs {
+            t.serialize_element(subs)?;
         }
         t.end()
     }
@@ -123,6 +134,8 @@ struct CanonOwned {
     onboarding: Onboarding,
     #[serde(deserialize_with = "trailing_langs")]
     onboarding_langs: OnboardingLangs,
+    #[serde(deserialize_with = "trailing_subs")]
+    subscriber_roles: Vec<SubscriberRole>,
 }
 
 /// 정규 인코딩 끝의 선택 표시: 바이트가 끝났으면(해산하지 않은 크루) 거짓입니다. 깨진 바이트도 거짓이 되지만 상태 해시
@@ -149,6 +162,11 @@ fn trailing_onboarding<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Onboard
 /// 온보딩 뒤의 선택 번역: 바이트가 끝났으면 없음입니다.
 fn trailing_langs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<OnboardingLangs, D::Error> {
     Ok(OnboardingLangs::deserialize(d).unwrap_or_default())
+}
+
+/// 온보딩 번역 뒤의 선택 구독자 역할: 바이트가 끝났으면 없음입니다.
+fn trailing_subs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<SubscriberRole>, D::Error> {
+    Ok(Vec::<SubscriberRole>::deserialize(d).unwrap_or_default())
 }
 
 impl Machine {
@@ -366,6 +384,7 @@ impl Machine {
                 ai: &self.st.ai,
                 onboarding: &self.st.onboarding,
                 langs: &self.st.onboarding_langs,
+                subs: &self.st.subscriber_roles,
             },
         };
         postcard::to_stdvec(&c).expect("상태 직렬화는 실패하지 않음")
@@ -399,6 +418,7 @@ impl Machine {
                 },
                 onboarding: c.onboarding,
                 onboarding_langs: c.onboarding_langs,
+                subscriber_roles: c.subscriber_roles,
                 ..c.st
             },
             deleted_channels: c.deleted_channels,

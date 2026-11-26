@@ -227,6 +227,8 @@ WebView-Engine (z. B. WebView2) kontrolliert die App nicht.
 | Beim Senden einer Nachricht mit Link | Die jeweilige Website | IP des Tor-Exit-Knotens. Die empfangende Person ruft nichts ab. In flüchtigen Kanälen standardmäßig aus. |
 | Beim Prüfen der Unterstützung über GitHub | github.com | IP des Tor-Exit-Knotens und mein GitHub-Konto |
 | **Beim Prüfen der Unterstützung über Patreon** | patreon.com | **Meine echte IP** und mein Patreon-Konto. Patreon sperrt Tor-Exits, daher wird direkt verbunden. |
+| **Wenn ich in einer Crew mein Abo über GitHub oder Patreon bestätige** | github.com oder patreon.com, im Webbrowser und einmal aus der App | **Die IP meines Browsers** und mein Konto. Das Admin-Gerät, das die Rolle vergibt, erfährt, welches Konto meins ist. Mit Patreon verbindet sich die App direkt, daher sieht Patreon auch **meine echte IP**. |
+| **Wenn mein Gerät Abonnenten Crew-Rollen gibt (Creator-Konto verbunden)** | github.com, patreon.com, sell.app | Mein Creator-Konto. Patreon und SellApp sehen **meine echte IP**, GitHub die IP des Tor-Exit-Knotens. |
 | Beim Prüfen auf Updates (automatisch, in den Einstellungen abschaltbar) oder beim Laden mit **Update herunterladen (Tor)** | github.com | IP des Tor-Exit-Knotens |
 | **Beim Drücken von Update herunterladen (ohne Tor)** | github.com | **Meine echte IP**. Wird direkt über das normale Internet geladen. |
 

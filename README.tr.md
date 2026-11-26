@@ -218,6 +218,8 @@ Uygulamada kullanım istatistiği ya da hata raporu kodu yoktur. Uygulamanın d�
 | Bağlantı içeren bir mesaj gönderdiğimde | O site | Tor çıkış düğümünün IP adresi. Alıcı sorgulama yapmaz. Uçucu kanallarda varsayılan olarak kapalıdır. |
 | GitHub ile destek doğrulanırken | github.com | Tor çıkış düğümünün IP adresi ve GitHub hesabım |
 | **Patreon ile destek doğrulanırken** | patreon.com | **Gerçek IP adresim** ve Patreon hesabım. Patreon Tor çıkışlarını engellediği için doğrudan bağlanılır. |
+| **Bir ekipte aboneliğimi GitHub veya Patreon ile doğrularken** | web tarayıcısında ve uygulamadan bir kez github.com veya patreon.com | **Tarayıcımın IP adresi** ve hesabım. Rolü veren yönetici cihazı hangi hesabın benim olduğunu öğrenir. Uygulama Patreon’a doğrudan bağlandığı için Patreon **gerçek IP adresimi** de görür. |
+| **Cihazım abonelere ekip rolü verirken (içerik üretici hesabı bağlıysa)** | github.com, patreon.com, sell.app | İçerik üretici hesabım. Patreon ve SellApp **gerçek IP adresimi**, GitHub ise Tor çıkış düğümünün IP adresini görür. |
 | Güncelleme denetlenirken (otomatik, ayarlardan kapatılabilir) veya **Güncellemeyi indir (Tor)** ile indirirken | github.com | Tor çıkış düğümünün IP adresi |
 | **Güncellemeyi indir (Tor olmadan) düğmesine basınca** | github.com | **Gerçek IP adresim**. Normal internet üzerinden doğrudan indirilir. |
 

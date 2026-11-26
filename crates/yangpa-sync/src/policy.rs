@@ -647,6 +647,7 @@ mod tests {
                 ai: Default::default(),
                 onboarding: Default::default(),
                 onboarding_langs: Default::default(),
+                subscriber_roles: Default::default(),
             },
             member,
             outsider: UserId([3; 32]),

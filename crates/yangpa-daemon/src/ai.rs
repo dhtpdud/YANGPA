@@ -368,7 +368,11 @@ pub(crate) fn handle_get_key() -> YpResponse {
 
 /// 크루 프로필을 내준 기기의 노드: 인증된 연결, 없으면 저장된 노드 기록에 걸어 인증, 그래도 없으면 위치 기록·멤버
 /// 소개로 찾습니다(`voice::request_signal`과 같은 순서). 키는 그 기기에만 있어 다른 멤버에게 돌리지 않습니다.
-async fn reach_holder(node: &Arc<Node>, space: SpaceId, holder: DeviceId) -> Option<PeerId> {
+pub(crate) async fn reach_holder(
+    node: &Arc<Node>,
+    space: SpaceId,
+    holder: DeviceId,
+) -> Option<PeerId> {
     if let Some(p) = node.peers.authed_peer_of_device(&holder) {
         return Some(p);
     }

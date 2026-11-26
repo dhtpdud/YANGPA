@@ -124,6 +124,8 @@ pub enum EventKind {
     OnboardingPick,
     /// 크루 온보딩의 한 언어 번역(`CrewOnboardingLangSet`).
     CrewOnboardingLangSet,
+    /// 크루 구독자 역할 목록 전체(`CrewSubscriberRolesSet`).
+    CrewSubscriberRolesSet,
     // 키 합의 레인: 그룹 키 갱신. 본문은 상태 키로 암호화.
     /// 키 그룹 갱신 한 조각(`KeyUpdatePayload`). 크루 그룹은 공간 스트림, 비공개 그룹은 `KeyGroup` 스트림.
     KeyUpdate,
@@ -205,6 +207,7 @@ impl EventKind {
         (107, EventKind::CrewOnboardingSet),
         (108, EventKind::OnboardingPick),
         (109, EventKind::CrewOnboardingLangSet),
+        (110, EventKind::CrewSubscriberRolesSet),
     ];
 
     pub fn code(self) -> u16 {
@@ -879,6 +882,8 @@ mod tests {
         assert_eq!(EventKind::OnboardingPick.lane(), Lane::State);
         assert_eq!(EventKind::CrewOnboardingLangSet.code(), 109);
         assert_eq!(EventKind::CrewOnboardingLangSet.lane(), Lane::State);
+        assert_eq!(EventKind::CrewSubscriberRolesSet.code(), 110);
+        assert_eq!(EventKind::CrewSubscriberRolesSet.lane(), Lane::State);
         // 익명 글은 메시지 레인이고 본문 종류는 원래 종류입니다.
         for (anon, base) in [
             (EventKind::AnonMessage, EventKind::Message),

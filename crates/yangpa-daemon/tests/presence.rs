@@ -6,7 +6,8 @@ use crate::common;
 use common::{Cluster, TestNode, befriend, eventually, next_notification};
 use yangpa_core::ids::{EventId, SpaceId, UserId};
 use yangpa_rpc::api::{
-    Empty, FriendView, Notification, PresenceMode, PresenceSetParams, SpaceParams, m,
+    Empty, FriendView, Notification, PresenceMode, PresenceSetParams, SellappCreatorParams,
+    SpaceParams, m,
 };
 
 async fn friend_of(n: &TestNode, user: UserId) -> Option<FriendView> {
@@ -185,6 +186,14 @@ async fn offline_mode_restarts_without_network_and_resyncs() {
         (err.code, err.message.as_str()),
         (1009, "오프라인 모드에서는 할 수 없습니다")
     );
+    let err = a
+        .call::<m::SubroleCreatorSellapp>(SellappCreatorParams {
+            store: "s".into(),
+            key: "k".into(),
+        })
+        .await
+        .expect_err("오프라인에서는 막힘");
+    assert_eq!(err.code, 1009);
 
     // 돌아오면 다시 띄우고, 다시 이어져 그동안 쓴 글이 상대에게 갑니다.
     set(&a, mode(PresenceMode::Online)).await;

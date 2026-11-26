@@ -112,6 +112,7 @@ export type Modal =
   | { kind: 'crewSettings'; space: SpaceId; tab?: CrewTab }
   /** 크루 온보딩 답하기(들어온 뒤 저절로, 또는 크루 메뉴의 ‘역할 고르기’). */
   | { kind: 'crewOnboarding'; space: SpaceId; lang?: string }
+  | { kind: 'subrole'; space: SpaceId }
   | { kind: 'userSettings'; tab?: UserTab }
   | { kind: 'image'; att: AttachmentRef }
   /** 채널 콘텐츠 뷰어(글·이미지·영상을 하나씩 넘겨 보기). */
@@ -329,6 +330,8 @@ export interface State extends ApplyState {
   supporter: SupporterStatus | null;
   /** 누군가의 뱃지가 바뀜(`badges.updated`). 열린 프로필이 뱃지를 다시 읽는 신호. */
   badgesTick: number;
+  /** 크루 구독자 역할의 크리에이터 연결·구독 확인이 끝남(`subrole.updated`). 열린 설정이 다시 읽는 신호. */
+  subroleTick: number;
   /** 크루·채널·사람별 속도 제한(`rate.limits`). 아직 읽지 않았으면 null. */
   rateLimits: RateLimitView[] | null;
   /** 연결된 데몬이 범위별 속도 제한을 모름(옛 데몬). */
@@ -678,6 +681,9 @@ export const useStore = create<Store>()((set, get) => {
       case 'supporter':
         void s.refreshSupporter();
         break;
+      case 'subrole':
+        set({ subroleTick: get().subroleTick + 1 });
+        break;
       case 'updateProgress': {
         const u = get().update;
         if (u?.latest !== e.version) break;
@@ -960,6 +966,7 @@ export const useStore = create<Store>()((set, get) => {
     supporter: null,
     update: null,
     badgesTick: 0,
+    subroleTick: 0,
     rateLimits: null,
     rateLimitsUnsupported: false,
     daemon: { state: 'connecting' },

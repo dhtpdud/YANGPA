@@ -227,6 +227,8 @@ không nằm trong tầm kiểm soát của ứng dụng.
 | Khi gửi tin nhắn có liên kết | Trang web đó | IP của nút thoát Tor. Người nhận không tra cứu. Ở kênh tự hủy mặc định là tắt. |
 | Khi xác nhận ủng hộ qua GitHub | github.com | IP của nút thoát Tor và tài khoản GitHub của bạn |
 | **Khi xác nhận ủng hộ qua Patreon** | patreon.com | **IP thật của bạn** và tài khoản Patreon của bạn. Patreon chặn nút thoát Tor nên kết nối trực tiếp. |
+| **Khi xác minh gói đăng ký trong nhóm qua GitHub hoặc Patreon** | github.com hoặc patreon.com, trong trình duyệt web và một lần từ ứng dụng | **IP trình duyệt của bạn** và tài khoản của bạn. Thiết bị của quản trị viên cấp vai trò sẽ biết tài khoản nào là của bạn. Ứng dụng kết nối trực tiếp tới Patreon nên Patreon cũng thấy **IP thật của bạn**. |
+| **Khi thiết bị của bạn cấp vai trò trong nhóm cho người đăng ký (đã kết nối tài khoản nhà sáng tạo)** | github.com, patreon.com, sell.app | Tài khoản nhà sáng tạo của bạn. Patreon và SellApp thấy **IP thật của bạn**, GitHub thấy IP của nút thoát Tor. |
 | Khi kiểm tra cập nhật (tự động, có thể tắt trong cài đặt) hoặc tải bằng **Tải bản cập nhật (Tor)** | github.com | IP của nút thoát Tor |
 | **Khi nhấn Tải bản cập nhật (không qua Tor)** | github.com | **IP thật của bạn**. Tải trực tiếp qua internet thông thường. |
 

@@ -229,6 +229,28 @@ pub fn set_supporter_link(node: &Arc<Node>, login: &str, valid_until: Timestamp)
     );
 }
 
+/// 크루 구독자 역할: 로그인 없이 SellApp 크리에이터 계정을 넣습니다.
+pub fn set_subrole_creator(node: &Arc<Node>) {
+    crate::supporter::subrole::put_creator_for_test(node);
+}
+
+/// 크루 구독자 역할: 이 노드의 상점에 구독 `account`의 SellApp 라이선스 키 `key`를 두고, 그 구독이 `active`인지 정합니다.
+/// 한 번이라도 부르면 서비스에 묻지 않고 여기 둔 키만 봅니다.
+pub fn set_subscription(node: &Arc<Node>, key: &str, account: &str, active: bool) {
+    crate::supporter::subrole::put_subscription_for_test(node, key, account, active);
+}
+
+/// 크루 구독자 역할: 사용자 `by`가 크루 `made_for`에 내려고 만든 SellApp 증명을 이 노드가 `space`에 냅니다(다시 쓰기 흉내).
+pub async fn send_sellapp_proof(
+    node: &Arc<Node>,
+    space: SpaceId,
+    made_for: SpaceId,
+    by: UserId,
+    key: &str,
+) -> &'static str {
+    crate::supporter::subrole::send_proof_for_test(node, space, made_for, by, key).await
+}
+
 /// 월 `monthly_cents`(USD 센트) 정기 후원으로 확인한 GitHub 연결을 넣고 후원자 표시를 냅니다.
 pub fn set_supporter_tier(node: &Arc<Node>, monthly_cents: u32) {
     crate::supporter::put_link_for_test(

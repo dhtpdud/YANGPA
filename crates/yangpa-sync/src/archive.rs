@@ -872,6 +872,7 @@ mod tests {
             ai: Default::default(),
             onboarding: Default::default(),
             onboarding_langs: Default::default(),
+            subscriber_roles: Default::default(),
         };
         Fx {
             state,

@@ -75,6 +75,48 @@ pub struct SupporterUnlinkParams {
     pub provider: SupporterProvider,
 }
 
+/// `subrole.creator_unlink`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubscriptionProviderParams {
+    pub provider: yangpa_core::model::SubscriptionProvider,
+}
+
+/// `subrole.creator_sellapp`: SellApp 상점 주소 이름(slug)과 API 키. 키는 이 기기의 암호화 DB에만 둡니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SellappCreatorParams {
+    pub store: String,
+    pub key: SecretString,
+}
+
+/// `subrole.sellapp`: SellApp 구독 상품의 라이선스 키로 그 크루의 구독자 역할을 받습니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubroleSellappParams {
+    pub space: SpaceId,
+    pub key: SecretString,
+}
+
+/// `subrole.patreon_begin`: `login`이면 이 기기의 Patreon 크리에이터 연결이 있어도 다른 계정으로 로그인합니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubrolePatreonParams {
+    pub space: SpaceId,
+    #[serde(default)]
+    pub login: bool,
+}
+
+/// `crew.set_subscriber_roles`의 항목. 확인 기기는 바뀐 항목만 이 기기가 됩니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubscriberRoleInput {
+    pub role: RoleId,
+    pub providers: Vec<yangpa_core::model::SubscriptionProvider>,
+}
+
+/// `crew.set_subscriber_roles`: 구독자 역할 목록 전체.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrewSubscriberRolesParams {
+    pub space: SpaceId,
+    pub roles: Vec<SubscriberRoleInput>,
+}
+
 /// `flair.set`. 후광 그라데이션의 두 색(0xRRGGBB), `null`이면 끔. 월 50달러 이상 후원자만.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlairSetParams {

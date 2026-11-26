@@ -227,6 +227,8 @@ flowchart LR
 | 링크가 든 메시지를 보낼 때 | 그 사이트 | Tor 출구 노드의 IP. 받는 사람은 조회하지 않습니다. 휘발성 채널은 기본 꺼짐입니다. |
 | GitHub로 후원을 확인할 때 | github.com | Tor 출구 노드의 IP와 내 GitHub 계정 |
 | **Patreon으로 후원을 확인할 때** | patreon.com | **내 실제 IP**와 내 Patreon 계정. Patreon이 Tor 출구를 막아 직접 연결합니다. |
+| **GitHub·Patreon으로 크루 구독을 확인할 때** | 웹 브라우저와 앱(한 번)에서 github.com 또는 patreon.com | **브라우저의 IP**와 내 계정. 역할을 주는 관리자 기기가 어느 계정이 나인지 알게 됩니다. 앱은 Patreon에 직접 연결해 Patreon이 **내 실제 IP**도 봅니다. |
+| **내 기기가 구독자에게 크루 역할을 줄 때(크리에이터 계정을 연결한 경우)** | github.com, patreon.com, sell.app | 내 크리에이터 계정. Patreon·SellApp에는 **내 실제 IP**, GitHub에는 Tor 출구 노드의 IP. |
 | 업데이트를 확인하거나(자동, 설정에서 끌 수 있음) **업데이트 받기(Tor)** 로 받을 때 | github.com | Tor 출구 노드의 IP |
 | **업데이트 받기(Tor 아님)를 눌렀을 때** | github.com | **내 실제 IP**. 일반 인터넷으로 바로 받습니다. |
 

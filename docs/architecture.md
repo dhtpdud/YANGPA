@@ -115,7 +115,7 @@ yangpa-mcp (AI 연동, MCP stdio) ─┘                                        
   `ChannelTransportSet{channel, transport}`(67), Tor로 주고받는 참여 안내
   `YpRequest::P2pHello(P2pHello{peer_id, addrs, channels})`/`YpResponse::P2pHello`(주소 `MAX_P2P_ADDRS` 16개·채널
   `MAX_P2P_CHANNELS` 1024개까지)(protocol.md "P2P 전용 채널"). 새 노드 간 요청·응답은 열거형 뒤에 붙입니다(postcard 변형 번호):
-  지금 `YpRequest`의 마지막은 짧은 링크의 긴 링크 묻기 `GetLink{code}`(그 앞은 크루 AI 프로필 번역 부탁 `AiTranslate(AiTranslateAsk)`, 예전 키 묻기 `GetAiKey`(늘 거절), 멤버 프로필·카드 묻기 `GetMemberCards{space, users}`, 새 기기 연결 `DeviceLink`·`DeviceLinkPoll`, 뱃지 `Badges`, 표시 상태 `Presence`, 후원자 확인 `SupporterShare`, 키 그룹 중계 `GetChannelRoots`·`GetGroupKeys`·
+  지금 `YpRequest`의 마지막은 크루 구독자 역할 증명 `SubRole(Box<SubRoleAsk>)`(답은 `Ok`·`Busy`·`Error`, 그 앞은 짧은 링크의 긴 링크 묻기 `GetLink{code}`, 크루 AI 프로필 번역 부탁 `AiTranslate(AiTranslateAsk)`, 예전 키 묻기 `GetAiKey`(늘 거절), 멤버 프로필·카드 묻기 `GetMemberCards{space, users}`, 새 기기 연결 `DeviceLink`·`DeviceLinkPoll`, 뱃지 `Badges`, 표시 상태 `Presence`, 후원자 확인 `SupporterShare`, 키 그룹 중계 `GetChannelRoots`·`GetGroupKeys`·
   `KeyTableHandover`·`GetStateKeys`·`GetKeyShard`, 체크포인트 `GetDeviceKeys`·`GetCheckpoint`, `GetGroupMembers`,
   `VolatileKeyWrap`, 채널 끝 묻기 `GetChannelTips`, 멤버 소개 `FindDevice{space, user, device}`, 멤버 노드 목록
   `GetMemberNodes{space}`, 놓친 가입 확인 `CheckJoin{spaces, auth}` 다음), `YpResponse`의
@@ -546,6 +546,9 @@ src/
   supporter/flair.rs — 후원자 표시(카드 배너 월 14달러·후광 월 50달러 이상, GitHub 1회 후원은 30일): 확인한 단계와 후광 색을 상태 이벤트(`MemberFlair`)로 내
                    공간마다 내기, 해소기가 적용한 것을 사용자마다 모으기(`flair.user.<사용자>`, `crews::on_resolved`),
                    내 표시가 빠지거나 경계 아래로 묻힌 공간에 다시 내기(`flair.sent.<공간>`, 상태가 바뀔 때·`supporter::check_due`)
+  supporter/subrole.rs — 크루 구독자 역할(`subrole.*`, `crew.set_subscriber_roles`, 상태 이벤트 `CrewSubscriberRolesSet`): 이 기기의
+                   크리에이터 계정(`subrole.creator.<경로>`, 토큰·키는 이 기기에만), 멤버 증명 받기(`SubRole`, 크루·사용자에 묶인 한 번 쓰는 코드)·구독 목록 확인·역할 주고 빼기
+                   (`api::member::apply_roles`, 준 기록 `subrole.bind.<공간>`), 하루 한 번 맞추기. 멤버 쪽 로그인·증명 보내기도 여기
   presence.rs    — 표시 상태(온라인·자리 비움·숨기·오프라인, 기간): 내 상태를 인증된 기기에 보내기(`Presence`), 받은 기기
                    상태로 화면 상태 정하기(`shown_all`), 마지막 동기화 시각(`presence.seen.<사용자>`)과 비공개, 오프라인
                    모드(망 없이 다시 뜨기, `Node::restart_requested` → main.rs가 같은 인자로 새 데몬을 띄움)

@@ -235,6 +235,8 @@ aplikasi.
 | Saat mengirim pesan berisi tautan | Situs tersebut | IP node keluar Tor. Penerima tidak melakukan pencarian. Pada saluran efemeral, default-nya mati. |
 | Saat memeriksa dukungan lewat GitHub | github.com | IP node keluar Tor dan akun GitHub saya |
 | **Saat memeriksa dukungan lewat Patreon** | patreon.com | **IP asli saya** dan akun Patreon saya. Patreon memblokir keluar Tor sehingga terhubung langsung. |
+| **Saat memverifikasi langganan di kru lewat GitHub atau Patreon** | github.com atau patreon.com, di peramban web dan sekali dari aplikasi | **IP peramban saya** dan akun saya. Perangkat admin yang memberikan peran akan tahu akun mana yang milik saya. Aplikasi terhubung langsung ke Patreon sehingga Patreon juga melihat **IP asli saya**. |
+| **Saat perangkat saya memberikan peran kru kepada pelanggan (akun kreator terhubung)** | github.com, patreon.com, sell.app | Akun kreator saya. Patreon dan SellApp melihat **IP asli saya**, GitHub melihat IP node keluar Tor. |
 | Saat memeriksa pembaruan (otomatis, bisa dimatikan di pengaturan) atau mengunduh dengan **Unduh pembaruan (Tor)** | github.com | IP node keluar Tor |
 | **Saat menekan Unduh pembaruan (tanpa Tor)** | github.com | **IP asli saya**. Diunduh langsung lewat internet biasa. |
 

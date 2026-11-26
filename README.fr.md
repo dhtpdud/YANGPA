@@ -234,6 +234,8 @@ de la webview (WebView2, etc.) ne sont pas contrôlées par l'application.
 | À l'envoi d'un message contenant un lien | Ce site | L'IP du nœud de sortie Tor. Le destinataire ne le consulte pas. Désactivé par défaut dans les salons éphémères. |
 | Pour vérifier un soutien via GitHub | github.com | L'IP du nœud de sortie Tor et mon compte GitHub |
 | **Pour vérifier un soutien via Patreon** | patreon.com | **Mon IP réelle** et mon compte Patreon. Patreon bloque les sorties Tor, la connexion est donc directe. |
+| **Pour vérifier mon abonnement dans une équipe via GitHub ou Patreon** | github.com ou patreon.com, dans le navigateur web et une fois depuis l'application | **L'IP de mon navigateur** et mon compte. L'appareil de l'administrateur qui attribue le rôle saura quel est mon compte. L'application se connecte directement à Patreon, qui voit donc aussi **mon IP réelle**. |
+| **Quand mon appareil donne des rôles d'équipe aux abonnés (compte créateur connecté)** | github.com, patreon.com, sell.app | Mon compte créateur. Patreon et SellApp voient **mon IP réelle**, GitHub voit l'IP du nœud de sortie Tor. |
 | Pour vérifier les mises à jour (automatique, désactivable dans les réglages) ou les télécharger avec **Télécharger la mise à jour (Tor)** | github.com | L'IP du nœud de sortie Tor |
 | **En cliquant sur Télécharger la mise à jour (sans Tor)** | github.com | **Mon IP réelle**. Le téléchargement passe directement par l'internet ordinaire. |
 

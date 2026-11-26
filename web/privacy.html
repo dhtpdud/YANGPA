@@ -35,7 +35,7 @@
 
 <article id="ko" lang="ko">
 <h1>YANGPA 개인정보처리방침</h1>
-<p class="muted">시행일: 2026년 11월 10일 · 적용 대상: YANGPA 앱(Android·Windows·macOS·Linux)</p>
+<p class="muted">시행일: 2026년 11월 27일 · 적용 대상: YANGPA 앱(Android·Windows·macOS·Linux)</p>
 
 <p><strong>요약:</strong> YANGPA 개발자는 서버를 운영하지 않으며, 사용자의 개인정보·대화·파일을 수집하거나 저장하거나
 판매하지 않습니다. 모든 데이터는 사용자의 기기와, 사용자가 대화하기로 한 상대의 기기에만 있습니다.</p>
@@ -65,10 +65,15 @@
   <li><strong>STUN 서버</strong>(기본값: Google, Cloudflare): P2P 직접 연결과 그 위의 통화에서만 공유기 밖 주소를 알아내려고
     묻습니다. 이때 STUN 서버는 사용자의 공인 IP 주소를 봅니다. Tor 연결에는 쓰지 않으며, 설정에서 목록을 바꿀 수 있습니다.</li>
   <li><strong>GitHub:</strong> 앱 업데이트 확인과 GitHub Sponsors 후원자 확인에 씁니다. Tor로 연결하므로 GitHub는 사용자의
-    IP 주소를 보지 못합니다. 후원자 확인을 위해 로그인하면 GitHub 계정의 후원 정보만 조회하며, 토큰은 기기 안
+    IP 주소를 보지 못합니다. 다만 <strong>업데이트 받기</strong>(Tor 아님)를 누르면 일반 인터넷으로 받아 GitHub가 IP 주소를 봅니다. 후원자 확인을 위해 로그인하면 GitHub 계정의 후원 정보만 조회하며, 토큰은 기기 안
     암호화된 데이터베이스에만 저장합니다.</li>
   <li><strong>Patreon:</strong> 사용자가 Patreon 후원자 확인을 직접 켠 경우에만 연결하며, Patreon이 Tor를 막아 직접 연결합니다.
     후원 상태만 조회합니다.</li>
+  <li><strong>크루 구독자 역할(GitHub Sponsors·Patreon·SellApp):</strong> 크루 관리자가 크리에이터 계정을 연결하면 그 기기가
+    GitHub(Tor)·Patreon·SellApp(직접 연결)에서 자기 구독자 명단을 조회합니다. 멤버가 구독을 확인하면 웹 브라우저로 GitHub·Patreon에
+    로그인하고(브라우저의 IP 주소가 보임), Patreon은 앱이 직접 연결해 내 후원 목록을 읽습니다. 관리자 기기로는 그 크루에서만 쓸 수
+    있는 증명만 보내며, 관리자 기기는 내 GitHub 계정이나 자기 후원자 가운데 누가 나인지 알게 됩니다. Patreon 토큰과 SellApp 라이선스
+    키는 내 기기를 떠나지 않고, GitHub는 관리자 기기가 권한 없는 로그인으로 공개 계정 정보만 읽습니다.</li>
   <li><strong>링크 미리보기:</strong> 메시지에 링크를 넣으면 보내는 기기가 Tor를 통해 그 웹 페이지의 제목·설명·이미지를 가져옵니다.
     받는 기기는 외부 사이트에 접속하지 않습니다.</li>
 </ul>
@@ -105,7 +110,7 @@
 
 <article id="en" lang="en">
 <h1>YANGPA Privacy Policy</h1>
-<p class="muted">Effective: November 10, 2026 · Applies to: the YANGPA app (Android, Windows, macOS, Linux)</p>
+<p class="muted">Effective: November 27, 2026 · Applies to: the YANGPA app (Android, Windows, macOS, Linux)</p>
 
 <p><strong>Summary:</strong> The YANGPA developer runs no servers and does not collect, store, or sell your personal
 information, messages, or files. Your data lives only on your devices and on the devices of the people you choose to talk to.</p>
@@ -137,10 +142,18 @@ Each service follows its own privacy policy.</p>
     to learn your address outside your router. The STUN server sees your public IP address. They are never used for Tor
     connections, and you can change the list in settings.</li>
   <li><strong>GitHub:</strong> used to check for app updates and to verify GitHub Sponsors supporters. The app connects over Tor,
-    so GitHub does not see your IP address. If you sign in for supporter verification, only your sponsorship status is read,
+    so GitHub does not see your IP address. If you press <strong>Download update</strong> (without Tor), the file comes over the
+    regular internet and GitHub sees your IP address. If you sign in for supporter verification, only your sponsorship status is read,
     and the token is kept only in the encrypted database on your device.</li>
   <li><strong>Patreon:</strong> contacted only if you turn on Patreon supporter verification. Patreon blocks Tor, so this uses a
     direct connection. Only your membership status is read.</li>
+  <li><strong>Crew subscriber roles (GitHub Sponsors, Patreon, SellApp):</strong> when a crew admin connects a creator account,
+    that device reads its own subscriber list from GitHub (over Tor), Patreon, and SellApp (direct connections). When a member
+    verifies a subscription, they sign in to GitHub or Patreon in their web browser (which sees the browser's IP address), and for
+    Patreon the app also connects directly to read the member's own memberships. Only a proof that works in that crew alone is
+    sent to the admin's device, which learns the member's GitHub account or which of its own patrons or customers the member is.
+    Patreon tokens and SellApp license keys never leave the member's device; for GitHub, the admin's device reads only public
+    account details through a sign-in with no permissions.</li>
   <li><strong>Link previews:</strong> when you put a link in a message, the sending device fetches the page title, description,
     and image over Tor. Receiving devices do not contact the website.</li>
 </ul>

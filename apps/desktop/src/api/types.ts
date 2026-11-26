@@ -132,6 +132,44 @@ export type DeviceLinkStatus = 'approved' | 'rejected' | 'expired' | 'failed';
 /** 후원 확인 경로. */
 export type SupporterProvider = 'github' | 'patreon';
 
+/** 크루 구독자 역할의 확인 경로. */
+export type SubscriptionProvider = 'github' | 'patreon' | 'sellapp';
+
+/** 크루 구독자 역할: 고른 경로의 정기 구독자에게 `holder` 기기가 확인해 주고 구독이 끝나면 빼는 역할. */
+export interface SubscriberRole {
+  role: RoleId;
+  providers: SubscriptionProvider[];
+  holder: DeviceId;
+}
+
+/** 이 기기에 연결한 크리에이터 계정(`subrole.creator_status`, 토큰·키 없음). */
+export interface CreatorLink {
+  provider: SubscriptionProvider;
+  name: string;
+  needs_login: boolean;
+}
+
+export interface CreatorStatus {
+  providers: SubscriptionProvider[];
+  links: CreatorLink[];
+}
+
+/** 크루 구독자 역할의 크리에이터 연결·구독 확인 결과(`subrole.updated`). */
+export type SubroleResult =
+  | 'linked'
+  | 'granted'
+  | 'not_subscribed'
+  | 'pending'
+  | 'invalid'
+  | 'unreachable'
+  | 'denied'
+  | 'expired'
+  | 'no_campaign'
+  | 'too_wide'
+  | 'relink'
+  | 'network'
+  | 'failed';
+
 /** 연결한 후원 계정(`supporter.status`). `valid_until`까지 확인 결과를 믿고, `needs_login`이면 다시 로그인해야 합니다. */
 export interface SupporterLink {
   provider: SupporterProvider;
@@ -467,6 +505,8 @@ export interface SpaceView {
   onboarding?: Onboarding;
   /** 온보딩 번역(`crew.set_onboarding_lang`): 언어 코드 → 원문 → 번역문. 없는 칸은 원문으로 보입니다. 없으면 생략. */
   onboarding_langs?: Record<string, Record<string, string>>;
+  /** 크루 구독자 역할(`crew.set_subscriber_roles`). 없으면 생략. */
+  subscriber_roles?: SubscriberRole[];
 }
 
 /** 크루 온보딩: 새 멤버가 답하는 질문과, 고른 선택지가 주는 역할. 질문이 없으면 꺼짐. */
@@ -1321,6 +1361,14 @@ export interface Methods {
   'supporter.patreon_begin': [Empty, { url: string }];
   'supporter.refresh': [Empty, SupporterStatus];
   'supporter.unlink': [{ provider: SupporterProvider }, Empty];
+  'subrole.creator_status': [Empty, CreatorStatus];
+  'subrole.creator_github_begin': [Empty, { user_code: string; verification_uri: string; expires_in_secs: number }];
+  'subrole.creator_patreon_begin': [Empty, { url: string }];
+  'subrole.creator_sellapp': [{ store: string; key: string }, Empty];
+  'subrole.creator_unlink': [{ provider: SubscriptionProvider }, Empty];
+  'subrole.github_begin': [{ space: SpaceId }, { url: string }];
+  'subrole.patreon_begin': [{ space: SpaceId; login?: boolean }, { url?: string }];
+  'subrole.sellapp': [{ space: SpaceId; key: string }, Empty];
   'update.check': [Empty, UpdateInfo];
   'update.download': [{ version: string; asset: string; direct?: boolean }, Empty];
   'presence.get': [Empty, PresenceView];
@@ -1392,6 +1440,9 @@ export interface Methods {
   'crew.set_ai_auto': [{ space: SpaceId; lang?: string | null }, Empty];
   /** 크루 온보딩 설정 전체(`manage_space`, 선택지 역할은 내가 줄 수 있는 역할만, 사람만). */
   'crew.set_onboarding': [{ space: SpaceId; onboarding: Onboarding }, Empty];
+  /** 크루 구독자 역할 목록 전체(빈 경로의 항목은 빠짐). 바뀐 항목은 이 기기가 확인합니다. */
+  'crew.set_subscriber_roles': [{ space: SpaceId; roles: Array<{ role: RoleId; providers: SubscriptionProvider[] }> }, Empty];
+  'crew.sync_subscriber_roles': [{ space: SpaceId }, Empty];
   /** 온보딩 답(질문 순서대로 고른 선택지 번호). 선택지가 주는 역할 중 고르지 않은 것은 뺍니다. */
   'crew.onboarding_pick': [{ space: SpaceId; answers: number[][] }, Empty];
   'crew.set_onboarding_lang': [{ space: SpaceId; lang: string; texts: Record<string, string> }, Empty];
@@ -1626,6 +1677,8 @@ export type Notification =
   | { type: 'device.synced' }
   /** 후원 확인 상태가 바뀌었거나 로그인이 끝났음(`supporter.status`로 다시 읽음). 로그인 실패면 까닭 코드. */
   | { type: 'supporter.updated'; error?: 'denied' | 'expired' | 'creator' | 'network' | 'failed' }
+  /** 크루 구독자 역할: 크리에이터 계정 연결이나 구독 확인이 끝남(`space`는 구독 확인일 때). */
+  | { type: 'subrole.updated'; space?: SpaceId; result: SubroleResult }
   /** 업데이트 파일 받는 중(`update.download`). `ready`면 서명·SHA-256까지 확인하고 다 받음. */
   | { type: 'update.progress'; version: string; done: number; total: number; ready?: boolean; error?: UpdateError }
   | { type: 'device.wiped' }

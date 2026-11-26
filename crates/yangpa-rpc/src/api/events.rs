@@ -173,6 +173,14 @@ pub enum Notification {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
+    /// 크루 구독자 역할: 크리에이터 계정 연결이나 구독 확인이 끝남(`space`는 구독 확인일 때). `result`는
+    /// `linked`·`granted`·`not_subscribed`·`pending`·`invalid`·`unreachable`·`denied`·`expired`·`no_campaign`·`too_wide`·`relink`·`network`·`failed`.
+    #[serde(rename = "subrole.updated")]
+    SubroleUpdated {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        space: Option<SpaceId>,
+        result: String,
+    },
     /// 업데이트 파일 받는 중(`update.download`). `ready`면 서명·SHA-256을 확인하고 다 받았고, 실패면 `error`
     /// (`unsigned`·`network`·`hash`·`failed`).
     #[serde(rename = "update.progress")]
@@ -236,6 +244,7 @@ impl Notification {
         "device.link_result",
         "device.synced",
         "supporter.updated",
+        "subrole.updated",
         "update.progress",
         "device.wiped",
         "channel.typing",
@@ -273,6 +282,7 @@ impl Notification {
             Notification::DeviceLinkResult { .. } => "device.link_result",
             Notification::DeviceSynced => "device.synced",
             Notification::SupporterUpdated { .. } => "supporter.updated",
+            Notification::SubroleUpdated { .. } => "subrole.updated",
             Notification::UpdateProgress { .. } => "update.progress",
             Notification::DeviceWiped => "device.wiped",
             Notification::CheckpointAlert { .. } => "checkpoint.alert",
@@ -311,6 +321,7 @@ impl Notification {
             | Notification::DeviceLinkResult { .. }
             | Notification::DeviceSynced
             | Notification::SupporterUpdated { .. }
+            | Notification::SubroleUpdated { .. }
             | Notification::UpdateProgress { .. }
             | Notification::DeviceWiped => None,
         }

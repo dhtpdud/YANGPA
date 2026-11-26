@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use yangpa_core::body::EventBody;
-use yangpa_core::ids::{DeviceId, RoleId, UserId};
+use yangpa_core::ids::{DeviceId, RoleId, SpaceId, UserId};
 use yangpa_core::model::{Permissions, SpaceState};
 use yangpa_core::time::Timestamp;
 use yangpa_rpc::RpcError;
@@ -196,14 +196,25 @@ pub(crate) async fn set_roles(
     _ctx: &CallCtx,
     p: P<m::MemberSetRoles>,
 ) -> R<m::MemberSetRoles> {
-    let (state, me) = rpc(crews::crew_state(node, &p.space))?;
+    apply_roles(node, p.space, p.user, &p.roles).await?;
+    Ok(empty())
+}
+
+/// 멤버의 역할 목록을 바꿉니다(권한·순위 검사 뒤 `MemberUpdate`). 구독자 역할 확인 기기도 이것으로 주고 뺍니다.
+pub(crate) async fn apply_roles(
+    node: &Arc<Node>,
+    space: SpaceId,
+    user: UserId,
+    wanted: &[RoleId],
+) -> std::result::Result<(), RpcError> {
+    let (state, me) = rpc(crews::crew_state(node, &space))?;
     rpc(crews::need(&state, &me, Permissions::MANAGE_ROLES))?;
     let cur = state
         .members
-        .get(&p.user)
+        .get(&user)
         .ok_or_else(|| RpcError::not_found("이 크루의 멤버가 아닙니다"))?;
     let mut roles = Vec::new();
-    for r in &p.roles {
+    for r in wanted {
         if *r == RoleId::EVERYONE || !state.roles.contains_key(r) {
             return Err(RpcError::invalid_input("없는 역할입니다"));
         }
@@ -215,7 +226,7 @@ pub(crate) async fn set_roles(
     let old: BTreeSet<RoleId> = cur.roles.iter().copied().collect();
     let new: BTreeSet<RoleId> = roles.iter().copied().collect();
     if old == new {
-        return Ok(empty());
+        return Ok(());
     }
     let my_rank = state.rank_of(&me);
     let too_high = old
@@ -226,16 +237,16 @@ pub(crate) async fn set_roles(
             "자기보다 순위가 높거나 같은 역할은 주거나 뺄 수 없습니다",
         ));
     }
-    if p.user != me && state.rank_of(&p.user) >= my_rank {
+    if user != me && state.rank_of(&user) >= my_rank {
         return Err(RpcError::forbidden(
             "자기보다 순위가 높거나 같은 멤버의 역할은 바꿀 수 없습니다",
         ));
     }
     let body = EventBody::MemberUpdate {
-        user: p.user,
+        user,
         roles,
         nickname: None,
     };
-    rpc(author::publish(node, p.space, None, &body, KeyChoice::State).await)?;
-    Ok(empty())
+    rpc(author::publish(node, space, None, &body, KeyChoice::State).await)?;
+    Ok(())
 }

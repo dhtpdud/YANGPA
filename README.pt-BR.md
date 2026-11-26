@@ -228,6 +228,8 @@ motor da webview (WebView2 etc.) não é controlada pelo app.
 | Ao enviar mensagem com link | O site do link | O IP do nó de saída do Tor. O destinatário não faz a consulta. Em canais efêmeros, vem desativado por padrão. |
 | Ao verificar o apoio pelo GitHub | github.com | O IP do nó de saída do Tor e a sua conta do GitHub |
 | **Ao verificar o apoio pelo Patreon** | patreon.com | **Seu IP real** e a sua conta do Patreon. O Patreon bloqueia saídas do Tor, então a conexão é direta. |
+| **Ao verificar sua assinatura em uma crew pelo GitHub ou Patreon** | github.com ou patreon.com, no navegador e uma vez pelo app | **O IP do seu navegador** e a sua conta. O dispositivo do administrador que concede o cargo fica sabendo qual é a sua conta. O app se conecta diretamente ao Patreon, que também vê **seu IP real**. |
+| **Quando o seu dispositivo dá cargos da crew a assinantes (com uma conta de criador conectada)** | github.com, patreon.com, sell.app | A sua conta de criador. O Patreon e a SellApp veem **seu IP real**; o GitHub vê o IP do nó de saída do Tor. |
 | Ao verificar atualizações (automático, pode ser desativado nas configurações) ou baixá-las com **Baixar atualização (Tor)** | github.com | O IP do nó de saída do Tor |
 | **Ao pressionar Baixar atualização (sem Tor)** | github.com | **Seu IP real**. Baixa direto pela internet comum. |
 

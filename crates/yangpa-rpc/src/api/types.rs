@@ -237,6 +237,9 @@ pub struct SpaceView {
     /// 온보딩 번역(`crew.set_onboarding_lang`): 언어 코드 → 원문 → 번역문. 없는 칸은 원문으로 보입니다.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub onboarding_langs: BTreeMap<String, BTreeMap<String, String>>,
+    /// 크루 구독자 역할(`crew.set_subscriber_roles`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subscriber_roles: Vec<yangpa_core::model::SubscriberRole>,
 }
 
 /// 채널 보기.
@@ -977,6 +980,31 @@ pub struct SupporterDeviceCode {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SupporterAuthUrl {
     pub url: String,
+}
+
+/// `subrole.patreon_begin`: 브라우저로 열 승인 주소. 이 기기의 크리에이터 연결로 바로 확인하면 없고, 결과는 `subrole.updated`로 옵니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubroleBegin {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+/// 구독자 역할 확인 기기(이 기기)에 연결한 크리에이터 계정. 토큰·API 키는 돌려주지 않습니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CreatorLink {
+    pub provider: yangpa_core::model::SubscriptionProvider,
+    /// 화면 이름(GitHub 로그인, Patreon 캠페인, SellApp 상점).
+    pub name: String,
+    /// 토큰이 거절돼 다시 연결해야 함.
+    pub needs_login: bool,
+}
+
+/// `subrole.creator_status`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CreatorStatus {
+    /// 이 빌드에서 쓸 수 있는 경로.
+    pub providers: Vec<yangpa_core::model::SubscriptionProvider>,
+    pub links: Vec<CreatorLink>,
 }
 
 /// 친구 보기.

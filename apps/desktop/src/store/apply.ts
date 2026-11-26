@@ -27,6 +27,7 @@ import type {
   VoiceParticipant,
 } from '../api/types';
 import { supporterErrorText } from '../supporter/supporter';
+import { subroleResultText, subroleToastKind } from '../supporter/subrole';
 import { isMine, participantUsers } from '../lib/anon';
 import { isP2pLocked } from '../lib/channel';
 import { t } from '../i18n';
@@ -123,6 +124,7 @@ export type Effect =
   | { type: 'loadAll' }
   | { type: 'refreshIdentity' }
   | { type: 'supporter' }
+  | { type: 'subrole' }
   | { type: 'updateProgress'; version: string; done: number; total: number; ready: boolean; error?: UpdateError }
   | { type: 'badges' }
   | { type: 'voiceSignal'; space: SpaceId; channel: ChannelId; call: string; from: string; payload: SignalPayload }
@@ -436,6 +438,10 @@ export function applyBatch(s: ApplyState, batch: Notification[]): { patch: Parti
       case 'supporter.updated':
         effects.push({ type: 'supporter' });
         if (n.error) effects.push({ type: 'toast', kind: 'error', text: supporterErrorText(n.error) });
+        break;
+      case 'subrole.updated':
+        effects.push({ type: 'subrole' });
+        effects.push({ type: 'toast', kind: subroleToastKind(n.result), text: subroleResultText(n.result) });
         break;
       case 'device.wiped':
         if (!s.accountDeleting) effects.push({ type: 'toast', kind: 'error', text: t('이 기기가 폐기되어 로컬 데이터를 모두 지웠습니다.') });

@@ -218,6 +218,8 @@ flowchart LR
 | 傳送含連結的訊息時 | 該網站 | Tor 出口節點的 IP。收訊者不會查詢。無痕頻道預設關閉。 |
 | 以 GitHub 確認贊助時 | github.com | Tor 出口節點的 IP 與我的 GitHub 帳號 |
 | **以 Patreon 確認贊助時** | patreon.com | **我的真實 IP** 與我的 Patreon 帳號。Patreon 封鎖 Tor 出口，因此直接連線。 |
+| **以 GitHub 或 Patreon 驗證社群訂閱時** | 網頁瀏覽器與應用程式（一次）中的 github.com 或 patreon.com | **瀏覽器的 IP** 與我的帳號。授予角色的管理員裝置會知道哪個帳號是我的。應用程式會直接連線到 Patreon，因此 Patreon 還會看到**我的真實 IP**。 |
+| **我的裝置為訂閱者授予社群角色時（已連結創作者帳號）** | github.com、patreon.com、sell.app | 我的創作者帳號。Patreon 與 SellApp 會看到**我的真實 IP**，GitHub 會看到 Tor 出口節點的 IP。 |
 | 檢查更新時（自動，可在設定中關閉）或用 **下載更新(Tor)** 下載時 | github.com | Tor 出口節點的 IP |
 | **按下「下載更新」（不經 Tor）時** | github.com | **我的真實 IP**。透過一般網路直接下載。 |
 

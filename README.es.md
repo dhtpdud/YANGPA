@@ -227,6 +227,8 @@ La app no tiene código de estadísticas de uso ni de informes de errores. Estos
 | Al enviar un mensaje que contiene un enlace | Ese sitio | La IP del nodo de salida de Tor. El destinatario no lo consulta. En los canales efímeros está desactivado por defecto. |
 | Al comprobar el patrocinio con GitHub | github.com | La IP del nodo de salida de Tor y mi cuenta de GitHub |
 | **Al comprobar el patrocinio con Patreon** | patreon.com | **Mi IP real** y mi cuenta de Patreon. Patreon bloquea las salidas de Tor, así que se conecta directamente. |
+| **Al verificar mi suscripción en una crew con GitHub o Patreon** | github.com o patreon.com, en el navegador web y una vez desde la app | **La IP de mi navegador** y mi cuenta. El dispositivo del administrador que otorga el rol sabrá cuál es mi cuenta. La app se conecta a Patreon directamente, así que Patreon también ve **mi IP real**. |
+| **Cuando mi dispositivo da roles de crew a los suscriptores (con una cuenta de creador conectada)** | github.com, patreon.com, sell.app | Mi cuenta de creador. Patreon y SellApp ven **mi IP real**; GitHub ve la IP del nodo de salida de Tor. |
 | Al comprobar actualizaciones (automático, se puede desactivar en los ajustes) o descargarlas con **Descargar actualización (Tor)** | github.com | La IP del nodo de salida de Tor |
 | **Al pulsar Descargar actualización (sin Tor)** | github.com | **Mi IP real**. Se descarga directamente por internet normal. |
 

@@ -191,6 +191,7 @@ pub(crate) async fn get(node: &Arc<Node>, _ctx: &CallCtx, p: P<m::SpaceGet>) -> 
         ai_auto_lang: state.ai.auto_lang.clone(),
         onboarding: (!state.onboarding.is_empty()).then(|| state.onboarding.clone()),
         onboarding_langs: state.onboarding_langs.clone(),
+        subscriber_roles: state.subscriber_roles.clone(),
     };
     crate::stun::fill_space_view(node, &p.space, &state, &me.user(), &mut view);
     Ok(view)

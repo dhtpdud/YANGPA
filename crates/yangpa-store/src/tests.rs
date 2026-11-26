@@ -1826,6 +1826,7 @@ fn sample_state(owner: UserId) -> SpaceState {
         ai: Default::default(),
         onboarding: Default::default(),
         onboarding_langs: Default::default(),
+        subscriber_roles: Default::default(),
         volatile_caps: Default::default(),
     }
 }

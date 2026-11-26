@@ -684,6 +684,57 @@ pub enum YpRequest {
     GetLink {
         code: LinkCode,
     },
+    /// 크루 구독자 역할 확인 부탁(멤버 → 그 크루 구독자 역할의 확인 기기, decisions.md "크루 구독자 역할"). 확인 기기는
+    /// 증명으로 그 서비스의 계정을 알아내 묶고, 자기 크리에이터 계정으로 구독을 봐서 역할을 줍니다. 답은 준 역할이 있으면
+    /// `Ok`, 묶었지만 구독 중이 아니면 `Forbidden`, 증명이 틀리면 `BadRequest`.
+    SubRole(Box<SubRoleAsk>),
+}
+
+/// [`YpRequest::SubRole`].
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubRoleAsk {
+    pub space: SpaceId,
+    pub proof: SubRoleProof,
+}
+
+/// 구독자 증명. 모두 그 크루(`space`)에 보낸 사용자가 낼 때만 맞아, 받은 확인 기기가 다른 크루나 다른 사용자 이름으로 다시 쓰지
+/// 못합니다(protocol.md "크루 구독자 역할"). 저장·기록하지 않습니다.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SubRoleProof {
+    /// GitHub 웹 로그인의 한 번 쓰는 코드. PKCE `code_verifier`를 `nonce`로 다시 계산합니다. `port`는 브라우저가 돌아온
+    /// 루프백 포트(코드를 바꿀 때 같은 주소를 내야 함).
+    Github {
+        code: String,
+        nonce: [u8; 32],
+        port: u16,
+    },
+    /// 멤버의 Patreon 후원 번호(멤버 ID)마다 만든 값. 토큰·번호는 보내지 않습니다.
+    Patreon { tags: Vec<[u8; 32]> },
+    /// SellApp 라이선스 키로 만든 값(키는 보내지 않음)과, 판매자 키 목록을 좁힐 키 앞 8자.
+    Sellapp { tag: [u8; 32], hint: String },
+}
+
+impl Drop for SubRoleProof {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        match self {
+            SubRoleProof::Github { code, nonce, .. } => {
+                code.zeroize();
+                nonce.zeroize();
+            }
+            SubRoleProof::Patreon { tags } => tags.iter_mut().for_each(|t| t.zeroize()),
+            SubRoleProof::Sellapp { tag, .. } => tag.zeroize(),
+        }
+    }
+}
+
+impl std::fmt::Debug for SubRoleAsk {
+    // 증명은 로그에 남기지 않습니다.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SubRoleAsk")
+            .field("space", &self.space)
+            .finish_non_exhaustive()
+    }
 }
 
 /// [`YpRequest::AiTranslate`].
@@ -1177,6 +1228,23 @@ pub enum GossipMessage {
 mod tests {
     use super::*;
     use crate::device::{DeviceEntry, DeviceList};
+
+    /// 위치 번호는 출시된 빌드와 맞아야 하는데 컴파일러는 순서를 보지 않습니다. v1.4.x의 `GetLink` 다음이 `SubRole`.
+    #[test]
+    fn request_tail_keeps_released_positions() {
+        let index = |r: &YpRequest| postcard::to_stdvec(r).unwrap()[0];
+        let get_link = index(&YpRequest::GetLink {
+            code: LinkCode([0; 10]),
+        });
+        let sub_role = index(&YpRequest::SubRole(Box::new(SubRoleAsk {
+            space: SpaceId::random(),
+            proof: SubRoleProof::Sellapp {
+                tag: [0; 32],
+                hint: String::new(),
+            },
+        })));
+        assert_eq!((get_link, sub_role), (44, 45));
+    }
 
     #[test]
     fn device_link_code_is_six_digits_and_covers_every_input() {

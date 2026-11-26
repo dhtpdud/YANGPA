@@ -42,8 +42,15 @@ const GRACE: Duration = Duration::from_secs(3);
 const TICK: Duration = Duration::from_secs(15);
 const MAX_DURATION_SECS: u64 = 365 * 24 * 3600;
 /// 오프라인 모드에서 막는 호출(망 없이 뜬 데몬이 직접 연결로 나가지 않게).
-const OFFLINE_BLOCKED: [&str; 6] = [
+const OFFLINE_BLOCKED: [&str; 13] = [
     "ai.translate",
+    "crew.sync_subscriber_roles",
+    "subrole.creator_github_begin",
+    "subrole.creator_patreon_begin",
+    "subrole.creator_sellapp",
+    "subrole.github_begin",
+    "subrole.patreon_begin",
+    "subrole.sellapp",
     "supporter.github_begin",
     "supporter.patreon_begin",
     "supporter.refresh",

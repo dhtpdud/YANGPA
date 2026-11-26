@@ -615,6 +615,13 @@ pub enum EventBody {
         lang: String,
         texts: BTreeMap<String, String>,
     },
+    /// 크루 구독자 역할 목록 전체(코드 110, [`crate::model::SubscriberRole`]). 크루에서만, `MANAGE_ROLES`, 한도 안
+    /// ([`crate::model::MAX_SUBSCRIBER_ROLES`]), 역할은 있는 역할·@everyone 아님·관리자 권한 없음·겹치지 않음, 경로는
+    /// 오름차순으로 겹치지 않고 비지 않음, 더하거나 빼거나 바꾼 항목의 역할은 작성자가 줄 수 있어야 하고 더하거나 바꾼
+    /// 항목의 `holder`는 작성자의 활성 기기, 지금과 달라야 함. 토큰·키는 싣지 않습니다.
+    CrewSubscriberRolesSet {
+        roles: Vec<crate::model::SubscriberRole>,
+    },
 }
 
 /// 휘발성 세션 키 회전 공지. 회전한 기기가 서명하고 지금 참가자에게 직접 보냅니다. 키는 참가자마다 따로 미는 감싸기
@@ -728,6 +735,7 @@ impl EventBody {
             EventBody::CrewOnboardingSet { .. } => EventKind::CrewOnboardingSet,
             EventBody::OnboardingPick { .. } => EventKind::OnboardingPick,
             EventBody::CrewOnboardingLangSet { .. } => EventKind::CrewOnboardingLangSet,
+            EventBody::CrewSubscriberRolesSet { .. } => EventKind::CrewSubscriberRolesSet,
         }
     }
 
@@ -1450,6 +1458,21 @@ mod tests {
             texts,
         };
         assert!(full_lang.encode().unwrap().len() <= crate::event::MAX_BODY_LEN * 7 / 8);
+        let subs = EventBody::CrewSubscriberRolesSet {
+            roles: vec![crate::model::SubscriberRole {
+                role: RoleId([4; 16]),
+                providers: vec![
+                    crate::model::SubscriptionProvider::Github,
+                    crate::model::SubscriptionProvider::Sellapp,
+                ],
+                holder: DeviceId([5; 32]),
+            }],
+        };
+        assert_eq!(index(&subs), 59);
+        assert_eq!(
+            EventBody::decode(&subs.encode().unwrap(), EventKind::CrewSubscriberRolesSet).unwrap(),
+            subs
+        );
         // 2판의 MLS 종류(80·81)는 다시 쓰지 않으므로 이 판에서는 모르는 종류입니다.
         assert_eq!(EventKind::from_code(80), EventKind::Other(80));
         assert_eq!(EventKind::from_code(81), EventKind::Other(81));

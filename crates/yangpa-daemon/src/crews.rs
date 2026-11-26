@@ -1673,6 +1673,7 @@ pub(crate) mod tests_support {
             ai: Default::default(),
             onboarding: Default::default(),
             onboarding_langs: Default::default(),
+            subscriber_roles: Default::default(),
         }
     }
 }

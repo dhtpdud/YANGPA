@@ -2,6 +2,7 @@
 
 import {
   ArrowLeftRight,
+  BadgeCheck,
   CheckCheck,
   ChevronDown,
   ChevronRight,
@@ -302,6 +303,9 @@ export function SpaceMenu({ space, anchor, onClose }: { space: SpaceView; anchor
       {crew && <MenuButton icon={<Pencil size={15} />} label={t('크루 별명 바꾸기')} onClick={run(() => openModal({ kind: 'crewSettings', space: space.space, tab: 'overview' }))} />}
       {crew && !!space.onboarding?.questions.length && !space.disbanded && (
         <MenuButton icon={<ListChecks size={15} />} label={t('역할 고르기')} onClick={run(() => openModal({ kind: 'crewOnboarding', space: space.space }))} />
+      )}
+      {crew && !!space.subscriber_roles?.length && !space.disbanded && (
+        <MenuButton icon={<BadgeCheck size={15} />} label={t('구독 후원 확인')} onClick={run(() => openModal({ kind: 'subrole', space: space.space }))} />
       )}
       <MenuButton
         icon={<Gauge size={15} />}

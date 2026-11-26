@@ -25,9 +25,9 @@ use yangpa_core::model::{
     BanInfo, ChannelKind, ChannelSettings, ChannelTransport, ChatTtl, CrewAi, CrewAiProfile,
     CrewServers, EditRules, EmojiLimits, HistoryVisibility, InviteState, MAX_AI_ID, MAX_AI_MODEL,
     MAX_AI_NAME, MAX_AI_PROFILES, MAX_AI_ROLES, MAX_AI_URL, MAX_CREW_SERVER_LEN, MAX_CREW_SERVERS,
-    MAX_VOLATILE_CAP, MIN_VOLATILE_CAP, Member, Onboarding, OnboardingLangs, OverwriteTarget,
-    PermissionOverwrite, Permissions, Role, RoleDisplay, SharedMap, SpaceKind, SpaceSettings,
-    SpaceState, valid_attach_limit,
+    MAX_SUBSCRIBER_ROLES, MAX_VOLATILE_CAP, MIN_VOLATILE_CAP, Member, Onboarding, OnboardingLangs,
+    OverwriteTarget, PermissionOverwrite, Permissions, Role, RoleDisplay, SharedMap, SpaceKind,
+    SpaceSettings, SpaceState, SubscriberRole, valid_attach_limit,
 };
 
 pub(super) mod keys;
@@ -374,6 +374,7 @@ impl Machine {
                 ai: Default::default(),
                 onboarding: Default::default(),
                 onboarding_langs: Default::default(),
+                subscriber_roles: Default::default(),
             },
             deleted_channels: imbl::OrdSet::new(),
             deleted_roles: imbl::OrdSet::new(),
@@ -585,6 +586,9 @@ impl Machine {
             EventBody::OnboardingPick { roles } => self.onboarding_pick(&user, roles),
             EventBody::CrewOnboardingLangSet { lang, texts } => {
                 self.crew_onboarding_lang_set(&user, lang, texts)
+            }
+            EventBody::CrewSubscriberRolesSet { roles } => {
+                self.crew_subscriber_roles_set(&user, roles)
             }
         };
         self.settle(eff)
@@ -1215,6 +1219,56 @@ impl Machine {
         Ok(Effect::changed())
     }
 
+    /// 크루 구독자 역할 목록 전체. 크루에서만, `MANAGE_ROLES`, 한도·형식, 역할은 있는 역할·@everyone 아님·관리자 권한
+    /// 없음, 더하거나 빼거나 바꾼 항목의 역할은 작성자가 줄 수 있고(`may_assign`) 더하거나 바꾼 항목의 기기는 작성자의
+    /// 활성 기기여야 하며(남의 기기에게 확인을 맡기지 못함), 지금과 달라야 합니다.
+    fn crew_subscriber_roles_set(&mut self, user: &UserId, roles: &[SubscriberRole]) -> R {
+        if self.st.kind != SpaceKind::Crew {
+            return Err(AuthError::WrongSpaceKind);
+        }
+        self.need(user, Permissions::MANAGE_ROLES)?;
+        if roles.len() > MAX_SUBSCRIBER_ROLES {
+            return Err(AuthError::Limit("구독자 역할 수"));
+        }
+        let mut seen = BTreeSet::new();
+        for s in roles {
+            if s.role == RoleId::EVERYONE {
+                return Err(AuthError::EveryoneProtected);
+            }
+            let role = self.st.roles.get(&s.role).ok_or(AuthError::UnknownRole)?;
+            if role.permissions.contains(Permissions::ADMINISTRATOR) {
+                return Err(AuthError::Invalid("구독자 역할에 관리자 역할"));
+            }
+            let sorted = s.providers.windows(2).all(|w| w[0] < w[1]);
+            if !seen.insert(s.role) || s.providers.is_empty() || !sorted {
+                return Err(AuthError::Invalid("구독자 역할 형식"));
+            }
+        }
+        if roles == self.st.subscriber_roles.as_slice() {
+            return Err(AuthError::Invalid("이미 그 구독자 역할 목록"));
+        }
+        let old = &self.st.subscriber_roles;
+        let added: Vec<&SubscriberRole> = roles.iter().filter(|s| !old.contains(s)).collect();
+        let mut changed: Vec<RoleId> = old
+            .iter()
+            .filter(|s| !roles.contains(s))
+            .chain(added.iter().copied())
+            .map(|s| s.role)
+            .collect();
+        changed.sort_unstable();
+        changed.dedup();
+        self.may_assign(user, &changed)?;
+        let mine = self.st.devices.get(user);
+        if added
+            .iter()
+            .any(|s| !mine.is_some_and(|l| l.contains_active(&s.holder)))
+        {
+            return Err(AuthError::Invalid("구독자 역할 확인 기기"));
+        }
+        self.st.subscriber_roles = roles.to_vec();
+        Ok(Effect::changed())
+    }
+
     /// 크루 온보딩의 한 언어 번역(빈 목록이면 지우기). 크루에서만, `MANAGE_SPACE`, 언어 코드 형식, 원문은 지금 온보딩에
     /// 있고 번역문은 그 칸의 한도·형식, 언어 수 한도, 지금과 달라야 합니다.
     fn crew_onboarding_lang_set(
@@ -1490,6 +1544,7 @@ impl Machine {
                 }
             },
         );
+        self.st.subscriber_roles.retain(|s| s.role != *id);
         self.rank_change = RankChange::All;
         Ok(Effect::changed())
     }
@@ -2367,6 +2422,7 @@ pub(super) mod synthetic {
                 ai: Default::default(),
                 onboarding: Default::default(),
                 onboarding_langs: Default::default(),
+                subscriber_roles: Default::default(),
             },
             deleted_channels: imbl::OrdSet::new(),
             deleted_roles: imbl::OrdSet::new(),

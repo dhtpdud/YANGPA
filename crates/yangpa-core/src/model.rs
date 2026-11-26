@@ -631,6 +631,9 @@ pub struct SpaceState {
     /// 온보딩 번역(`CrewOnboardingLangSet`). 온보딩 바로 뒤 꼬리에 비지 않았을 때만 싣습니다.
     #[serde(skip)]
     pub onboarding_langs: OnboardingLangs,
+    /// 크루 구독자 역할(`CrewSubscriberRolesSet`). 온보딩 번역 뒤 꼬리에 비지 않았을 때만 싣습니다.
+    #[serde(skip)]
+    pub subscriber_roles: Vec<SubscriberRole>,
 }
 
 /// 온보딩 번역: 언어 코드(`valid_ai_lang_code`) → 원문 → 번역문. 질문·선택지 번호가 아니라 원문으로 찾아, 질문을 옮겨도
@@ -867,6 +870,29 @@ pub const MAX_AI_URL: usize = 512;
 pub const MAX_AI_MODEL: usize = 128;
 /// 프로필 하나·채널 하나에 둘 수 있는 역할 수.
 pub const MAX_AI_ROLES: usize = 64;
+
+/// 크루 구독자 역할의 확인 경로.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubscriptionProvider {
+    Github,
+    Patreon,
+    Sellapp,
+}
+
+/// 크루 구독자 역할(decisions.md "크루 구독자 역할"): 고른 경로의 정기 구독자에게 `holder` 기기가 확인해 주고, 구독이
+/// 끝나면 빼는 역할. 크리에이터 계정(토큰·API 키)은 그 기기에만 있고 상태에는 공개 부분만 둡니다.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubscriberRole {
+    pub role: RoleId,
+    /// 오름차순, 겹치지 않음, 비지 않음.
+    pub providers: Vec<SubscriptionProvider>,
+    /// 확인하고 역할을 주는 기기(설정한 관리자의 활성 기기).
+    pub holder: DeviceId,
+}
+
+/// 크루 구독자 역할 수 상한.
+pub const MAX_SUBSCRIBER_ROLES: usize = 16;
 
 /// 채널의 수정·삭제 금지(`ChannelEditRulesSet`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -1411,6 +1437,7 @@ mod tests {
                 ai: Default::default(),
                 onboarding: Default::default(),
                 onboarding_langs: Default::default(),
+                subscriber_roles: Default::default(),
             },
             owner,
             bob,
@@ -1856,6 +1883,7 @@ mod tests {
             ai: Default::default(),
             onboarding: Default::default(),
             onboarding_langs: Default::default(),
+            subscriber_roles: Default::default(),
         }
     }
 

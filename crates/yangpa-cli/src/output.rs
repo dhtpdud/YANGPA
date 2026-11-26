@@ -1444,6 +1444,10 @@ pub fn notification_line(n: &Notification, show_volatile: bool) -> String {
             Some(e) => format!("[후원] 후원 확인 로그인 실패({e})"),
             None => "[후원] 후원 확인 상태가 바뀌었습니다".to_owned(),
         },
+        Notification::SubroleUpdated { space, result } => match space {
+            Some(s) => format!("[구독자 역할] {} 구독 확인: {result}", s.short()),
+            None => format!("[구독자 역할] 크리에이터 연결: {result}"),
+        },
         Notification::UpdateProgress {
             version,
             done,

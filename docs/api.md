@@ -115,6 +115,36 @@ GUI·CLI·MCP 서버가 모두 이 API를 씁니다. 원격 접근은 기본 비
 - `supporter.refresh() → supporter.status` (owner) — 연결한 계정을 지금 다시 확인(닿지 못하면 마지막 결과 그대로)
 - `supporter.unlink({provider}) → {}` (owner, 사람만) — 그 연결과 토큰을 이 기기에서 지움
 
+### 크루 구독자 역할
+크루 관리자가 이 기기에 자기 크리에이터 계정을 연결하고(`subrole.creator_*`), 역할에 경로를 고르면(`crew.set_subscriber_roles`) 그
+정기 구독자인 멤버가 증명해(`subrole.github_begin` 등) 역할을 받습니다. 확인·역할 지정은 설정한 기기가 하고, 끝나면
+`subrole.updated`(protocol.md "크루 구독자 역할"). `provider`: `github`·`patreon`·`sellapp`.
+- `subrole.creator_status() → {providers, links}` (owner) — `providers`: 이 빌드가 쓰는 경로(비면 기능 없음). `links`:
+  `[{provider, name, needs_login}]` — 이 기기에 연결한 크리에이터 계정(토큰·키는 돌려주지 않음, `needs_login`이면 다시 연결)
+- `subrole.creator_github_begin() → {user_code, verification_uri, expires_in_secs}` (owner, 사람만) — GitHub 기기 로그인(범위
+  `read:user`, 후원 목록을 읽음). 끝나면 `subrole.updated`(`linked` 또는 실패 코드)
+- `subrole.creator_patreon_begin() → {url}` (owner, 사람만) — 크루용 Patreon 클라이언트 PKCE 로그인(범위 `identity
+  identity.memberships campaigns campaigns.members`, 이 기기의 후원자 증명에도 씀, 돌아오는 곳 `http://127.0.0.1:47901/callback`, 포트를 다른 프로그램이 쓰면 `1010`). 캠페인이 없으면
+  `no_campaign`
+- `subrole.creator_sellapp({store, key}) → {}` (owner, 사람만) — SellApp 상점 슬러그(`mystore.sell.app`의 `mystore`)와 API 키를
+  확인해 저장(구독·라이선스 키 목록을 읽을 수 있어야 함). 틀리면 `1005`, SellApp에 닿지 못하면 `1009`
+- `subrole.creator_unlink({provider}) → {}` (owner, 사람만) — 이 기기의 그 크리에이터 계정을 지움
+- `subrole.github_begin({space}) → {url}`, `subrole.patreon_begin({space, login?}) → {url?}`, `subrole.sellapp({space, key}) → {}` (owner,
+  사람만) — 그 크루의 구독자 역할 받기. 크루에 그 경로의 구독자 역할이 없으면 `1005`. GitHub는 브라우저로 열 승인 주소를 돌려주고(범위
+  없음, 루프백으로 돌아옴. 이 기기 몫의 로그인으로 받을 권한을 먼저 보고 확인 기기 몫으로 이어짐, 넓으면 `too_wide`). Patreon은 이 기기에
+  크리에이터 연결이 있으면 로그인하지 않고 그 토큰으로 확인해 `url` 없이 돌려주고(읽을 범위가 없거나 토큰이 죽었으면 `relink`),
+  없거나 `login: true`(사용자가 고른 '다른 계정')면 로그인 주소(`identity identity.memberships`, 포트 47901)를 돌려줌. 토큰은 이
+  기기에서만 씀. SellApp은 구독 상품의 라이선스 키(UUID로 끝나지 않으면 `1005`). 그 크루·그 사용자에게만 맞는 증명을 만들어 그 경로를
+  맡은 기기에 보내고(토큰·번호·키 자체는 보내지 않음) 결과를 `subrole.updated{space}`로 알림
+- `crew.set_subscriber_roles({space, roles: [{role, providers}]}) → {}` (admin, 사람 토큰만) — `manage_roles`, 크루만. 목록 전체
+  (상태 이벤트 `CrewSubscriberRolesSet`, 경로가 빈 항목은 빠짐, 16개까지). @everyone·없는 역할·관리자 권한 역할은 `1005`, 내 순위보다
+  낮지 않은 역할을 더하거나 빼면 `1006`. 그대로 둔 항목은 맡은 기기를 그대로 두고, 바뀐 항목은 이 기기가 맡으며 그 경로의
+  크리에이터 계정이 이 기기에 연결돼 있어야 합니다(`1005`). 지금과 같으면 아무것도 내지 않고 성공.
+- `crew.sync_subscriber_roles({space}) → {}` (admin, 사람 토큰만) — `manage_roles`. 이 기기가 맡은 그 크루의 구독자 역할을 하루
+  주기를 기다리지 않고 지금 맞춥니다(증명한 멤버만, 끝날 때까지 기다림). 이 기기가 맡은 항목이 없으면 `1005`, 크리에이터 연결이
+  없거나 다시 연결해야 해서 확인하지 못했으면 `1005` "크리에이터 계정을 다시 연결하세요", 서비스에 닿지 못했으면 `1009`.
+  보기: `SpaceView.subscriber_roles?: [{role, providers, holder}]`(없으면 생략)
+
 ### 앱 업데이트
 공개 저장소(`dhtpdud/YANGPA`)의 GitHub 릴리스를 봅니다. Tor로 도는 기기는 Arti로만(받기 한 번마다 새 회로) 보내고(사용자가 고른
 `direct` 받기만 빼고), 오프라인 모드에서는 `1009`(decisions.md "앱 업데이트"). 설치는 앱 셸(`update_install`)이 받은 파일의 서명·SHA-256을 다시 확인한 뒤 합니다.
@@ -182,8 +212,8 @@ GUI·CLI·MCP 서버가 모두 이 API를 씁니다. 원격 접근은 기본 비
   - `mode: "invisible"`(숨기): 연결·동기화·대화는 그대로이고 다른 사람 화면에는 오프라인
   - `mode: "offline"`: 응답 뒤 데몬이 멈추고 같은 인자로 다시 뜨면서 망(Tor·P2P 스웜 포함)을 띄우지 않습니다. 오프라인에서
     다른 모드로 바꾸거나 기간이 끝나도 같은 방식으로 다시 떠 망을 켭니다(앱은 연결이 끊겼다 다시 붙음). 오프라인 동안
-    `supporter.github_begin`·`supporter.patreon_begin`·`supporter.refresh`는 `1009` "오프라인 모드에서는 할 수
-    없습니다"이고 후원 확인·P2P 직접 연결 스웜도 돌지 않습니다. 쓴 글은 이 기기에 남고 다시 온라인이 되면 동기화됩니다
+    `supporter.github_begin`·`supporter.patreon_begin`·`supporter.refresh`, 로그인·증명 `subrole.*`, `crew.sync_subscriber_roles`는 `1009` "오프라인 모드에서는 할 수
+    없습니다"이고 후원 확인·구독자 역할 맞추기·P2P 직접 연결 스웜도 돌지 않습니다. 쓴 글은 이 기기에 남고 다시 온라인이 되면 동기화됩니다
 
 ### 뱃지
 도전과제 뱃지. 규칙은 protocol.md "뱃지 카드", decisions.md "도전과제 뱃지". `Badge`는 `"founder"`, `"support3"`·`"support14"`·
@@ -888,6 +918,7 @@ IP만 보임), 아무도 신뢰하지 않으면 Tor입니다. 크루 신뢰는 �
 | `device.link_result` | `{status}` — 이 새 기기의 연결 요청이 끝남. `status`: `approved`(신원을 설치함, `identity.get`의 `first_syncing`이 켜짐), `rejected`, `expired`, `failed`(승인됐지만 받은 묶음이 링크와 맞지 않거나 저장하지 못함) |
 | `device.synced` | `{}` — 연결된 기기의 첫 동기화가 끝남(`identity.get`의 `first_syncing`이 꺼짐) |
 | `supporter.updated` | `{error?}` — 후원 확인 상태가 바뀌었거나 로그인이 끝났음(`supporter.status`로 다시 읽음). 로그인 실패면 `error`: `denied`(거절)·`expired`(시간 초과)·`creator`(크리에이터 본인 계정이라 버림)·`network`(확인 실패)·`failed`. 공간에 묶이지 않음 |
+| `subrole.updated` | `{space?, result}` — 크루 구독자 역할의 크리에이터 연결(`space` 없음)이나 구독 증명(`space` 있음)이 끝났음. `result`: `linked`(크리에이터 연결)·`granted`(역할 받음)·`not_subscribed`·`pending`(맡은 기기가 아직 확인 중)·`invalid`(증명이 틀림)·`unreachable`(맡은 기기에 닿지 못함)·`denied`·`expired`·`no_campaign`·`too_wide`(계정 확인보다 넓은 권한이 열리는 계정이라 보내지 않음)·`relink`(이 기기의 Patreon 크리에이터 연결로 후원 목록을 읽지 못함)·`network`·`failed` |
 | `update.progress` | `{version, done, total, ready?, error?}` — `update.download` 진행(바이트, 0.5초마다). `ready`면 서명·SHA-256을 확인하고 다 받음. 실패면 `error`: `unsigned`(서명 없는 릴리스이거나 목록에 없음)·`network`·`hash`(SHA-256 불일치)·`failed`(디스크). 공간에 묶이지 않음 |
 | `device.wiped` | `{}` — 이 기기가 다른 기기에서 폐기됐거나 `identity.delete`로 로컬 데이터를 모두 지웠음(신원 없음, 네트워크 설정만 남음) |
 | `checkpoint.alert` | `{space, kind}` — 상태 체크포인트 경보(protocol.md "상태 체크포인트"). `kind`: `conflict`(같은 순번에 서명이 맞는 다른 체크포인트가 보임: 정한 규칙으로 한쪽을 따르지만 소유자 기기가 갈라졌거나 탈취됐을 수 있음), `equivocation`(같은 기기가 같은 순번에 둘을 씀), `fallback`(체크포인트로 들어온 상태가 다른 출처와 다르거나 확인되지 않아 버리고 처음부터 따라잡는 중). 겨룬 체크포인트 하나에 한 번. 공간 제한 토큰에는 그 공간 것만 |

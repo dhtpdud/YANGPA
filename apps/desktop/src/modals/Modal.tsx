@@ -17,6 +17,7 @@ import { FriendProfileModal } from './FriendProfile';
 import { ConfirmModal, ImageModal } from './Misc';
 import { BanModal, ReportModal } from './Moderation';
 import { SupporterModal } from '../supporter/SupporterModal';
+import { SubroleModal } from '../supporter/SubscriberRoles';
 import { RateLimitModal } from './RateLimits';
 import { ScreenSourceModal } from './ScreenSource';
 import { TrustWarningModal } from './Trust';
@@ -137,6 +138,8 @@ function ModalView({ modal, close }: { modal: ModalState; close: () => void }) {
       return <CrewSettingsModal space={modal.space} tab={modal.tab} onClose={close} />;
     case 'crewOnboarding':
       return <CrewOnboardingModal space={modal.space} lang={modal.lang} onClose={close} />;
+    case 'subrole':
+      return <SubroleModal space={modal.space} onClose={close} />;
     case 'userSettings':
       return <UserSettingsModal tab={modal.tab} onClose={close} />;
     case 'image':

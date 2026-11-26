@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Notify;
 use tracing::debug;
 use url::Url;
@@ -51,8 +51,10 @@ use crate::blobs::preview::{Route, http_request};
 use crate::error::Result;
 use crate::node::Node;
 
+pub(crate) mod subrole;
+
 /// GitHub OAuth 앱(기기 로그인을 켠 공개 클라이언트 ID). 비어 있으면 GitHub 확인을 쓰지 않습니다.
-const GITHUB_CLIENT_ID: &str = "Ov23liOPx0EHYQr1593h";
+pub(super) const GITHUB_CLIENT_ID: &str = "Ov23liOPx0EHYQr1593h";
 /// 후원받는 GitHub 계정.
 const GITHUB_SPONSORABLE: &str = "dhtpdud";
 /// Patreon 클라이언트 ID(공개 값, PKCE라 비밀키 없음).
@@ -70,7 +72,7 @@ const GRACE_KEY: &str = "supporter.grace_until";
 const SHARED_PREFIX: &str = "supporter.shared.";
 const MAX_LOGIN_CHARS: usize = 256;
 
-const DAY: Duration = Duration::from_secs(24 * 3600);
+pub(super) const DAY: Duration = Duration::from_secs(24 * 3600);
 /// 확인 주기와 그 확인을 돌리는 간격(실패하면 다음 간격에 다시).
 const CHECK_EVERY: Duration = DAY;
 const TICK: Duration = Duration::from_secs(3600);
@@ -79,7 +81,7 @@ const GITHUB_TRUST: Duration = Duration::from_secs(3 * 24 * 3600);
 const ONE_TIME_MIN_CENTS: u64 = 300;
 const ONE_TIME_PERIOD: Duration = Duration::from_secs(30 * 24 * 3600);
 const GRACE: Duration = Duration::from_secs(30 * 24 * 3600);
-const LOGIN_WAIT: Duration = Duration::from_secs(10 * 60);
+pub(super) const LOGIN_WAIT: Duration = Duration::from_secs(10 * 60);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_BODY: usize = 256 * 1024;
 const USER_AGENT: &str = "YANGPA-supporter/1";
@@ -92,6 +94,14 @@ pub(crate) struct SupporterState {
     checking: tokio::sync::Mutex<()>,
     /// 내 표시 내기를 한 줄로(`flair::spread`).
     pub(crate) spreading: tokio::sync::Mutex<()>,
+    /// 크루 구독자 역할의 진행 중인 로그인(경로마다 하나, 크리에이터·멤버 공통).
+    pub(crate) crew_logins: Mutex<HashMap<yangpa_core::model::SubscriptionProvider, Arc<Notify>>>,
+    /// 크루 구독자 역할 맞추기를 한 줄로.
+    pub(crate) subrole_sync: tokio::sync::Mutex<()>,
+    /// 시험용(`testkit::set_subscription`): 서비스에 묻지 않는 SellApp 라이선스 키(키 → 구독)와 구독 판정.
+    pub(crate) test_keys: Mutex<HashMap<String, String>>,
+    pub(crate) test_active:
+        Mutex<HashMap<(yangpa_core::model::SubscriptionProvider, String), bool>>,
 }
 
 /// 연결한 계정(DB 설정, 경로마다 하나).
@@ -142,7 +152,7 @@ struct Verdict {
 }
 
 #[derive(Debug)]
-enum CheckError {
+pub(super) enum CheckError {
     /// 토큰이 거절됨(다시 로그인해야 함).
     Unauthorized,
     /// 닿지 못했거나 응답이 이상함(마지막 결과를 유지).
@@ -151,6 +161,7 @@ enum CheckError {
 
 pub(crate) fn start(node: &Arc<Node>) {
     init_grace(node);
+    subrole::start(node);
     let weak = Arc::downgrade(node);
     node.tasks.spawn(async move {
         loop {
@@ -533,11 +544,11 @@ fn replace_login(node: &Node, p: SupporterProvider) -> Arc<Notify> {
 }
 
 /// 로그인 실패 까닭(`supporter.updated`의 `error`, 앱이 번역해 보여 줌).
-const DENIED: &str = "denied";
-const EXPIRED: &str = "expired";
+pub(super) const DENIED: &str = "denied";
+pub(super) const EXPIRED: &str = "expired";
 const CREATOR: &str = "creator";
-const NETWORK: &str = "network";
-const FAILED: &str = "failed";
+pub(super) const NETWORK: &str = "network";
+pub(super) const FAILED: &str = "failed";
 
 /// 로그인이 끝나면(성공·실패) 연결을 저장하고 앱에 알립니다. 성공하면 내 다른 기기에도 나눕니다.
 fn finish_login(
@@ -583,7 +594,7 @@ fn form(pairs: &[(&str, &str)]) -> String {
 }
 
 /// 요청 한 번: 상태와 JSON 본문(JSON이 아니면 `Null`).
-async fn call(
+pub(super) async fn call(
     route: &Route,
     method: &str,
     url: &str,
@@ -618,7 +629,7 @@ async fn call(
     }
 }
 
-async fn post_form(
+pub(super) async fn post_form(
     route: &Route,
     url: &str,
     pairs: &[(&str, &str)],
@@ -634,7 +645,7 @@ async fn post_form(
     .await
 }
 
-fn str_field<'a>(v: &'a Value, k: &str) -> Option<&'a str> {
+pub(super) fn str_field<'a>(v: &'a Value, k: &str) -> Option<&'a str> {
     v.get(k).and_then(Value::as_str)
 }
 
@@ -649,10 +660,47 @@ pub(crate) async fn github_begin(
         ));
     }
     let route = route(node, SupporterProvider::Github);
+    let login = github_device_start(&route, "read:user").await?;
+    let cancel = replace_login(node, SupporterProvider::Github);
+    let weak = Arc::downgrade(node);
+    let (device_code, interval, deadline) =
+        (login.device_code.clone(), login.interval, login.deadline);
+    node.tasks.spawn(async move {
+        let r = tokio::select! {
+            r = github_poll(&route, &device_code, interval, deadline) => r,
+            _ = cancel.notified() => return,
+        };
+        let r = match r {
+            Ok(token) => match github_check(&route, &token).await {
+                Ok(verdict) => Ok(new_link(token, verdict)),
+                Err(_) => Err(NETWORK),
+            },
+            Err(e) => Err(e),
+        };
+        if let Some(node) = weak.upgrade() {
+            finish_login(&node, SupporterProvider::Github, r);
+        }
+    });
+    Ok(login.code)
+}
+
+/// 시작한 GitHub 기기 로그인.
+pub(super) struct DeviceLogin {
+    pub(super) code: SupporterDeviceCode,
+    pub(super) device_code: String,
+    pub(super) interval: u64,
+    pub(super) deadline: tokio::time::Instant,
+}
+
+/// GitHub 기기 로그인을 시작합니다(`scope`가 비면 공개 정보만 읽는 토큰).
+pub(super) async fn github_device_start(
+    route: &Route,
+    scope: &str,
+) -> std::result::Result<DeviceLogin, RpcError> {
     let (_, v) = post_form(
-        &route,
+        route,
         "https://github.com/login/device/code",
-        &[("client_id", GITHUB_CLIENT_ID), ("scope", "read:user")],
+        &[("client_id", GITHUB_CLIENT_ID), ("scope", scope)],
     )
     .await
     .map_err(|_| RpcError::network("GitHub에 닿지 못했습니다"))?;
@@ -664,34 +712,25 @@ pub(crate) async fn github_begin(
         return Err(RpcError::network("GitHub 로그인 코드를 받지 못했습니다"));
     };
     let expires_in = v.get("expires_in").and_then(Value::as_u64).unwrap_or(900);
-    let interval = v.get("interval").and_then(Value::as_u64).unwrap_or(5);
-    let cancel = replace_login(node, SupporterProvider::Github);
-    let device_code = device_code.to_owned();
-    let weak = Arc::downgrade(node);
-    node.tasks.spawn(async move {
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(expires_in);
-        let r = tokio::select! {
-            r = github_poll(&route, &device_code, interval, deadline) => r,
-            _ = cancel.notified() => return,
-        };
-        if let Some(node) = weak.upgrade() {
-            finish_login(&node, SupporterProvider::Github, r);
-        }
-    });
-    Ok(SupporterDeviceCode {
-        user_code: user_code.to_owned(),
-        verification_uri: uri.to_owned(),
-        expires_in_secs: expires_in,
+    Ok(DeviceLogin {
+        code: SupporterDeviceCode {
+            user_code: user_code.to_owned(),
+            verification_uri: uri.to_owned(),
+            expires_in_secs: expires_in,
+        },
+        device_code: device_code.to_owned(),
+        interval: v.get("interval").and_then(Value::as_u64).unwrap_or(5),
+        deadline: tokio::time::Instant::now() + Duration::from_secs(expires_in),
     })
 }
 
-/// 사용자가 승인할 때까지 토큰을 묻고, 받으면 바로 후원을 확인합니다.
-async fn github_poll(
+/// 사용자가 승인할 때까지 토큰을 묻습니다.
+pub(super) async fn github_poll(
     route: &Route,
     device_code: &str,
     mut interval: u64,
     deadline: tokio::time::Instant,
-) -> std::result::Result<Link, &'static str> {
+) -> std::result::Result<String, &'static str> {
     loop {
         tokio::time::sleep(Duration::from_secs(interval)).await;
         if tokio::time::Instant::now() >= deadline {
@@ -711,8 +750,7 @@ async fn github_poll(
             continue;
         };
         if let Some(token) = str_field(&v, "access_token") {
-            let verdict = github_check(route, token).await.map_err(|_| NETWORK)?;
-            return Ok(new_link(token.to_owned(), verdict));
+            return Ok(token.to_owned());
         }
         match str_field(&v, "error") {
             Some("authorization_pending") => {}
@@ -829,52 +867,15 @@ pub(crate) async fn patreon_begin(
         ));
     }
     let cancel = replace_login(node, SupporterProvider::Patreon);
-    // 이전 로그인이 포트를 놓을 때까지 잠깐 다시 시도합니다.
-    let mut listener = None;
-    for _ in 0..20 {
-        match TcpListener::bind(("127.0.0.1", PATREON_PORT)).await {
-            Ok(l) => {
-                listener = Some(l);
-                break;
-            }
-            Err(_) => tokio::time::sleep(Duration::from_millis(100)).await,
-        }
-    }
-    let Some(listener) = listener else {
-        // 포트는 Patreon 클라이언트에 등록한 값이라 바꿀 수 없습니다.
-        return Err(RpcError::conflict(
-            "로그인 결과를 받을 포트 47900을 다른 프로그램이 쓰고 있습니다",
-        ));
-    };
-    let mut bytes = [0u8; 48];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
-    let verifier = URL_SAFE_NO_PAD.encode(bytes);
-    let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
-    let mut st = [0u8; 16];
-    rand::rngs::OsRng.fill_bytes(&mut st);
-    let state = URL_SAFE_NO_PAD.encode(st);
-    let redirect = format!("http://127.0.0.1:{PATREON_PORT}/callback");
-    let scope = PATREON_SCOPES.join(" ");
-    let url = format!(
-        "https://www.patreon.com/oauth2/authorize?{}",
-        form(&[
-            ("response_type", "code"),
-            ("client_id", PATREON_CLIENT_ID),
-            ("redirect_uri", &redirect),
-            ("scope", &scope),
-            ("state", &state),
-            ("code_challenge", &challenge),
-            ("code_challenge_method", "S256"),
-        ])
-    );
+    let pkce = pkce_begin(PATREON_CLIENT_ID, PATREON_PORT, &PATREON_SCOPES.join(" ")).await?;
+    let url = pkce.url.clone();
     let route = route(node, SupporterProvider::Patreon);
     let weak = Arc::downgrade(node);
     node.tasks.spawn(async move {
         let r = tokio::select! {
-            r = tokio::time::timeout(LOGIN_WAIT, patreon_callback(&listener, &state)) => match r {
-                Ok(Ok(code)) => patreon_finish(&route, &code, &verifier, &redirect).await,
-                Ok(Err(e)) => Err(e),
-                Err(_) => Err(EXPIRED),
+            r = pkce.code() => match r {
+                Ok(code) => patreon_finish(&route, &code, &pkce.verifier, &pkce.redirect).await,
+                Err(e) => Err(e),
             },
             _ = cancel.notified() => return,
         };
@@ -885,11 +886,165 @@ pub(crate) async fn patreon_begin(
     Ok(SupporterAuthUrl { url })
 }
 
-/// 브라우저가 돌아올 때까지 받습니다. `state`가 맞는 `/callback`의 코드를 돌려줍니다.
-async fn patreon_callback(
+/// 시작한 Patreon PKCE 로그인: 브라우저로 열 주소와, 돌아올 주소를 받는 이 PC의 포트.
+pub(super) struct Pkce {
+    listener: TcpListener,
+    state: String,
+    pub(super) url: String,
+    pub(super) verifier: String,
+    pub(super) redirect: String,
+}
+
+impl Pkce {
+    /// 브라우저가 돌아올 때까지(최대 `LOGIN_WAIT`) 기다려 코드를 받습니다.
+    pub(super) async fn code(&self) -> std::result::Result<String, &'static str> {
+        let login = async {
+            let back = login_callback(&self.listener, &self.state).await?;
+            Ok(back.answer(None).await)
+        };
+        tokio::time::timeout(LOGIN_WAIT, login)
+            .await
+            .unwrap_or(Err(EXPIRED))
+    }
+}
+
+/// 로그인 결과를 받을 루프백 포트를 엽니다(0이면 아무 빈 포트).
+pub(super) async fn callback_listener(port: u16) -> std::result::Result<TcpListener, RpcError> {
+    // 이전 로그인이 포트를 놓을 때까지 잠깐 다시 시도합니다.
+    for _ in 0..20 {
+        match TcpListener::bind(("127.0.0.1", port)).await {
+            Ok(l) => return Ok(l),
+            Err(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+        }
+    }
+    // 문구가 앱 번역 키라 포트마다 글자 그대로 둡니다.
+    Err(if port == PATREON_PORT {
+        RpcError::conflict("로그인 결과를 받을 포트 47900을 다른 프로그램이 쓰고 있습니다")
+    } else {
+        RpcError::conflict("로그인 결과를 받을 포트 47901을 다른 프로그램이 쓰고 있습니다")
+    })
+}
+
+pub(super) fn loopback(port: u16) -> String {
+    format!("http://127.0.0.1:{port}/callback")
+}
+
+pub(super) const PATREON_AUTHORIZE: &str = "https://www.patreon.com/oauth2/authorize";
+
+/// 브라우저로 열 승인 주소와, 돌아올 때 맞춰 볼 `state`. 서비스는 `verifier`의 S256에 코드를 묶습니다(PKCE).
+pub(super) struct Authorize {
+    pub(super) url: String,
+    pub(super) state: String,
+}
+
+pub(super) fn authorize(
+    endpoint: &str,
+    client_id: &str,
+    redirect: &str,
+    scope: &str,
+    verifier: &str,
+) -> Authorize {
+    let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
+    let mut st = [0u8; 16];
+    rand::rngs::OsRng.fill_bytes(&mut st);
+    let state = URL_SAFE_NO_PAD.encode(st);
+    let url = format!(
+        "{endpoint}?{}",
+        form(&[
+            ("response_type", "code"),
+            ("client_id", client_id),
+            ("redirect_uri", redirect),
+            ("scope", scope),
+            ("state", &state),
+            ("code_challenge", &challenge),
+            ("code_challenge_method", "S256"),
+        ])
+    );
+    Authorize { url, state }
+}
+
+/// Patreon PKCE 로그인을 시작합니다. 포트는 그 클라이언트에 등록한 돌아올 주소의 것이라 바꿀 수 없습니다.
+pub(super) async fn pkce_begin(
+    client_id: &str,
+    port: u16,
+    scope: &str,
+) -> std::result::Result<Pkce, RpcError> {
+    let listener = callback_listener(port).await?;
+    let mut bytes = [0u8; 48];
+    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    let verifier = URL_SAFE_NO_PAD.encode(bytes);
+    let redirect = loopback(port);
+    let Authorize { url, state } =
+        authorize(PATREON_AUTHORIZE, client_id, &redirect, scope, &verifier);
+    Ok(Pkce {
+        listener,
+        state,
+        url,
+        verifier,
+        redirect,
+    })
+}
+
+/// 코드를 토큰으로 바꿉니다(비밀키 대신 PKCE). 상태와 JSON 본문.
+pub(super) async fn pkce_exchange(
+    route: &Route,
+    client_id: &str,
+    code: &str,
+    verifier: &str,
+    redirect: &str,
+) -> std::result::Result<(u16, Value), CheckError> {
+    post_form(
+        route,
+        "https://www.patreon.com/api/oauth2/token",
+        &[
+            ("grant_type", "authorization_code"),
+            ("code", code),
+            ("client_id", client_id),
+            ("redirect_uri", redirect),
+            ("code_verifier", verifier),
+        ],
+    )
+    .await
+}
+
+/// 코드를 들고 돌아온 브라우저. `answer`할 때까지 기다리고 있습니다.
+pub(super) struct Back {
+    pub(super) code: String,
+    sock: TcpStream,
+}
+
+impl Back {
+    /// 브라우저를 `next`로 이어 보내거나(구독자 역할의 이어지는 로그인) 끝 쪽을 보이고 코드를 돌려줍니다.
+    pub(super) async fn answer(mut self, next: Option<&str>) -> String {
+        match next {
+            Some(url) => {
+                let resp = format!(
+                    "HTTP/1.1 302 Found\r\nLocation: {url}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+                let _ = self.sock.write_all(resp.as_bytes()).await;
+            }
+            None => login_done(&mut self.sock).await,
+        }
+        self.code
+    }
+}
+
+async fn login_done(sock: &mut TcpStream) {
+    let page = "<!doctype html><meta charset=\"utf-8\"><title>YANGPA</title>\
+                <p style=\"font:16px system-ui,sans-serif;margin:40px\">YANGPA: 로그인이 끝났습니다. 이 창을 닫고 앱에서 결과를 보세요.</p>";
+    let resp = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\
+         Connection: close\r\n\r\n{page}",
+        page.len()
+    );
+    let _ = sock.write_all(resp.as_bytes()).await;
+}
+
+/// 브라우저가 돌아올 때까지 받습니다. `state`가 맞는 `/callback`의 코드와, 아직 답하지 않은 브라우저를 돌려줍니다.
+pub(super) async fn login_callback(
     listener: &TcpListener,
     state: &str,
-) -> std::result::Result<String, &'static str> {
+) -> std::result::Result<Back, &'static str> {
     loop {
         let Ok((mut sock, _)) = listener.accept().await else {
             continue;
@@ -931,28 +1086,21 @@ async fn patreon_callback(
             // 다른 탭·오래된 요청: 이 로그인 것이 아니니 닫고 계속 기다립니다.
             let _ = sock
                 .write_all(
-                    b"HTTP/1.1 400 Bad Request
-Content-Length: 0
-Connection: close
-
-",
+                    b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                 )
                 .await;
             continue;
         }
-        let page = "<!doctype html><meta charset=\"utf-8\"><title>YANGPA</title>\
-                    <p style=\"font:16px system-ui,sans-serif;margin:40px\">YANGPA: 확인했습니다. 이 창을 닫고 앱으로 돌아가세요.</p>";
-        let resp = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\
-             Connection: close\r\n\r\n{page}",
-            page.len()
-        );
-        let _ = sock.write_all(resp.as_bytes()).await;
-        return match (q.get("code"), q.get("error")) {
-            (Some(code), _) => Ok(code.clone()),
-            (None, Some(_)) => Err(DENIED),
-            _ => Err(FAILED),
-        };
+        if let Some(code) = q.get("code") {
+            let code = code.clone();
+            return Ok(Back { code, sock });
+        }
+        login_done(&mut sock).await;
+        return Err(if q.contains_key("error") {
+            DENIED
+        } else {
+            FAILED
+        });
     }
 }
 
@@ -963,19 +1111,9 @@ async fn patreon_finish(
     verifier: &str,
     redirect: &str,
 ) -> std::result::Result<Link, &'static str> {
-    let (status, v) = post_form(
-        route,
-        "https://www.patreon.com/api/oauth2/token",
-        &[
-            ("grant_type", "authorization_code"),
-            ("code", code),
-            ("client_id", PATREON_CLIENT_ID),
-            ("redirect_uri", redirect),
-            ("code_verifier", verifier),
-        ],
-    )
-    .await
-    .map_err(|_| NETWORK)?;
+    let (status, v) = pkce_exchange(route, PATREON_CLIENT_ID, code, verifier, redirect)
+        .await
+        .map_err(|_| NETWORK)?;
     let mut link = patreon_tokens(status, &v)?;
     let verdict = patreon_check(route, &link.token)
         .await
@@ -1124,7 +1262,7 @@ fn patreon_verdict(v: &Value, campaign: &str, now: Timestamp) -> Option<Verdict>
 }
 
 /// Patreon(`2026-11-30T00:00:00.000+00:00`)·GitHub(`2026-11-30T00:00:00Z`)의 UTC ISO 시각.
-fn parse_time(s: &str) -> Option<Timestamp> {
+pub(super) fn parse_time(s: &str) -> Option<Timestamp> {
     let s = s
         .strip_suffix("+00:00")
         .map_or_else(|| s.to_owned(), |b| format!("{b}Z"));

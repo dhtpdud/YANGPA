@@ -1585,6 +1585,127 @@ fn crew_onboarding_canonical_tail() {
     assert!(back.st.onboarding.is_empty());
 }
 
+fn sub_role(
+    role: RoleId,
+    providers: &[yangpa_core::model::SubscriptionProvider],
+    holder: DeviceId,
+) -> yangpa_core::model::SubscriberRole {
+    yangpa_core::model::SubscriberRole {
+        role,
+        providers: providers.to_vec(),
+        holder,
+    }
+}
+
+/// 크루 구독자 역할: 권한·형식·순위·확인 기기 검사, 같은 값 거부, 역할 삭제 때 빠짐, 정규 인코딩 꼬리.
+#[test]
+fn crew_subscriber_roles() {
+    use yangpa_core::model::SubscriptionProvider::{Github, Patreon, Sellapp};
+    let mut cr = crew();
+    let (o, a, b) = (&cr.o, &cr.a, &cr.b);
+    let (r1, r2) = (role(1, 1, Permissions::NONE), role(2, 2, Permissions::NONE));
+    let admin = role(3, 3, Permissions::ADMINISTRATOR);
+    let mods = role(5, 2, Permissions::MANAGE_ROLES);
+    for r in [&r1, &r2, &admin, &mods] {
+        cr.c.push(o, EventBody::RoleCreate { role: r.clone() });
+    }
+    let set = |roles: Vec<yangpa_core::model::SubscriberRole>| EventBody::CrewSubscriberRolesSet {
+        roles,
+    };
+    let no_perm = cr.c.push(a, set(vec![sub_role(r1.id, &[Github], a.dev())]));
+    let everyone =
+        cr.c.push(o, set(vec![sub_role(RoleId::EVERYONE, &[Github], o.dev())]));
+    let with_admin =
+        cr.c.push(o, set(vec![sub_role(admin.id, &[Github], o.dev())]));
+    let unsorted =
+        cr.c.push(o, set(vec![sub_role(r1.id, &[Patreon, Github], o.dev())]));
+    let empty = cr.c.push(o, set(vec![sub_role(r1.id, &[], o.dev())]));
+    let twice = cr.c.push(
+        o,
+        set(vec![
+            sub_role(r1.id, &[Github], o.dev()),
+            sub_role(r1.id, &[Patreon], o.dev()),
+        ]),
+    );
+    let other_device = cr.c.push(o, set(vec![sub_role(r1.id, &[Github], a.dev())]));
+    let both = vec![
+        sub_role(r1.id, &[Github, Patreon, Sellapp], o.dev()),
+        sub_role(r2.id, &[Sellapp], o.dev()),
+    ];
+    let ok = cr.c.push(o, set(both.clone()));
+    let same = cr.c.push(o, set(both.clone()));
+    // 순위 2인 관리자는 순위 2 역할(r2) 항목을 건드리지 못하고, r1 항목은 자기 기기로 바꿀 수 있습니다.
+    cr.c.push(
+        o,
+        EventBody::MemberUpdate {
+            user: b.id(),
+            roles: vec![mods.id],
+            nickname: None,
+        },
+    );
+    let too_high = cr.c.push(b, set(vec![both[0].clone()]));
+    let lower_ok = cr.c.push(
+        b,
+        set(vec![sub_role(r1.id, &[Github], b.dev()), both[1].clone()]),
+    );
+    let r = cr.c.resolve();
+    assert_rejected(
+        &r,
+        no_perm,
+        AuthError::MissingPermission(Permissions::MANAGE_ROLES),
+    );
+    assert_rejected(&r, everyone, AuthError::EveryoneProtected);
+    assert_rejected(
+        &r,
+        with_admin,
+        AuthError::Invalid("구독자 역할에 관리자 역할"),
+    );
+    assert_rejected(&r, unsorted, AuthError::Invalid("구독자 역할 형식"));
+    assert_rejected(&r, empty, AuthError::Invalid("구독자 역할 형식"));
+    assert_rejected(&r, twice, AuthError::Invalid("구독자 역할 형식"));
+    assert_rejected(
+        &r,
+        other_device,
+        AuthError::Invalid("구독자 역할 확인 기기"),
+    );
+    assert_applied(&r, ok);
+    assert_rejected(&r, same, AuthError::Invalid("이미 그 구독자 역할 목록"));
+    assert_rejected(&r, too_high, AuthError::RankTooLow);
+    assert_applied(&r, lower_ok);
+    assert_eq!(state(&r).subscriber_roles[0].holder, b.dev());
+
+    // 정규 인코딩: 없으면 예전 바이트, 있으면 꼬리에 붙고 그대로 되살아납니다(온보딩·번역이 없어도).
+    let mut res = Resolver::with_genesis(cr.genesis);
+    res.insert_events(cr.c.events.clone());
+    let m = res.machine.as_ref().expect("해소기 상태").clone();
+    let mut plain = m.clone();
+    plain.st.subscriber_roles.clear();
+    let (with, without) = (m.encode(), plain.encode());
+    assert!(with.len() > without.len() && with.starts_with(&without));
+    let back = Machine::decode(&with, Limits::default()).unwrap();
+    assert_eq!(back.st.subscriber_roles, m.st.subscriber_roles);
+    assert!(back.st.onboarding.is_empty() && back.st.onboarding_langs.is_empty());
+    assert!(
+        Machine::decode(&without, Limits::default())
+            .unwrap()
+            .st
+            .subscriber_roles
+            .is_empty()
+    );
+
+    // 지운 역할의 항목은 빠집니다.
+    cr.c.push(o, EventBody::RoleDelete { role: r2.id });
+    let r = cr.c.resolve();
+    let st = state(&r);
+    assert_eq!(
+        st.subscriber_roles
+            .iter()
+            .map(|s| s.role)
+            .collect::<Vec<_>>(),
+        vec![r1.id]
+    );
+}
+
 fn nest(channel: ChannelId, parent: Option<ChannelId>) -> EventBody {
     EventBody::CategoryParentSet { channel, parent }
 }

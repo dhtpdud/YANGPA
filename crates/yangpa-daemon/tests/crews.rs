@@ -5178,3 +5178,95 @@ async fn badges_founder_grant_and_shown_badges_reach_members() {
     })
     .await;
 }
+
+/// 크루 구독자 역할: 멤버가 SellApp 라이선스 키로 증명하면 확인 기기가 역할을 주고, 구독이 끝나면 자기가 준 역할만
+/// 뺍니다(손으로 준 역할은 그대로). 설정은 역할 관리 권한과 이 기기의 크리에이터 계정이 있어야 합니다.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn subscriber_role_is_granted_and_removed_by_the_holder() {
+    use yangpa_core::model::SubscriptionProvider;
+    use yangpa_rpc::api::{CrewSubscriberRolesParams, SubroleSellappParams, SubscriberRoleInput};
+
+    let cl = Cluster::new();
+    let (a, b, c, space, _channel) = three_member_crew(&cl).await;
+    let vip = create_role(&a, space, "후원자", &[], 1).await;
+    wait_role_known(&b, space, vip).await;
+    let set = || CrewSubscriberRolesParams {
+        space,
+        roles: vec![SubscriberRoleInput {
+            role: vip,
+            providers: vec![SubscriptionProvider::Sellapp],
+        }],
+    };
+    let r = a.call::<m::CrewSetSubscriberRoles>(set()).await;
+    assert_eq!(code(r), ERR_INVALID_INPUT, "크리에이터 계정 없음");
+    testkit::set_subrole_creator(&a.node);
+    testkit::set_subrole_creator(&b.node);
+    let r = b.call::<m::CrewSetSubscriberRoles>(set()).await;
+    assert_eq!(code(r), ERR_FORBIDDEN, "역할 관리 권한 없음");
+    a.ok::<m::CrewSetSubscriberRoles>(set()).await;
+    eventually("B가 구독자 역할 설정을 봄", || async {
+        let v = b.ok::<m::SpaceGet>(SpaceParams { space }).await;
+        (v.subscriber_roles.len() == 1).then_some(())
+    })
+    .await;
+
+    let (b_user, c_user) = (
+        testkit::user_id(&b.node).unwrap(),
+        testkit::user_id(&c.node).unwrap(),
+    );
+    set_roles(&a, space, c_user, vec![vip]).await;
+    const KEY: &str = "SHOP-01965F1D-F038-7116-B57F-9E7ECB4E7B8F";
+    // 상점 목록의 키에는 접두어가 없습니다.
+    let listed = KEY["SHOP-".len()..].to_lowercase();
+    testkit::set_subscription(&a.node, &listed, "sub-b", true);
+    // 받은 증명을 다른 사용자가 내거나, 다른 크루에 내려고 만든 증명이면 맞지 않습니다.
+    let replayed = testkit::send_sellapp_proof(&c.node, space, space, b_user, KEY).await;
+    assert_eq!(replayed, "invalid", "다른 사용자의 증명");
+    let replayed =
+        testkit::send_sellapp_proof(&b.node, space, SpaceId::random(), b_user, KEY).await;
+    assert_eq!(replayed, "invalid", "다른 크루에 낼 증명");
+    let result = |n: &Notification| match n {
+        Notification::SubroleUpdated {
+            space: Some(s),
+            result,
+        } if *s == space => Some(result.clone()),
+        _ => None,
+    };
+    let mut rx = b.subscribe();
+    b.ok::<m::SubroleSellapp>(SubroleSellappParams {
+        space,
+        key: KEY.replace("01965F1D", "01965F1E").into(),
+    })
+    .await;
+    assert_eq!(
+        next_notification(&mut rx, "틀린 키", result).await,
+        "invalid"
+    );
+    b.ok::<m::SubroleSellapp>(SubroleSellappParams {
+        space,
+        key: KEY.into(),
+    })
+    .await;
+    assert_eq!(
+        next_notification(&mut rx, "맞는 키", result).await,
+        "granted"
+    );
+    wait_roles(&b, space, b_user, &[vip]).await;
+
+    // 구독이 끝나면 확인 기기가 준 역할만 뺍니다.
+    testkit::set_subscription(&a.node, &listed, "sub-b", false);
+    // '지금 업데이트'는 역할 관리 권한이 있는 확인 기기만.
+    let r = b
+        .call::<m::CrewSyncSubscriberRoles>(SpaceParams { space })
+        .await;
+    assert_eq!(code(r), ERR_FORBIDDEN, "역할 관리 권한 없음");
+    a.ok::<m::CrewSyncSubscriberRoles>(SpaceParams { space })
+        .await;
+    wait_roles(&b, space, b_user, &[]).await;
+    let st = testkit::space_state(&a.node, &space).unwrap();
+    assert_eq!(
+        st.members[&c_user].roles,
+        vec![vip],
+        "손으로 준 역할은 그대로"
+    );
+}
