@@ -137,6 +137,20 @@ function subscribeGen(l: () => void) {
 /** 번역할 만한 글인지(빈 글·기호만은 보내지 않음). */
 const worth = (text: string | undefined): text is string => !!text && /\p{L}/u.test(text);
 
+const SLUG_SEP = /[\p{L}\p{N}]([-_])[\p{L}\p{N}]/u;
+const SPACED = /[\p{L}\p{N}]\s+[\p{L}\p{N}]/u;
+const SEP_RUN = /(?<=[\p{L}\p{N}])[-_]+(?=[\p{L}\p{N}])/gu;
+const SPACE_RUN = /(?<=[\p{L}\p{N}])\s+(?=[\p{L}\p{N}])/gu;
+
+/**
+ * `supporter-thanks-board`처럼 띄어쓰기 없이 `-`·`_`로 이은 이름이면 그 구분자. 모델이 이런 이름을 식별자로 보고 그대로
+ * 두는 일이 잦아(지시문으로도 다 막히지 않음), 단어로 풀어 보내고 결과를 다시 잇습니다.
+ */
+export function slugSep(text: string): string | null {
+  const m = SLUG_SEP.exec(text);
+  return m && !SPACED.test(text) ? m[1] : null;
+}
+
 /**
  * 번역 결과. `channel`이 있으면 그 채널 본문, 없으면 채널·크루 이름으로 다룹니다.
  * 번역이 꺼져 있거나 아직 오지 않았거나 원문과 같으면 null.
@@ -145,18 +159,21 @@ export function useTranslated(text: string | undefined, space: SpaceView | undef
   const prefs = useStore((s) => s.prefs.aiTr);
   const me = useStore((s) => s.identity?.user);
   const gen = useSyncExternalStore(subscribeGen, () => generation);
-  const ctx = worth(text) ? trContext(prefs, space, channel, me) : null;
-  const key = ctx ? `${gen}\n${ctx.cacheKey}\n${JSON.stringify(ctx.params)}\n${text}` : '';
+  const sep = !channel && text ? slugSep(text) : null;
+  const sent = sep && text ? text.replace(SEP_RUN, ' ') : text;
+  const ctx = worth(sent) ? trContext(prefs, space, channel, me) : null;
+  const key = ctx ? `${gen}\n${ctx.cacheKey}\n${JSON.stringify(ctx.params)}\n${sent}` : '';
   const [result, setResult] = useState<{ key: string; r: AiTranslation | null } | null>(null);
   useEffect(() => {
-    if (!ctx || !text) return;
+    if (!ctx || !sent) return;
     let alive = true;
-    void translate(ctx, text).then((r) => alive && setResult({ key, r }));
+    void translate(ctx, sent).then((r) => alive && setResult({ key, r }));
     return () => {
       alive = false;
     };
     // ctx는 key에 모두 들어 있습니다.
   }, [key]);
-  const r = ctx && text ? (result?.key === key ? result.r : cache.get(`${ctx.cacheKey}\n${text}`) ?? null) : null;
+  const got = ctx && sent ? (result?.key === key ? result.r : cache.get(`${ctx.cacheKey}\n${sent}`) ?? null) : null;
+  const r = got && sep ? { ...got, text: got.text.replace(SPACE_RUN, sep) } : got;
   return r && r.text.trim() && r.text !== text ? r : null;
 }

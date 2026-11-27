@@ -136,6 +136,8 @@ pub(crate) struct CheckpointState {
     /// 가입 중 받아 둔 체크포인트와 받아 둔 때(이 실행에서).
     stash: Mutex<HashMap<SpaceId, Arc<Stash>>>,
     stash_since: Mutex<HashMap<SpaceId, Instant>>,
+    /// 링크의 체크포인트를 받는 중인 공간([`wait_prepared`]).
+    preparing: Mutex<HashSet<SpaceId>>,
     /// 이견을 낸 체크포인트.
     disputed: Mutex<HashSet<CheckpointId>>,
     /// 다시 서명한 내 늦은 이벤트.
@@ -1320,20 +1322,33 @@ pub(crate) async fn prepare_join(
     let Some(pin) = pin else {
         return Ok(());
     };
+    let preparing = Preparing::start(node, space);
     // 받아 준 노드는 응답 뒤에야 나를 인증하므로, 묻기 전에 인증을 맞춥니다(멤버만 답함).
     if let Err(e) = crate::peers::ensure_auth(node, gateway).await {
         debug!(error = %e, "받아 준 노드와 인증하지 못함");
     }
-    let reply = match crate::p2p::request(
-        node,
-        gateway,
-        YpRequest::GetCheckpoint {
-            space,
-            from_seq: pin.seq,
-        },
-    )
-    .await
-    {
+    let ask = YpRequest::GetCheckpoint {
+        space,
+        from_seq: pin.seq,
+    };
+    // 받아 준 노드가 내 `Auth` 답을 아직 처리하지 못했으면(`Unauthenticated`) 잠시 뒤 다시 묻습니다
+    // (`identity::request_after_auth`와 같은 까닭. 데이터 요청이라 빠른 연결로도 가게 `p2p::request`로 보냄).
+    let mut wait = Duration::from_millis(100);
+    let mut retries = 0;
+    let reply = loop {
+        match crate::p2p::request(node, gateway, ask.clone()).await {
+            Ok(YpResponse::Error {
+                code: WireErrorCode::Unauthenticated,
+                ..
+            }) if retries < 5 && node.peers.is_connected(&gateway) => {
+                retries += 1;
+                tokio::time::sleep(wait).await;
+                wait *= 2;
+            }
+            r => break r,
+        }
+    };
+    let reply = match reply {
         Ok(YpResponse::Checkpoint(r)) => *r,
         Ok(r) => {
             return Err(Error::Network(format!(
@@ -1389,10 +1404,36 @@ pub(crate) async fn prepare_join(
         let cur = m.get(&space).copied().unwrap_or(0);
         m.insert(space, cur.max(f));
     }
+    drop(preparing);
     if let Err(e) = fetch_snapshot(node, space, gateway).await {
         debug!(error = %e, "스냅숏을 아직 다 받지 못함(감시 작업이 다시 받음)");
     }
     Ok(())
+}
+
+/// [`prepare_join`]이 경계를 세우는 동안(성공·실패 어느 쪽으로 끝나든 풀림).
+struct Preparing<'a>(&'a Node, SpaceId);
+
+impl<'a> Preparing<'a> {
+    fn start(node: &'a Node, space: SpaceId) -> Self {
+        node.checkpoints.preparing.lock().insert(space);
+        Preparing(node, space)
+    }
+}
+
+impl Drop for Preparing<'_> {
+    fn drop(&mut self) {
+        self.0.checkpoints.preparing.lock().remove(&self.1);
+    }
+}
+
+/// 링크의 체크포인트를 받는 동안 그 공간의 따라잡기를 미룹니다. 받아 준 노드와 인증되자마자 시작한 따라잡기가 경계보다
+/// 먼저 돌면 시작 이벤트까지 전체 기록을 받아 버립니다. 묻는 요청 두 번(인증·체크포인트)이 끝날 시간까지만 기다립니다.
+pub(crate) async fn wait_prepared(node: &Node, space: &SpaceId) {
+    let deadline = Instant::now() + node.cfg.net.request_timeout * 2;
+    while node.checkpoints.preparing.lock().contains(space) && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }
 
 /// 받아 둔 체크포인트를 버리고 경계를 해소기 것으로 되돌립니다(처음부터 따라잡음). 적용 잠금 안에서 부릅니다. 그새 다른

@@ -79,6 +79,8 @@ pub(crate) enum Pull {
 pub(crate) struct SyncState {
     /// 진행 중인 (공간, 피어) 따라잡기와, 끝난 뒤 다시 돌릴 종류(없으면 그대로 끝).
     running: Mutex<HashMap<(SpaceId, PeerId), Option<Pull>>>,
+    /// 채널·키 그룹 따라잡기를 거절당해 다시 물은 횟수([`retry_refused`]).
+    refused: Mutex<HashMap<(SpaceId, PeerId), u32>>,
     /// 시더 업로드 대역폭(블롭 제공도 같이 씀).
     pub(crate) bucket: Mutex<Option<TokenBucket>>,
     /// 처리 중인 시더 요청을 보낸 기기마다의 요청 수(블롭 제공도 같이 셈, [`serving`]).
@@ -1088,6 +1090,7 @@ async fn catch_up(node: &Arc<Node>, space: SpaceId, peer: PeerId, pull: Pull) ->
         }
         return Ok(());
     }
+    crate::checkpoint::wait_prepared(node, &space).await;
     peers::ensure_auth(node, peer).await?;
     let started = std::time::Instant::now();
     if let Err(e) = sync_stream(node, space, peer, StreamId::Space, pull).await {
@@ -1130,20 +1133,50 @@ async fn catch_up(node: &Arc<Node>, space: SpaceId, peer: PeerId, pull: Pull) ->
     let index = node.sync.index.get(&space, &state);
     // 채널 토픽을 쓰면 따라가지 않는 모두 보는 채널은 열 때 받습니다(`chantopics::follow`).
     let wanted = crate::chantopics::sync_filter(node, &space, &state, &index);
+    let mut refused = false;
     for (c, ch) in &state.channels {
         if ch.is_volatile() || state.is_p2p(c) || !wanted(c) {
             continue;
         }
         if let Err(e) = sync_stream(node, space, peer, StreamId::Channel(*c), pull).await {
+            refused |= matches!(e, Error::Forbidden(_));
             debug!(error = %e, "채널 따라잡기 실패");
         }
     }
     for g in my_key_groups(node, &space, &state) {
         if let Err(e) = sync_stream(node, space, peer, StreamId::KeyGroup(g), pull).await {
+            refused |= matches!(e, Error::Forbidden(_));
             debug!(error = %e, "키 그룹 따라잡기 실패");
         }
     }
+    retry_refused(node, space, peer, refused);
     Ok(())
+}
+
+/// 거절된 채널·키 그룹을 다시 묻는 횟수와 첫 간격(두 배씩 늘림).
+const REFUSED_RETRIES: u32 = 4;
+const REFUSED_RETRY_FIRST: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// 상대가 채널·키 그룹 따라잡기를 거절했으면 잠시 뒤 다시 묻습니다. 내가 새 역할을 받아 그 채널을 보게 된 직후에는
+/// 상대가 그 역할 변경을 아직 적용하지 못해 거절할 수 있는데, 그대로 두면 다음 주기(`sync_interval`)까지 그 채널을
+/// 받지 못합니다. 정말 볼 수 없는 채널이면 몇 번 뒤 멈추고, 거절 없이 끝나면 횟수를 지웁니다.
+fn retry_refused(node: &Arc<Node>, space: SpaceId, peer: PeerId, refused: bool) {
+    let mut m = node.sync.refused.lock();
+    if !refused {
+        m.remove(&(space, peer));
+        return;
+    }
+    let n = m.entry((space, peer)).or_insert(0);
+    *n += 1;
+    if *n > REFUSED_RETRIES {
+        return;
+    }
+    let delay = REFUSED_RETRY_FIRST * 2u32.pow(*n - 1);
+    drop(m);
+    node.spawn_detached(move |node| async move {
+        tokio::time::sleep(delay).await;
+        spawn_catch_up(&node, space, peer);
+    });
 }
 
 /// 따라잡을 키 그룹: 내가 볼 수 있는 채널 가운데 모두가 볼 수 있지는 않은 채널의 그룹(모두가 보는 채널의 키는 크루
@@ -1191,6 +1224,10 @@ async fn request(node: &Node, peer: PeerId, req: YpRequest) -> Result<YpResponse
             code: WireErrorCode::Unauthenticated,
             ..
         } => Err(Error::PeerUnauthenticated),
+        YpResponse::Error {
+            code: WireErrorCode::Forbidden,
+            ..
+        } => Err(Error::Forbidden("상대가 거절함".into())),
         YpResponse::Error { code, .. } => Err(Error::Network(format!("상대가 거절함: {code:?}"))),
         YpResponse::Busy { .. } => Err(Error::Network("상대가 바쁨".into())),
         r => Ok(r),

@@ -831,6 +831,20 @@ pub fn catch_up_idle(node: &Node) -> bool {
     crate::sync_service::catch_up_idle(node)
 }
 
+/// 셋째 멤버가 든 크루에 내 프로필·뱃지를 다 실었는지(실을 때 내는 상태 이벤트가 끝났는지).
+pub fn cards_settled(node: &Node, space: SpaceId) -> bool {
+    node.space_state(&space)
+        .is_some_and(|st| st.members.len() > 2)
+        && crate::cards::due_in(node, &space).is_empty()
+}
+
+/// 그 공간의 작성 기기별 상태 이벤트 버킷이 모두 가득 찼는지.
+pub fn event_buckets_full(node: &Node, space: SpaceId) -> bool {
+    let mut l = node.ratelimit.events.lock();
+    let now = l.now_ms();
+    l.space_full(&space, now)
+}
+
 /// 보낸 친구 요청을 모두 지웁니다(요청을 취소한 쪽을 흉내). 지운 수.
 pub fn drop_outgoing_requests(node: &Node) -> Result<usize> {
     let mut n = 0;

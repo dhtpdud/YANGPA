@@ -8,7 +8,7 @@ import type { AiTranslateParams, ChannelView, SpaceView } from '../api/types';
 import { DEFAULT_AI_TR } from '../lib/aiTr';
 import { useStore } from '../store/store';
 import { cleanup, click, render } from '../test/dom';
-import { clearTranslateCache } from '../hooks/useTranslated';
+import { clearTranslateCache, slugSep } from '../hooks/useTranslated';
 import { MessageBody, TrText, useTrText } from './Translated';
 
 const members = new Map();
@@ -90,6 +90,19 @@ describe('TrText', () => {
     expect(call.mock.calls[0][1]).toMatchObject({ space: 's1', channel: 'c1', texts: ['topic'] });
     expect(el.textContent).toBe('번역:topic|role');
     expect(el.querySelector('span[title]')?.getAttribute('title')).toContain('topic');
+  });
+
+  it('띄어쓰기 없이 하이픈으로 이은 이름은 단어로 풀어 보내고 결과를 다시 잇는다', async () => {
+    const call = setup(true, true);
+    const { el } = await render(
+      <>
+        <TrText text="supporter-thanks-board" space="s1" />|<TrText text="Co-op Studio" space="s1" />
+      </>,
+    );
+    await wait();
+    expect(call.mock.calls[0][1].texts).toEqual(['supporter thanks board', 'Co-op Studio']);
+    expect(el.textContent).toBe('번역:supporter-thanks-board|번역:Co-op Studio');
+    expect(['🔞 test-channel', 'game_voice_1', 'Co-op Studio', '게임 음성 1', 'plain'].map(slugSep)).toEqual(['-', '_', null, null, null]);
   });
 
   it('문자열 자리(입력창 안내·환영 문구 속 채널 이름)도 이름 번역을 따른다', async () => {

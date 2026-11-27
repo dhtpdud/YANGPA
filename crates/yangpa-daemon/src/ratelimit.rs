@@ -384,6 +384,14 @@ impl EventLimiter {
         self.buckets.retain(|(s, _), _| s != space);
     }
 
+    /// 그 공간의 버킷이 모두 가득 찼는지(시험이 앞선 이벤트가 쓴 몫 없이 시작하려고).
+    pub(crate) fn space_full(&mut self, space: &SpaceId, now_ms: u64) -> bool {
+        self.buckets
+            .iter_mut()
+            .filter(|((s, _), _)| s == space)
+            .all(|(_, b)| b.idle(now_ms))
+    }
+
     #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.buckets.len()

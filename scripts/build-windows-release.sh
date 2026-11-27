@@ -80,8 +80,11 @@ export RUSTFLAGS="${remap[*]}${RUSTFLAGS:+ $RUSTFLAGS}"
 # 테스트 빌드는 LTO를 끄고 작업 공간 크레이트를 16갈래로 나눕니다. thin LTO는 마지막 링크에서 바뀌지 않은 의존성까지
 # 매번 다시 최적화해, 코드 한 줄 바꾼 뒤 cargo 빌드가 데몬·CLI 220초(그중 링크 128초)·데스크톱 85초 걸렸고, 이렇게 하면
 # 99초·38초입니다(i7-13700KF 24스레드, 2026-11-27). 공개 릴리스는 PUBLIC=1로 Cargo.toml 설정 그대로 빌드합니다. 두 설정의
-# 산출물은 빌드 폴더에 따로 남아, 오가도 처음 한 번만 전체를 빌드합니다.
-if [[ -n "${PUBLIC:-}" ]]; then
+# 산출물은 빌드 폴더에 따로 남아, 오가도 처음 한 번만 전체를 빌드합니다. Windows는 늘 PUBLIC=C:\Users\Public을 두므로
+# 비었는지가 아니라 1인지를 봅니다(그렇지 않으면 테스트 빌드도 늘 공개 릴리스로 빌드됨).
+public=""
+[[ "${PUBLIC:-}" == 1 ]] && public=1
+if [[ -n "$public" ]]; then
   unset CARGO_PROFILE_RELEASE_LTO CARGO_PROFILE_RELEASE_CODEGEN_UNITS
   mode="공개 릴리스(thin LTO)"
 else
@@ -96,7 +99,7 @@ SHA="$(git rev-parse --short=7 HEAD)"
 VERSION="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version *= *"\(.*\)"/\1/p' Cargo.toml)"
 [[ -n "$VERSION" ]] || fail "Cargo.toml에서 작업 공간 판을 읽지 못했습니다"
 OUT="$dist/target/$TARGET/release"
-pdir="target/portable/$SHA${PUBLIC:+-public}"
+pdir="target/portable/$SHA${public:+-public}"
 log "YANGPA $VERSION ($SHA) $mode 빌드, 설치 파일: ${BUNDLES:-없음}, 빌드 폴더: $DIST_DIR"
 
 step "데몬·CLI 릴리스 빌드"

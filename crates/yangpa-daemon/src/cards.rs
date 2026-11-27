@@ -123,7 +123,7 @@ pub(crate) fn forget(node: &Node, space: &SpaceId) {
 }
 
 /// 이 공간에 아직 싣지 않은 내 프로필·카드. 둘뿐인 공간은 서로 직접 주고받고, 셋째가 들어오면 그때 실립니다.
-fn due_in(node: &Node, space: &SpaceId) -> Vec<EventBody> {
+pub(crate) fn due_in(node: &Node, space: &SpaceId) -> Vec<EventBody> {
     let Ok(me) = node.me() else { return Vec::new() };
     let group = node.space_state(space).is_some_and(|st| {
         st.members.len() > 2

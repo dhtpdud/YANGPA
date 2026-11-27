@@ -795,7 +795,15 @@ pub(crate) fn retry_pending_redeems(node: &Arc<Node>) {
 /// 친구가 되거나 친구가 끝나면 그 사람과의 남은 요청과 보낼 대기열 기록을 지웁니다(서로 링크를 쓴 경우 낡은 요청이
 /// 남아 수락하면 "이미 친구"가 되지 않게). 내가 수락한 쪽(`accept_claimed`)은 보낸 요청을 남깁니다: 상대도 연결이
 /// 끊긴 사이나 동시에 내 요청을 수락했으면, 그 수락(`FriendAccepted`)은 보낸 요청의 토큰으로만 맞춰집니다.
+/// 아직 임시 연락처면 친구 추가 요청([`PROPOSAL`])은 남깁니다: 수락을 처리하는 사이 1:1 공간을 보고 누른 친구 추가를
+/// 지우면 둘 다 친구가 되지 못합니다.
 fn clear_requests_with(node: &Node, user: &UserId, keep_outgoing: bool) {
+    let keep_proposals = node
+        .store
+        .get_friend(user)
+        .ok()
+        .flatten()
+        .is_some_and(|f| f.kind == ContactKind::Temporary);
     let dirs: &[RequestDirection] = if keep_outgoing {
         &[RequestDirection::Incoming]
     } else {
@@ -803,7 +811,10 @@ fn clear_requests_with(node: &Node, user: &UserId, keep_outgoing: bool) {
     };
     for dir in dirs.iter().copied() {
         if let Ok(rows) = node.store.list_friend_requests(dir) {
-            for r in rows.into_iter().filter(|r| r.user == *user) {
+            for r in rows
+                .into_iter()
+                .filter(|r| r.user == *user && !(keep_proposals && r.token_hash == PROPOSAL))
+            {
                 let _ = node.store.delete_friend_request(&r.request_id);
             }
         }
@@ -1983,9 +1994,9 @@ async fn deliver_proposal(node: &Arc<Node>, user: &UserId) -> Option<bool> {
         .map(|(p, _, _)| p)
         .collect();
     for peer in peers {
-        match node
-            .net
-            .request(peer, YpRequest::Social(SocialRequest::Propose))
+        // 상대가 내 `Auth` 답을 아직 처리하지 못했으면(`Unauthenticated`) 잠시 뒤 다시 보냅니다. 상대 쪽 인증 완료는 이쪽의
+        // `on_peer_authed`를 다시 부르지 않아, 그냥 두면 다음 인증 때까지 요청이 닿지 않습니다.
+        match identity::request_after_auth(node, peer, YpRequest::Social(SocialRequest::Propose))
             .await
         {
             Ok(YpResponse::Social(reply)) => {

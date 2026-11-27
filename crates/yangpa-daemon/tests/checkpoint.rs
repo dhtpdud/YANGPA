@@ -230,11 +230,15 @@ async fn members_agree_and_newcomer_joins_from_checkpoint() {
         testkit::get_event(&a.node, &from_c).ok().flatten()
     })
     .await;
-    // 따라잡기·전달로 D에 먼저 닿았을 수 있습니다(그때는 이미 보류해 키를 물었고, 여기서는 중복).
+    // 따라잡기·전달로 D에 먼저 닿았을 수 있습니다(그때는 이미 보류해 키를 물었고, 여기서는 중복). 상자 키를 먼저 물어
+    // C의 서명 키를 이미 알면 바로 받습니다(짧은 서명은 키를 알아야 확인되므로 받았다면 안 것).
     let r = testkit::ingest_from(&d.node, space, vec![ev], a.peer())
         .await
         .unwrap();
-    assert!(r.held == 1 || r.duplicate == 1, "키를 모르면 보류: {r:?}");
+    assert!(
+        r.held == 1 || r.duplicate == 1 || r.accepted.len() == 1,
+        "키를 모르면 보류: {r:?}"
+    );
     eventually("D가 C의 키를 물어 글을 받음", || async {
         d.messages(space, channel)
             .await

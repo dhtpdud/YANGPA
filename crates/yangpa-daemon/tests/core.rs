@@ -150,6 +150,17 @@ async fn friends_share_one_space_and_strangers_cannot_read() {
     })
     .await;
 
+    // 나중에 누른 쪽의 보낸 요청은 상대의 답이 오면 지웁니다(친구가 된 뒤 잠깐 남음).
+    for (n, other) in [(&a, b_user), (&b, a_user)] {
+        eventually("보낸 친구 추가 요청이 지워짐", || async {
+            n.ok::<m::FriendList>(Empty)
+                .await
+                .iter()
+                .any(|f| f.user == other && !f.proposed)
+                .then_some(())
+        })
+        .await;
+    }
     for (n, peer_name) in [(&a, "b"), (&b, "a")] {
         let list = n.ok::<m::SpaceList>(Empty).await;
         assert_eq!(list.len(), 1, "{}", n.name);
@@ -1631,10 +1642,30 @@ async fn gap_catch_up_does_not_bypass_the_author_limit() {
     testkit::authenticate(&c.node, b.peer())
         .await
         .expect("C↔B 인증");
-    // 인증 직후의 (제한 없는) 따라잡기가 끝난 뒤에 시작합니다.
-    eventually("인증 뒤 따라잡기 끝", || async {
-        (testkit::catch_up_idle(&b.node) && testkit::catch_up_idle(&c.node)).then_some(())
-    })
+    // 인증 직후의 (제한 없는) 따라잡기가 끝난 뒤에 시작합니다. B는 셋째 멤버가 들면 크루에 프로필을 내는데, 그것이
+    // 실시간으로 C에 닿으면 B의 버킷을 하나 씁니다: 다 닿고 버킷이 다시 가득 찰 때까지 기다립니다.
+    eventually(
+        "인증 뒤 따라잡기와 B의 프로필 게시 끝",
+        || async {
+            if !(testkit::catch_up_idle(&b.node)
+                && testkit::catch_up_idle(&c.node)
+                && testkit::cards_settled(&b.node, space))
+            {
+                return None;
+            }
+            let b_events = testkit::stream_events(&b.node, &space, StreamId::Space).ok()?;
+            if b_events
+                .iter()
+                .filter(|e| e.header.user == b.user())
+                .any(|e| testkit::get_event(&c.node, &e.id()).unwrap().is_none())
+            {
+                // gossip을 놓쳤으면 주기 따라잡기를 기다리지 않고 (버킷을 쓰지 않는) 따라잡기로 가져옵니다.
+                testkit::spawn_catch_up(&c.node, space, b.peer());
+                return None;
+            }
+            testkit::event_buckets_full(&c.node, space).then_some(())
+        },
+    )
     .await;
 
     // 평범한 멤버 B가 이어 붙인 상태 이벤트 41개를 B에만 두고, 끝 하나만 gossip으로 C에게 줍니다.
@@ -1642,6 +1673,7 @@ async fn gap_catch_up_does_not_bypass_the_author_limit() {
         .await
         .expect("B의 사슬");
     let tip = chain.last().expect("끝 이벤트").clone();
+    let started = std::time::Instant::now();
     let v = tnet::gossip_verdict(&c.node, b.peer(), space, vec![tip]).await;
     assert_eq!(v, GossipVerdict::Accept);
     let have = |n: &TestNode| {
@@ -1650,12 +1682,18 @@ async fn gap_catch_up_does_not_bypass_the_author_limit() {
             .filter(|e| testkit::get_event(&n.node, &e.id()).unwrap().is_some())
             .count()
     };
-    // 빈 부모 채우기는 버킷에 남은 29개까지만 받고 멈춥니다(끝 이벤트가 하나를 씀).
+    // 빈 부모 채우기는 버킷에 남은 29개까지만 받고 멈춥니다(끝 이벤트가 하나를 씀). 채우는 동안에도 버킷은 6초에
+    // 하나씩 다시 차서, 느린 기계에서는 그만큼 더 받습니다.
     eventually("빈 부모 채우기 끝", || async {
         testkit::catch_up_idle(&c.node).then_some(())
     })
     .await;
-    assert_eq!(have(&c), 30, "빈 부모 채우기가 작성 기기 제한을 넘어 받음");
+    let refilled = started.elapsed().as_secs() as usize / 6;
+    let n = have(&c);
+    assert!(
+        (30..=30 + refilled).contains(&n),
+        "빈 부모 채우기가 작성 기기 제한과 다르게 받음: {n}개(다시 찬 몫 {refilled})"
+    );
 
     // 제한 없는 따라잡기는 나머지를 가져옵니다.
     testkit::spawn_catch_up(&c.node, space, b.peer());
