@@ -77,8 +77,10 @@ const MAX_WRAPS_PER_GEN: usize = 4;
 const MAX_WRAP_BYTES: usize = 4096;
 /// 세대 받는 기기 기록을 두는 세대 수(키가 지워진 세대는 정리 때 빠짐).
 const MAX_GEN_RECIPIENTS: usize = 256;
-/// 담당이 아닌 기기가 담당의 키 없이 이만큼 지나면 새 키를 청합니다(가입 회전 왕복보다 넉넉히).
+/// 담당이 아닌 기기가 담당의 키 없이 이만큼 지나면 새 키를 청합니다(가입 회전 왕복보다 넉넉히). 그래도 키가 오지
+/// 않으면 다시 청하는 간격을 두 배씩 [`STALE_MAX`]까지 늘립니다.
 const STALE_AFTER: Duration = Duration::from_secs(3);
+const STALE_MAX: Duration = Duration::from_secs(30);
 /// 보낼 때 세션 키를 기다리는 최대 시간. 절반이 지나도 없으면 이 기기가 직접 갱신합니다.
 const KEY_WAIT: Duration = Duration::from_secs(10);
 /// 지금 참가자 일부만 가진 키(막 들어온 참가자가 없는 키)로 보내기 전에 새 갱신을 기다리는 시간.
@@ -138,8 +140,8 @@ struct Faults {
     snapshot: u32,
     /// 이 피어로 보내는 세션 키 갱신을 이만큼 보내지 않고 실패로 처리.
     key_to: HashMap<PeerId, u32>,
-    /// 받아 둔 감싸기 수(시험이 가입 회전에 감싸기가 얼마나 오가는지 셈).
-    wraps_in: u64,
+    /// 보낸 기기별 받아 둔 감싸기 수(시험이 가입 회전에 감싸기가 얼마나 오가는지 셈).
+    wraps_in: HashMap<DeviceId, u64>,
 }
 
 fn take_fault(slot: Option<&mut u32>) -> bool {
@@ -188,10 +190,13 @@ struct ChanRt {
     pending_rot: HashMap<u64, PendingRot>,
     /// 내가 마지막으로 새 무작위 키를 낸 때(나감·추방은 1초에 한 번으로 묶음).
     last_fresh: Option<Instant>,
-    /// 갱신 담당인데 담당이 아닌 참가자가 갱신을 냄(그 기기가 내 키를 잃음, 예: 빨리 다시 시작함): 새 무작위 키를 냅니다.
+    /// 갱신 담당인데 참가자가 나갔거나, 담당이 아닌 참가자가 갱신을 냄(그 기기가 내 키를 잃음, 예: 빨리 다시 시작함):
+    /// 새 무작위 키를 냅니다.
     need_fresh: bool,
     /// 담당이 아닌데 담당의 키를 갖지 못한 때부터(오래가면 담당에게 새 키를 청함).
     stale_since: Option<Instant>,
+    /// 다음에 새 키를 청하기까지 기다릴 시간(0이면 [`STALE_AFTER`]).
+    stale_wait: Duration,
     meta: HashMap<EventId, Meta>,
     /// 대상 메시지 → 그 메시지를 고친·반응한 이벤트(보기 순서).
     related: HashMap<EventId, BTreeSet<Pos>>,
@@ -787,7 +792,12 @@ fn after_view_change(
     fx.keys_changed = true;
     let parts = rt.participants(me);
     if rt.participating() && parts.first() == Some(&me) {
-        if rt.rotated_for.as_ref() != Some(&parts) {
+        // 나감은 [`FRESH_EVERY`]만큼 묶어 다시 세므로, 그새 돌아온 기기(다시 시작해 키를 잃었을 수 있음)가 있어도
+        // 새 키를 내도록 기억합니다.
+        if !removed.is_empty() {
+            rt.need_fresh = true;
+        }
+        if rt.need_fresh || rt.rotated_for.as_ref() != Some(&parts) {
             fx.rekey.insert(key);
         }
     } else {
@@ -916,10 +926,11 @@ async fn rekey_once(node: &Arc<Node>, key: ChanKey, force: bool) -> Result<()> {
             } else {
                 let targets: Vec<(DeviceId, PeerId)> =
                     rt.present.iter().map(|(d, (_, p))| (*d, *p)).collect();
-                Ok((parts, parent, fresh, targets, rt.head))
+                let departed: BTreeSet<DeviceId> = rt.departed.keys().copied().collect();
+                Ok((parts, parent, fresh, targets, rt.head, departed))
             }
         };
-        let (parts, parent, fresh, targets, head) = match plan {
+        let (parts, parent, fresh, targets, head, departed) = match plan {
             Ok(p) => p,
             Err(wait) => {
                 // 나감은 묶습니다: 기다린 뒤 그때 참가자로 다시 셉니다.
@@ -1005,14 +1016,16 @@ async fn rekey_once(node: &Arc<Node>, key: ChanKey, force: bool) -> Result<()> {
             &KeyChoice::Volatile(0, yangpa_crypto::keysched::vol_notice_key(&space, &channel)),
             &extra,
         )?;
-        // 부모 받는 기기는 부모 세대 목록을 이미 압니다. 모르는 기기(가입자, 처음 세대)에게만 목록을 함께 보냅니다.
+        // 부모 받는 기기는 부모 세대 목록을 이미 압니다. 모르는 기기(가입자, 처음 세대)와 나갔다 돌아온 기기(다시 시작해
+        // 잃었을 수 있음)에게만 목록을 함께 보냅니다.
         let wraps: HashMap<DeviceId, (Vec<u8>, Option<Vec<DeviceId>>)> = wrap_to
             .iter()
             .map(|(d, k)| {
                 let ad =
                     yangpa_crypto::keysched::vol_wrap_ad(&space, &channel, generation, d, &commit);
                 let w = yangpa_crypto::seal_to(&[(*d, k.clone())], &ad, &secret.0);
-                let knows = parent.as_ref().is_some_and(|(_, p)| p.contains(d));
+                let knows =
+                    parent.as_ref().is_some_and(|(_, p)| p.contains(d)) && !departed.contains(d);
                 (*d, (w, (!knows).then(|| rec_list.clone())))
             })
             .collect();
@@ -1022,6 +1035,11 @@ async fn rekey_once(node: &Arc<Node>, key: ChanKey, force: bool) -> Result<()> {
             let Some(rt) = chans.get_mut(&key).filter(|rt| rt.participating()) else {
                 return Ok(());
             };
+            // 청한 갱신을 만드는 사이(서명·봉인이 부하로 느릴 때) 담당의 키가 왔으면 버립니다. 보내면 담당은 내가 키를
+            // 잃은 줄 알고 새 키를 또 냅니다.
+            if force && rt.current.is_some() && rt.keyed_by_rotator(me_d) {
+                return Ok(());
+            }
             let now = Instant::now();
             store.set_key(&space, &channel, generation, &secret, now)?;
             rt.known_gens.insert(generation);
@@ -1946,16 +1964,20 @@ fn wipe(node: &Node, key: ChanKey, rt: ChanRt, fx: &mut Effects) {
 }
 
 /// 담당이 아닌데 담당의 키 없이 [`STALE_AFTER`]가 지나면 담당에게 새 키를 청합니다(내가 새 무작위 키로 갱신하면
-/// 담당이 그것을 보고 새 키를 냄). 가입 회전이 오가는 짧은 동안은 기다립니다.
+/// 담당이 그것을 보고 새 키를 냄). 가입 회전이 오가는 짧은 동안은 기다립니다. 담당은 청할 때마다 새 키를 내므로,
+/// 왕복이 간격보다 길면(부하) 청함과 새 키가 엇갈리며 끝없이 쌓입니다. 그래서 다시 청하는 간격을 두 배씩 늘립니다.
 fn check_stale(key: ChanKey, rt: &mut ChanRt, me: DeviceId, now: Instant, fx: &mut Effects) {
     if !rt.participating() || rt.keyed_by_rotator(me) {
         rt.stale_since = None;
+        rt.stale_wait = STALE_AFTER;
         return;
     }
+    let wait = rt.stale_wait.max(STALE_AFTER);
     match rt.stale_since {
         None => rt.stale_since = Some(now),
-        Some(t) if now.duration_since(t) >= STALE_AFTER => {
+        Some(t) if now.duration_since(t) >= wait => {
             rt.stale_since = Some(now);
+            rt.stale_wait = (wait * 2).min(STALE_MAX);
             fx.rekey_force.insert(key);
         }
         Some(_) => {}
@@ -3121,7 +3143,13 @@ pub(crate) fn handle_key_wrap(
             wrap,
             recipients,
         });
-        node.volatile.faults.lock().wraps_in += 1;
+        *node
+            .volatile
+            .faults
+            .lock()
+            .wraps_in
+            .entry(device)
+            .or_default() += 1;
         if let Some(p) = rt.pending_rot.remove(&generation) {
             match try_rotation(node, key, rt, &me, &p) {
                 RotStep::Applied => {
@@ -3623,9 +3651,15 @@ pub(crate) mod inspect {
             .unwrap_or(0)
     }
 
-    /// 지금까지 받아 둔 감싸기 수.
-    pub(crate) fn wraps_received(node: &Node) -> u64 {
-        node.volatile.faults.lock().wraps_in
+    /// 지금까지 `from` 기기에게서 받아 둔 감싸기 수.
+    pub(crate) fn wraps_received(node: &Node, from: &DeviceId) -> u64 {
+        node.volatile
+            .faults
+            .lock()
+            .wraps_in
+            .get(from)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// 그 세대 키의 약속값(키는 내보내지 않음). 키가 없으면 `None`.

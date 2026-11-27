@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
-# Windows 배포 빌드(설치 파일 NSIS·MSI + 포터블 zip)를 한 번에 만듭니다. Git bash에서 저장소 루트 기준으로 돌립니다.
+# Windows 배포 빌드(포터블 zip, 원하면 설치 파일 NSIS·MSI)를 만듭니다. Git bash에서 저장소 루트 기준으로 돌립니다.
 #
-#   scripts/build-windows-release.sh            설치 파일(nsis,msi)과 포터블 zip
-#   BUNDLES=nsis scripts/build-windows-release.sh   MSI를 건너뜀(WiX 단계만큼 빠름)
+#   scripts/build-windows-release.sh            테스트 빌드: 포터블 zip만, LTO 끔(target/portable/<커밋>/)
+#   PUBLIC=1 scripts/build-windows-release.sh   공개 릴리스에 붙일 포터블: Cargo.toml 그대로 thin LTO(target/portable/<커밋>-public/)
+#   BUNDLES=nsis,msi scripts/build-windows-release.sh   설치 파일(nsis,msi)도 만듦(BUNDLES=nsis면 NSIS만)
 #   NO_PORTABLE=1 …                              포터블을 만들지 않음
 #   NO_MODELS=1 …                                신경망 음성 코덱 모델(exe 옆 models 폴더)을 설치 파일·포터블에 넣지 않음
 #   NO_FFMPEG=1 …                                화면공유 인코더 ffmpeg(exe 옆 ffmpeg 폴더)를 설치 파일·포터블에 넣지 않음
 #   NO_LYREBIRD=1 …                              Tor 브리지 전송 lyrebird(exe 옆 pt 폴더)를 설치 파일·포터블에 넣지 않음
 #   DIST_DIR='D:\yangpa-build' …                   배포 빌드 폴더(기본 C:\yangpa-build, 아래 "빌드 머신 경로" 참고)
 #
-# 배포 빌드 폴더를 지우지 않고 이어 쓰므로, 바뀐 크레이트와 마지막 링크(LTO)만 다시 합니다. 데몬·CLI는 데스크톱
+# 설치 파일은 기본으로 만들지 않습니다. 모델·ffmpeg까지 450MB 가까이를 압축해 NSIS 하나에 3분 넘게(한 코어 LZMA), MSI는
+# 그 위에 더 걸리는데, 공개 릴리스의 설치 파일은 release.yml이 만들고 PC에서는 포터블 zip만 씁니다.
+#
+# 배포 빌드 폴더를 지우지 않고 이어 쓰므로, 바뀐 크레이트와 마지막 링크만 다시 합니다. 데몬·CLI는 데스크톱
 # 앱과 따로 빌드합니다: 한 번에 빌드하면 기능 통합으로 데몬 쪽 serde_json에 `unbounded_depth`(Tauri가 켬)가 들어가
 # 데몬 동작이 바뀝니다. 설치본·포터블에 들어가지 않는 yangpa-mcp는 빌드하지 않습니다.
 
 set -euo pipefail
 
 TARGET=x86_64-pc-windows-msvc
-BUNDLES="${BUNDLES:-nsis,msi}"
+BUNDLES="${BUNDLES:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
@@ -73,6 +77,18 @@ remap=()
 remap+=( "--remap-path-prefix=${CARGO_TARGET_DIR}=target" "--remap-path-prefix=${CARGO_HOME}=cargo" )
 export RUSTFLAGS="${remap[*]}${RUSTFLAGS:+ $RUSTFLAGS}"
 
+# 테스트 빌드는 LTO를 끄고 작업 공간 크레이트를 16갈래로 나눕니다. thin LTO는 마지막 링크에서 바뀌지 않은 의존성까지
+# 매번 다시 최적화해, 코드 한 줄 바꾼 뒤 cargo 빌드가 데몬·CLI 220초(그중 링크 128초)·데스크톱 85초 걸렸고, 이렇게 하면
+# 99초·38초입니다(i7-13700KF 24스레드, 2026-11-27). 공개 릴리스는 PUBLIC=1로 Cargo.toml 설정 그대로 빌드합니다. 두 설정의
+# 산출물은 빌드 폴더에 따로 남아, 오가도 처음 한 번만 전체를 빌드합니다.
+if [[ -n "${PUBLIC:-}" ]]; then
+  unset CARGO_PROFILE_RELEASE_LTO CARGO_PROFILE_RELEASE_CODEGEN_UNITS
+  mode="공개 릴리스(thin LTO)"
+else
+  export CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+  mode="테스트(LTO 끔)"
+fi
+
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   log "주의: 커밋하지 않은 변경이 있습니다. 그 상태 그대로 빌드합니다"
 fi
@@ -80,7 +96,8 @@ SHA="$(git rev-parse --short=7 HEAD)"
 VERSION="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version *= *"\(.*\)"/\1/p' Cargo.toml)"
 [[ -n "$VERSION" ]] || fail "Cargo.toml에서 작업 공간 판을 읽지 못했습니다"
 OUT="$dist/target/$TARGET/release"
-log "YANGPA $VERSION ($SHA) 빌드, 묶음: $BUNDLES, 빌드 폴더: $DIST_DIR"
+pdir="target/portable/$SHA${PUBLIC:+-public}"
+log "YANGPA $VERSION ($SHA) $mode 빌드, 설치 파일: ${BUNDLES:-없음}, 빌드 폴더: $DIST_DIR"
 
 step "데몬·CLI 릴리스 빌드"
 cargo build --release --locked --target "$TARGET" -p yangpa-daemon -p yangpa-cli --bin yangpad --bin yangpa
@@ -104,22 +121,29 @@ ffmpeg_stage="apps/desktop/src-tauri/ffmpeg"
 pt_stage="apps/desktop/src-tauri/pt"
 step "실행 파일 옆 파일 준비(models·ffmpeg·pt·licenses)"
 resources_json="$(bash scripts/stage-windows-extras.sh "$dist")"
+# --config는 실행 파일에 들어가므로 설치 파일을 만들든 말든 같게 줍니다(달라지면 데스크톱 크레이트를 통째로 다시 빌드).
 tauri_extra=(--config "{\"bundle\":{\"resources\":$resources_json}}")
+if [[ -n "$BUNDLES" ]]; then
+  tauri_extra+=(--bundles "$BUNDLES")
+else
+  # 포터블은 앱이 exe 옆 .yangpa-portable로 알아보므로 Tauri 묶음 표시가 없어도 됩니다(update.rs).
+  tauri_extra+=(--no-bundle)
+fi
 
-step "데스크톱 앱·설치 파일($BUNDLES) 빌드"
-(cd apps/desktop && npm run tauri -- build --ci --target "$TARGET" --bundles "$BUNDLES" "${tauri_extra[@]}" -- --locked)
+step "데스크톱 앱${BUNDLES:+·설치 파일($BUNDLES)} 빌드"
+(cd apps/desktop && npm run tauri -- build --ci --target "$TARGET" "${tauri_extra[@]}" -- --locked)
 
 if [[ -z "${NO_PORTABLE:-}" ]]; then
   step "포터블 zip 만들기"
   name="YANGPA_${VERSION}_x64_portable"
-  pdir="target/portable/$SHA"
-  # 같은 커밋으로 다시 만들 때만 덮어씁니다. 다른 커밋의 포터블 폴더는 실행 중일 수 있어 건드리지 않습니다.
+  # 같은 커밋·같은 방식으로 다시 만들 때만 덮어씁니다. 다른 포터블 폴더(같은 커밋의 테스트 빌드 포함)는 실행 중일 수
+  # 있어 건드리지 않습니다.
   rm -rf "${pdir:?}/$name" "$pdir/$name.zip"
   mkdir -p "$pdir/$name"
   cp "$OUT/yangpa-desktop.exe" "$OUT/yangpad.exe" "$OUT/yangpa.exe" "$pdir/$name/"
   cp LICENSE "$pdir/$name/LICENSE.txt"
   cp NOTICE.md LICENSE-SUPPORTER.md TRADEMARK.md "$pdir/$name/"
-  # 앱 업데이트가 포터블을 알아보는 표시(exe가 설치 파일 묶음에서 복사돼 Tauri 묶음 표시로는 구분되지 않음).
+  # 앱 업데이트가 포터블을 알아보는 표시(설치 파일을 함께 만들면 exe에 NSIS·MSI 묶음 표시가 남아 그것으로는 구분되지 않음).
   : > "$pdir/$name/.yangpa-portable"
   # 신경망 음성 코덱 모델은 설치본과 같이 exe 옆 models 폴더로.
   if [[ -z "${NO_MODELS:-}" ]]; then
@@ -160,8 +184,12 @@ fi
 
 step ""
 shopt -s nullglob
-for f in "$OUT"/bundle/nsis/YANGPA_"$VERSION"_*.exe "$OUT"/bundle/msi/YANGPA_"$VERSION"_*.msi \
-  target/portable/"$SHA"/YANGPA_"$VERSION"_x64_portable.zip; do
+# 이번에 만든 것만 보여 줍니다(같은 판의 예전 설치 파일이 bundle 폴더에 남아 있을 수 있음).
+made=()
+[[ "$BUNDLES" == *nsis* ]] && made+=("$OUT"/bundle/nsis/YANGPA_"$VERSION"_*.exe)
+[[ "$BUNDLES" == *msi* ]] && made+=("$OUT"/bundle/msi/YANGPA_"$VERSION"_*.msi)
+[[ -z "${NO_PORTABLE:-}" ]] && made+=("$pdir"/YANGPA_"$VERSION"_x64_portable.zip)
+for f in "${made[@]}"; do
   [[ -f "$f" ]] || continue
   size=$(( $(stat -c %s "$f") / 1024 / 1024 ))
   printf '  %s  %s MB  sha256 %s\n' "$(cygpath -aw "$f")" "$size" "$(sha256sum "$f" | cut -c1-16)…"

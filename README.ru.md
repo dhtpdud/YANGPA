@@ -485,8 +485,8 @@ xvfb-run -a npm run test:window
 Чтобы собрать дистрибутив самостоятельно, соберите `yangpad`, скопируйте его в
 `apps/desktop/src-tauri/binaries/yangpad-<target triple>` (в Windows с `.exe`) и выполните `npm run tauri build`. Релизный конвейер
 ([.github/workflows/release.yml](.github/workflows/release.yml)) следует ровно этому порядку. В Windows одним
-`scripts/build-windows-release.sh` в Git bash можно собрать установщики (NSIS и MSI) и портативный zip
-(`target/portable/<коммит>/`), а по ходу выводится время каждого этапа (при `BUNDLES=nsis` MSI пропускается). Релизная сборка
+`scripts/build-windows-release.sh` в Git bash можно собрать портативный zip (`target/portable/<коммит>/`),
+а с `BUNDLES=nsis,msi` ещё и установщики (NSIS и MSI); по ходу выводится время каждого этапа. Релизная сборка
 идёт в `C:\yangpa-build` (меняется через `DIST_DIR`), чтобы в бинарниках не оставались пути с именем пользователя, поэтому и
 установщики появляются под ним, в `target\x86_64-pc-windows-msvc\release\bundle\`, а скрипт в конце показывает полный путь.
 

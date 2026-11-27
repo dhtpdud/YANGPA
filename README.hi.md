@@ -457,8 +457,8 @@ xvfb-run -a npm run test:window
 
 वितरण बंडल खुद बनाना हो तो `yangpad` बिल्ड करके `apps/desktop/src-tauri/binaries/yangpad-<टारगेट ट्रिपल>` (Windows में `.exe`) में कॉपी करें, फिर
 `npm run tauri build` चलाएँ। रिलीज़ पाइपलाइन ([.github/workflows/release.yml](.github/workflows/release.yml)) इसी क्रम का
-पालन करती है। Windows में Git bash से `scripts/build-windows-release.sh` अकेले से इंस्टॉलर (NSIS और MSI) और पोर्टेबल
-zip (`target/portable/<commit>/`) बनाए जा सकते हैं, और हर चरण में लगा समय दिखाता है (`BUNDLES=nsis` हो तो MSI छोड़ देता है)। वितरण बिल्ड
+पालन करती है। Windows में Git bash से `scripts/build-windows-release.sh` अकेले से पोर्टेबल zip (`target/portable/<commit>/`)
+बनाया जा सकता है, `BUNDLES=nsis,msi` देने पर इंस्टॉलर (NSIS और MSI) भी, और यह हर चरण में लगा समय दिखाता है। वितरण बिल्ड
 बाइनरी में उपयोगकर्ता नाम वाला पथ न बचे इसलिए `C:\yangpa-build` (`DIST_DIR` से बदलें) में होता है, इसलिए इंस्टॉलर भी उसके नीचे
 `target\x86_64-pc-windows-msvc\release\bundle\` में बनता है, और स्क्रिप्ट अंत में पूरा पथ दिखाती है।
 

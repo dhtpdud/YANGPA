@@ -457,8 +457,8 @@ xvfb-run -a npm run test:window
 
 배포 묶음을 직접 만들려면 `yangpad`를 빌드해 `apps/desktop/src-tauri/binaries/yangpad-<타깃 트리플>`(Windows는 `.exe`)로 복사한 뒤
 `npm run tauri build`를 실행합니다. 릴리스 파이프라인([.github/workflows/release.yml](.github/workflows/release.yml))이 이 순서를
-그대로 따릅니다. Windows에서는 Git bash에서 `scripts/build-windows-release.sh` 하나로 설치 파일(NSIS·MSI)과 포터블
-zip(`target/portable/<커밋>/`)을 만들 수 있고, 단계마다 걸린 시간을 보여 줍니다(`BUNDLES=nsis`면 MSI를 건너뜀). 배포 빌드는
+그대로 따릅니다. Windows에서는 Git bash에서 `scripts/build-windows-release.sh` 하나로 포터블 zip(`target/portable/<커밋>/`)을,
+`BUNDLES=nsis,msi`를 주면 설치 파일(NSIS·MSI)도 만들 수 있고, 단계마다 걸린 시간을 보여 줍니다. 배포 빌드는
 바이너리에 사용자 이름이 담긴 경로가 남지 않게 `C:\yangpa-build`(`DIST_DIR`로 바꿈)에서 하므로 설치 파일도 그 아래
 `target\x86_64-pc-windows-msvc\release\bundle\`에 생기고, 스크립트가 마지막에 전체 경로를 보여 줍니다.
 

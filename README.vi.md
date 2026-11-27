@@ -457,8 +457,8 @@ xvfb-run -a npm run test:window
 
 Để tự tạo gói phát hành, hãy build `yangpad` rồi sao chép thành `apps/desktop/src-tauri/binaries/yangpad-<target triple>` (Windows là `.exe`), sau đó
 chạy `npm run tauri build`. Pipeline phát hành ([.github/workflows/release.yml](.github/workflows/release.yml)) làm đúng theo thứ tự này.
-Trên Windows, chỉ cần `scripts/build-windows-release.sh` trong Git bash là tạo được trình cài đặt (NSIS, MSI) và zip
-portable (`target/portable/<commit>/`), và nó hiện thời gian của từng bước (với `BUNDLES=nsis` thì bỏ qua MSI). Bản build phát hành chạy ở `C:\yangpa-build` (đổi bằng `DIST_DIR`)
+Trên Windows, chỉ cần `scripts/build-windows-release.sh` trong Git bash là tạo được zip portable (`target/portable/<commit>/`),
+thêm `BUNDLES=nsis,msi` thì tạo cả trình cài đặt (NSIS, MSI), và nó hiện thời gian của từng bước. Bản build phát hành chạy ở `C:\yangpa-build` (đổi bằng `DIST_DIR`)
 để binary không còn đường dẫn chứa tên người dùng, nên trình cài đặt cũng nằm bên dưới
 `target\x86_64-pc-windows-msvc\release\bundle\`, và cuối cùng script hiện đường dẫn đầy đủ.
 

@@ -475,8 +475,8 @@ xvfb-run -a npm run test:window
 
 Untuk membuat paket distribusi sendiri, bangun `yangpad`, salin ke `apps/desktop/src-tauri/binaries/yangpad-<target triple>`
 (`.exe` di Windows), lalu jalankan `npm run tauri build`. Pipeline rilis ([.github/workflows/release.yml](.github/workflows/release.yml))
-mengikuti urutan ini apa adanya. Di Windows, dari Git bash, satu `scripts/build-windows-release.sh` dapat membuat pemasang (NSIS dan
-MSI) serta zip portabel (`target/portable/<commit>/`), dan menampilkan waktu tiap tahap (dengan `BUNDLES=nsis`, MSI dilewati). Build
+mengikuti urutan ini apa adanya. Di Windows, dari Git bash, satu `scripts/build-windows-release.sh` dapat membuat zip portabel
+(`target/portable/<commit>/`), juga pemasang (NSIS dan MSI) dengan `BUNDLES=nsis,msi`, dan menampilkan waktu tiap tahap. Build
 distribusi dilakukan di `C:\yangpa-build` (dapat diubah dengan `DIST_DIR`) agar jalur yang memuat nama pengguna tidak tertinggal di
 biner, sehingga pemasang pun dibuat di bawah `target\x86_64-pc-windows-msvc\release\bundle\`, dan skrip menampilkan jalur lengkapnya
 di akhir.

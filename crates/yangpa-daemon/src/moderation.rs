@@ -563,9 +563,10 @@ pub(crate) fn on_decoded(node: &Node, events: &[DecodedEvent]) {
 }
 
 /// 해소 뒤(적용 잠금 안, `crews::on_resolved`에서). 새로 적용된 밴이면 그 사용자가 `delete_since`부터 밴 시각까지
-/// 쓴 메시지를 이 노드에서 지웁니다(삭제 이벤트를 따로 내지 않아도 밴을 받은 노드마다 같은 일을 함). 거부된 밴은
-/// 잊습니다. 구간 끝을 밴 시각으로 묶어 밴이 풀린 뒤 다시 들어와 쓴 메시지는 건드리지 않고, 끝낸 밴은 기록해 두어
-/// 시작 때 상태를 다시 세우며 되풀이하지 않습니다.
+/// 쓴 메시지를 이 노드에서 지웁니다(삭제 이벤트를 따로 내지 않아도 밴을 받은 노드마다 같은 일을 함). 거부된 밴도
+/// 들고 있습니다: 가입 중 시작 이벤트보다 먼저 풀린 밴은 `NoSpace`로 거부됐다가 다시 해소할 때 적용됩니다. 구간 끝을
+/// 밴 시각으로 묶어 밴이 풀린 뒤 다시 들어와 쓴 메시지는 건드리지 않고, 끝낸 밴은 기록해 두어 시작 때 상태를 다시
+/// 세우며 되풀이하지 않습니다.
 pub(crate) fn on_resolved(
     node: &Node,
     space: &SpaceId,
@@ -578,9 +579,6 @@ pub(crate) fn on_resolved(
         let Some(map) = all.get_mut(space) else {
             return Ok(());
         };
-        for (id, _) in &upd.rejected {
-            map.remove(id);
-        }
         let todo = upd.applied.iter().filter_map(|id| map.remove(id)).collect();
         if map.is_empty() {
             all.remove(space);

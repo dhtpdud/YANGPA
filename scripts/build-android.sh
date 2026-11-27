@@ -24,7 +24,13 @@ if ! echo "$sum  $jni/$name" | sha256sum -c --quiet 2>/dev/null || [[ ! -f "$lic
 fi
 
 cd apps/desktop
-npm ci --no-audit --no-fund
+# package-lock.json 내용이 지난 설치와 같으면 npm ci(node_modules를 지우고 다시 받음)를 건너뜁니다. 시각이 아니라
+# 내용으로 봅니다: WSL 사본은 여러 작업 트리에서 rsync -a로 받아 파일 시각이 원본 것이고, node_modules는 남아 있습니다.
+lock_sum="$(sha256sum package-lock.json | cut -d' ' -f1)"
+if [[ "$(cat node_modules/.yangpa-lock-sha256 2>/dev/null)" != "$lock_sum" ]]; then
+  npm ci --no-audit --no-fund
+  echo "$lock_sum" > node_modules/.yangpa-lock-sha256
+fi
 if [[ "${1:-}" == "--release" ]]; then
   npx tauri android build --aab --target aarch64
 else

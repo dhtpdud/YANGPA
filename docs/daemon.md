@@ -800,7 +800,9 @@ publish_locked = author_event → ingest_locked(Source::Local) (받는 것과 �
 - **세션 키**:
   - 참가자가 바뀌면 참가자 중 기기 ID가 가장 작은 기기(갱신 담당, `rekey_once`)가 무작위 64비트 세대를 냅니다. 부모(지금
     보내는 세대)의 받는 기기가 모두 아직 참가자면 가입 회전(`vol_join`으로 유도, 가입자에게만 감싸기), 아니면 새 무작위 키를
-    모두에게 감쌉니다(`FRESH_EVERY` 1초에 한 번, 그 사이 바뀐 참가자는 기다렸다가 함께). 공지는 `VolatileRotation`(키 없음,
+    모두에게 감쌉니다(`FRESH_EVERY` 1초에 한 번, 그 사이 바뀐 참가자는 기다렸다가 함께). 나간 기기가 있으면 `need_fresh`를
+    세워, 기다리는 사이 그 기기가 돌아와 참가자가 `rotated_for`와 같아져도 새 키를 냅니다(다시 시작해 키를 잃었을 수 있음).
+    나간 것을 본 기기(`departed`, 30초)에게는 부모를 받았던 기기라도 감싸기에 목록을 싣습니다. 공지는 `VolatileRotation`(키 없음,
     `KeyChoice::Volatile(0, vol_notice_key)`), 감싸기는 `VolatileKeyWrap` 요청으로 공지보다 먼저 보냅니다. 같은 참가자 집합으로는
     다시 갱신하지 않습니다(`rotated_for`). 직접 받은 `KeyShare`는 쓰지 않고, 내가 요청한 스냅숏 첫 항목의 `for_user: Some(나)`
     묶음만 받습니다.
@@ -810,6 +812,9 @@ publish_locked = author_event → ingest_locked(Source::Local) (받는 것과 �
     `keys_arrived`·`handle_key_wrap`이 다시 시도. 둘 다 `EARLY_TTL`(30초) 뒤 정리.
   - 키를 잃은 참가자: 담당이 아닌데 담당의 갱신 키 없이 3초(`STALE_AFTER`, 1초 주기 `check_stale`)가 지나면 강제 갱신을 냅니다.
     담당은 자기 지금 키를 받았던 기기의 갱신을 받으면 `need_fresh`로 새 무작위 키를 냅니다(빨리 다시 시작한 기기).
+    그래도 키가 오지 않으면 다시 청하는 간격(`stale_wait`)을 두 배씩 30초(`STALE_MAX`)까지 늘리고, 강제 갱신을 만드는 사이
+    담당의 키가 오면 그 갱신은 보내지 않습니다. 왕복이 3초보다 길면(부하) 청함마다 담당이 새 키를 또 내, 청함과 새 키가
+    엇갈리며 쌓였습니다.
   - 상시 참여 상한(`trim_to_cap`, `SpaceState::volatile_cap`): 온라인 시청 기기와 나를 합쳐 상한을 넘으면 기기 ID가 작은 순으로
     상한만큼만 `present`에 남깁니다. 내가 밀려나면 `full`(그 상한)이 서고 참가하지 않은 것으로 보며(`participating` 거짓),
     `shed_if_full`이 받은 이벤트·키를 지웁니다. 보내기는 `full_error`(`1010`). `ChannelView.volatile_cap`·`volatile_full`을 채웁니다.

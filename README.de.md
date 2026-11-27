@@ -457,8 +457,8 @@ xvfb-run -a npm run test:window
 
 Um ein Auslieferungspaket selbst zu bauen, baue `yangpad`, kopiere es nach `apps/desktop/src-tauri/binaries/yangpad-<Target-Triple>` (unter Windows `.exe`) und führe danach
 `npm run tauri build` aus. Die Release-Pipeline ([.github/workflows/release.yml](.github/workflows/release.yml)) folgt genau dieser Reihenfolge.
-Unter Windows lassen sich in der Git bash mit `scripts/build-windows-release.sh` allein die Installationsdateien (NSIS, MSI) und das portable
-Zip (`target/portable/<Commit>/`) bauen, und der Zeitbedarf jedes Schritts wird angezeigt (mit `BUNDLES=nsis` wird MSI übersprungen). Der Release-Build läuft in `C:\yangpa-build` (mit `DIST_DIR` änderbar),
+Unter Windows lässt sich in der Git bash mit `scripts/build-windows-release.sh` allein das portable Zip (`target/portable/<Commit>/`)
+bauen, mit `BUNDLES=nsis,msi` auch die Installationsdateien (NSIS, MSI), und der Zeitbedarf jedes Schritts wird angezeigt. Der Release-Build läuft in `C:\yangpa-build` (mit `DIST_DIR` änderbar),
 damit in den Binärdateien keine Pfade mit Benutzernamen zurückbleiben. Deshalb liegen auch die Installationsdateien darunter in
 `target\x86_64-pc-windows-msvc\release\bundle\`, und das Skript zeigt am Ende den vollständigen Pfad an.
 

@@ -150,9 +150,9 @@ pub fn deliver_snapshot(
     volatile::inspect::deliver_snapshot(node, space, channel, from, items)
 }
 
-/// 이 노드가 지금까지 받아 둔 휘발성 세션 키 감싸기 수.
-pub fn wraps_received(node: &Node) -> u64 {
-    volatile::inspect::wraps_received(node)
+/// 이 노드가 지금까지 `from` 기기에게서 받아 둔 휘발성 세션 키 감싸기 수.
+pub fn wraps_received(node: &Node, from: &DeviceId) -> u64 {
+    volatile::inspect::wraps_received(node, from)
 }
 
 /// 그 세대 세션 키의 약속값(기기끼리 같은 키를 가졌는지 비교용). 키가 없으면 `None`.

@@ -34,7 +34,7 @@ default-members = [
 exclude = ["third_party"]
 
 [workspace.package]
-version = "1.5.0"
+version = "1.5.1"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 rust-version = "1.91"
@@ -203,6 +203,8 @@ opt-level = 2
 debug = 0
 
 [profile.release]
+# 공개 배포본(release.yml, 공개 릴리스용 포터블·APK) 설정입니다. PC 테스트 빌드(scripts/build-windows-release.sh를
+# PUBLIC=1 없이)는 환경 변수로 LTO를 끄고 작업 공간 크레이트를 16갈래로 나눠 빌드합니다(그 스크립트에 잰 시간).
 lto = "thin"
 # 작업 공간 크레이트는 코드를 바꿀 때마다 다시 최적화합니다. 한 덩어리(1)면 yangpa-daemon 하나에만 한 코어로 3분 가까이
 # 걸려 4갈래로 나눕니다(4코어에서 코드 한 줄 바꾼 뒤 데몬·CLI 릴리스 빌드 5분 39초 → 4분 20초, yangpad 50.7MB → 52.6MB).

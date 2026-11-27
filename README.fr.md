@@ -475,9 +475,9 @@ xvfb-run -a npm run test:window
 
 Pour fabriquer soi-même un paquet de distribution, compilez `yangpad`, copiez-le vers `apps/desktop/src-tauri/binaries/yangpad-<triplet cible>`
 (`.exe` sous Windows), puis lancez `npm run tauri build`. Le pipeline de version ([.github/workflows/release.yml](.github/workflows/release.yml))
-suit exactement cet ordre. Sous Windows, depuis Git bash, le seul `scripts/build-windows-release.sh` produit les programmes d'installation
-(NSIS et MSI) et le zip portable (`target/portable/<commit>/`), en affichant le temps de chaque étape (avec `BUNDLES=nsis`, MSI est
-ignoré). Pour qu'aucun chemin contenant le nom d'utilisateur ne reste dans les binaires, la compilation de distribution se fait dans
+suit exactement cet ordre. Sous Windows, depuis Git bash, le seul `scripts/build-windows-release.sh` produit le zip portable
+(`target/portable/<commit>/`), et aussi les programmes d'installation (NSIS et MSI) avec `BUNDLES=nsis,msi`, en affichant le temps de
+chaque étape. Pour qu'aucun chemin contenant le nom d'utilisateur ne reste dans les binaires, la compilation de distribution se fait dans
 `C:\yangpa-build` (modifiable avec `DIST_DIR`) ; les programmes d'installation se trouvent donc dessous, dans
 `target\x86_64-pc-windows-msvc\release\bundle\`, et le script affiche le chemin complet à la fin.
 

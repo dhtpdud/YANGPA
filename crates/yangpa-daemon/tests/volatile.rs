@@ -975,7 +975,13 @@ async fn join_rotation_is_derived_and_joiner_cannot_read_the_parent() {
     join(b, c.space, ch).await;
     let parent = converged(&[a, b], c.space, ch).await;
     let dev = |n: &TestNode| testkit::device_id(&n.node).expect("신원");
-    let before: Vec<u64> = [a, b].iter().map(|n| vt::wraps_received(&n.node)).collect();
+    // 회전을 내는 기기는 가장 작은 기기 ID. 그 기기가 보낸 감싸기만 셉니다: c는 입장 응답을 다 받기 전 기존 참가자 일부만
+    // 보고 잠깐 자기가 담당인 줄 알아 그들에게 자기 키를 감쌀 수 있습니다(곧 진짜 담당의 회전으로 맞춰짐).
+    let rotator = [a, b, cc].map(dev).into_iter().min().expect("셋");
+    let before: Vec<u64> = [a, b]
+        .iter()
+        .map(|n| vt::wraps_received(&n.node, &rotator))
+        .collect();
 
     join(cc, c.space, ch).await;
     let g = converged(&[a, b, cc], c.space, ch).await;
@@ -989,12 +995,15 @@ async fn join_rotation_is_derived_and_joiner_cannot_read_the_parent() {
         vt::key_commit(&cc.node, &c.space, &ch, parent).is_none(),
         "가입자는 들어오기 전 세대 키를 갖지 않음"
     );
-    // 회전을 낸 기기는 가장 작은 기기 ID. 가입자가 아니면 가입 회전이라 남은 기존 참가자는 감싸기를 받지 않습니다.
-    let rotator = [a, b, cc].into_iter().min_by_key(|n| dev(n)).expect("셋");
-    if dev(rotator) != dev(cc) {
+    // 담당이 가입자가 아니면 가입 회전이라 남은 기존 참가자는 담당에게서 감싸기를 받지 않습니다.
+    if rotator != dev(cc) {
         for (n, was) in [a, b].iter().zip(before) {
-            if dev(n) != dev(rotator) {
-                assert_eq!(vt::wraps_received(&n.node), was, "기존 참가자는 유도");
+            if dev(n) != rotator {
+                assert_eq!(
+                    vt::wraps_received(&n.node, &rotator),
+                    was,
+                    "기존 참가자는 유도"
+                );
             }
         }
     }

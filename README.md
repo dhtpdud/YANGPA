@@ -457,8 +457,8 @@ xvfb-run -a npm run test:window
 
 To build a distribution bundle yourself, build `yangpad` and copy it to `apps/desktop/src-tauri/binaries/yangpad-<target triple>` (`.exe` on Windows), then
 run `npm run tauri build`. The release pipeline ([.github/workflows/release.yml](.github/workflows/release.yml)) follows exactly this order. On Windows, from Git bash,
-the single `scripts/build-windows-release.sh` builds the installers (NSIS and MSI) and the portable
-zip (`target/portable/<commit>/`), and shows the time each step took (`BUNDLES=nsis` skips MSI). Distribution builds run in `C:\yangpa-build` (changeable with `DIST_DIR`)
+the single `scripts/build-windows-release.sh` builds the portable zip (`target/portable/<commit>/`), plus the installers
+(NSIS and MSI) with `BUNDLES=nsis,msi`, and shows the time each step took. Distribution builds run in `C:\yangpa-build` (changeable with `DIST_DIR`)
 so that no path containing the user name is left in the binaries, so the installers are also created under `target\x86_64-pc-windows-msvc\release\bundle\`,
 and the script shows the full path at the end.
 

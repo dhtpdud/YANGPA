@@ -90,7 +90,8 @@ pub struct CrewState {
     /// ID)에서 게시글 변경을 고르는 데 씁니다.
     forum_updates: Mutex<HashMap<SpaceId, HashSet<EventId>>>,
     /// 공간마다 해소기에 넣은 후원자 표시(`MemberFlair`)의 작성자와 본문. 해소기가 적용하면(멤버의 기기·서명 확인)
-    /// 모읍니다. 가입 첫 해소에서는 상태 키가 아직 임시 키라 저장소에서 다시 풀 수 없어 본문을 들고 있습니다.
+    /// 모읍니다. 가입 첫 해소에서는 상태 키가 아직 임시 키라 저장소에서 다시 풀 수 없어 본문을 들고 있습니다. 거부된
+    /// 것도 다시 해소하며 적용될 수 있어 적용되거나 공간을 지울 때까지 둡니다.
     flair_events: Mutex<HashMap<SpaceId, HeldFlair>>,
     /// 받은편지함 전달자([`InboxRelay`]).
     inbox_relays: Mutex<InboxRelays>,
@@ -1280,17 +1281,15 @@ pub(crate) fn on_resolved(
     // 밴과 함께 지울 최근 메시지(모더레이션).
     crate::moderation::on_resolved(node, space, state, upd, notify)?;
     settle_relays(node, upd);
+    // 거부된 표시도 버리지 않습니다: 가입 중 시작 이벤트보다 먼저 풀린 표시는 `NoSpace`로 거부됐다가 다시 해소할 때
+    // 적용됩니다(포럼 변경과 같음).
     let flair: Vec<(UserId, u64, Flair)> = match node.crews.flair_events.lock().get_mut(space) {
         None => Vec::new(),
-        Some(held) => {
-            for (id, _) in &upd.rejected {
-                held.remove(id);
-            }
-            upd.applied
-                .iter()
-                .filter_map(|id| held.remove(id))
-                .collect()
-        }
+        Some(held) => upd
+            .applied
+            .iter()
+            .filter_map(|id| held.remove(id))
+            .collect(),
     };
     for (user, lamport, f) in flair {
         crate::flair::on_applied(node, *space, user, lamport, &f);
